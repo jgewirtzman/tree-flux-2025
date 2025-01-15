@@ -22,7 +22,3 @@ data/processed/
 # Ignore all files in outputs, but keep folder structure
 outputs/
 !outputs/README.md  # Allow README file for documentation
-
-# Figures and tables specifically in outputs
-outputs/figures/
-outputs/tables/
