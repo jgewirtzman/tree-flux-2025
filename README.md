@@ -1,4 +1,4 @@
-# tree CH4 @ harvard forest & yale-myers forest
+# Tree CH4 at harvard forest & yale-myers forest
 
 ## Overview
 
