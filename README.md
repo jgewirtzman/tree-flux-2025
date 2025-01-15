@@ -10,6 +10,7 @@ This project explores tree methane fluxes in upland and wetland forest ecosystem
 
 The repository is structured as follows:
 
+```
 tree-flux-2025/
 ├── data/
 │   ├── raw/                   # Placeholder for raw data (not tracked in Git)
@@ -25,5 +26,5 @@ tree-flux-2025/
 │   └── config.yaml            # Configuration file for paths and settings
 ├── README.md                  # Project overview and instructions
 └── tree-flux-2025.Rproj       # RStudio project file
-
+```
 
