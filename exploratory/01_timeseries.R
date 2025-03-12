@@ -138,3 +138,39 @@ ggplot(marginal_means_df, aes(x = species, y = response, fill = species)) +
   ) +
   theme_minimal() +
   theme(legend.position = "none")  # Hide redundant legend
+
+
+
+
+
+
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
+
+# Calculate mean CH₄ flux per tree (assuming TreeID uniquely identifies each tree)
+tree_means <- fluxes %>%
+  group_by(species, location, TreeID) %>%
+  summarise(mean_CH4_flux = mean(CH4_flux, na.rm = TRUE)) %>%
+  ungroup()
+
+# Create the plot
+tree_means_plot<-ggplot(tree_means, aes(y = mean_CH4_flux * 1000)) +
+  geom_boxplot(aes(x = 1), fill = "lightblue", alpha = 0.5, outlier.shape = NA) +  # Boxplot of means
+  geom_jitter(aes(x = 1), color = "black", size = 2, width = 0.2) +  # Individual tree means as points
+  facet_wrap(~ location + species, scales = "free_y") +  # Separate panels for each species-plot combo
+  labs(
+    title = "CH4 Flux Distribution of Tree Means by Species & Plot",
+    x = NULL,  # No x-axis label since species names are in facet titles
+    y = "Mean CH4 Flux (scaled)"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    strip.text = element_text(size = 10, face = "bold"),  # Format facet titles
+    axis.text.x = element_blank(),  # Remove x-axis text (species names are in facets)
+    axis.ticks.x = element_blank()   # Remove x-axis ticks
+  )
+tree_means_plot
+
+
