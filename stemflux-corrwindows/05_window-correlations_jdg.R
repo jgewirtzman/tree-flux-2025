@@ -25,7 +25,7 @@ n_bySiteSpecies = stem_flux %>%
             count = n())
 
 # Options to loop through for days time period
-days = c(2/24, 6/24, 1:360)
+days = c(2/24, 6/24, 1:45)
 
 # find running stats for windows
 for(d in 1:length(days)){
@@ -55,12 +55,19 @@ for(d in 1:length(days)){
                                         align = "right",na.rm=T, fill = NA),
            wtd_sd = RcppRoll::roll_sd(bgs_wtd_cm, window, 
                                       align = "right",na.rm=T, fill = NA),
+           vwc_top_mn = RcppRoll::roll_mean(vwc_top, window, 
+                                        align = "right",na.rm=T, fill = NA),
+           vwc_60cm_mn = RcppRoll::roll_mean(vwc_60cm, window, 
+                                            align = "right",na.rm=T, fill = NA),
+           LE_mn = RcppRoll::roll_mean(LE, window, 
+                                             align = "right",na.rm=T, fill = NA),
            PAR_mn = RcppRoll::roll_mean(PAR, window, 
                                         align = "right",na.rm=T, fill = NA))
   
   stem_met = left_join(stem_flux,met_cul)
   
   # do correlation tests for met windows
+  # Update cor_test to include vwc and LE metrics
   cor_test = stem_met %>%
     group_by(site) %>%
     summarize(cor_ta = cor.test(CH4_flux,Ta_mn)$estimate,
@@ -76,7 +83,14 @@ for(d in 1:length(days)){
               cor_PAR = cor.test(CH4_flux,PAR_mn)$estimate,
               p_PAR = cor.test(CH4_flux,PAR_mn)$p.value,
               cor_RH = cor.test(CH4_flux,RH)$estimate,
-              p_RH = cor.test(CH4_flux,RH)$p.value) %>%
+              p_RH = cor.test(CH4_flux,RH)$p.value,
+              # Added new metrics
+              cor_vwc_top = cor.test(CH4_flux,vwc_top_mn)$estimate,
+              p_vwc_top = cor.test(CH4_flux,vwc_top_mn)$p.value,
+              cor_vwc_60cm = cor.test(CH4_flux,vwc_60cm_mn)$estimate,
+              p_vwc_60cm = cor.test(CH4_flux,vwc_60cm_mn)$p.value,
+              cor_LE = cor.test(CH4_flux,LE_mn)$estimate,
+              p_LE = cor.test(CH4_flux,LE_mn)$p.value) %>%
     mutate(interval = days[d])
   if(d == 1){
     cor_all = cor_test

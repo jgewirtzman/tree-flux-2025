@@ -6,25 +6,27 @@ library(patchwork) # Alternative to cowplot for combining plots
 # Convert to long format for easier plotting
 wtd_met_long <- wtd_met %>%
   select(datetime, bgs_wtd_cm, bvs_wtd_cm, tair_C, p_kPa, P_mm, 
-         RH, PAR, rnet, slrr, s10t, VPD_kPa) %>%
+         RH, PAR, rnet, slrr, s10t, VPD_kPa, vwc_top, vwc_60cm) %>%
   pivot_longer(cols = -datetime, 
                names_to = "variable", 
                values_to = "value")
 
 # Define variable groups and their units for better organization
 variable_info <- tribble(
-  ~variable,    ~group,       ~unit,            ~color,
-  "bgs_wtd_cm", "Water",      "Depth (cm)",     "darkblue",
-  "bvs_wtd_cm", "Water",      "Depth (cm)",     "royalblue",
-  "tair_C",     "Temperature", "°C",            "red",
-  "s10t",       "Temperature", "°C",            "brown",
-  "p_kPa",      "Atmospheric", "kPa",           "purple",
-  "VPD_kPa",    "Atmospheric", "kPa",           "darkred",
-  "P_mm",       "Precipitation", "mm",          "skyblue",
-  "RH",         "Atmospheric", "%",             "darkgreen",
-  "PAR",        "Radiation",   "μmol/m²/s",     "orange",
-  "rnet",       "Radiation",   "W/m²",          "forestgreen",
-  "slrr",       "Radiation",   "W/m²",          "gold"
+  ~variable,    ~group,          ~unit,            ~color,
+  "bgs_wtd_cm", "Water Depth",   "Depth (cm)",     "darkblue",
+  "bvs_wtd_cm", "Water Depth",   "Depth (cm)",     "royalblue",
+  "vwc_top",    "Soil Moisture", "m³/m³",          "lightblue",
+  "vwc_60cm",   "Soil Moisture", "m³/m³",          "steelblue",
+  "tair_C",     "Temperature",   "°C",             "red",
+  "s10t",       "Temperature",   "°C",             "brown",
+  "p_kPa",      "Atmospheric",   "kPa",            "purple",
+  "VPD_kPa",    "Atmospheric",   "kPa",            "darkred",
+  "P_mm",       "Precipitation", "mm",             "skyblue",
+  "RH",         "Atmospheric",   "%",              "darkgreen",
+  "PAR",        "Radiation",     "μmol/m²/s",      "orange",
+  "rnet",       "Radiation",     "W/m²",           "forestgreen",
+  "slrr",       "Radiation",     "W/m²",           "gold"
 )
 
 # Join variable information to data

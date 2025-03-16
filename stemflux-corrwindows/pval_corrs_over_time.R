@@ -25,12 +25,12 @@ n_bySiteSpecies = stem_flux %>%
             count = n())
 
 # Options to loop through for days time period
-days = c(2/24, 6/24, 1:30)  # Reduced to 30 days for faster processing, expand as needed
+days = c(2/24, 6/24, 12/24, 1:30)  # Reduced to 30 days for faster processing, expand as needed
 
 # Define all meteorological variables to analyze
 met_vars <- c(
   "tair_C", "P_mm", "RH", "VPD_kPa", "bgs_wtd_cm", "bvs_wtd_cm", 
-  "PAR", "rnet", "slrr", "s10t", "p_kPa"
+  "PAR", "rnet", "slrr", "s10t", "p_kPa", "vwc_top", "vwc_60cm" # Added vwc variables
 )
 
 # Define variable attributes for plots
@@ -46,7 +46,9 @@ var_info <- tribble(
   "rnet",       "Net radiation",           "forestgreen",
   "slrr",       "Solar radiation",         "gold",
   "s10t",       "Soil temperature 10cm",   "brown",
-  "p_kPa",      "Atmospheric pressure",    "purple"
+  "p_kPa",      "Atmospheric pressure",    "purple",
+  "vwc_top",    "Surface soil moisture",   "lightblue",    # Added soil moisture variables
+  "vwc_60cm",   "60cm soil moisture",      "steelblue"     # Added soil moisture variables
 )
 
 # Create empty dataframe to collect all results
@@ -78,8 +80,8 @@ for(d in 1:length(days)) {
       met_cul[[paste0(var, "_mn")]] <- RcppRoll::roll_mean(
         met_cul[[var]], window, align = "right", na.rm = TRUE, fill = NA
       )
-      # Also calculate SD for water table depth variables
-      if (grepl("wtd", var)) {
+      # Also calculate SD for water table depth variables and soil moisture variables
+      if (grepl("wtd|vwc", var)) {   # Modified to include vwc variables for SD calculation
         met_cul[[paste0(var, "_sd")]] <- RcppRoll::roll_sd(
           met_cul[[var]], window, align = "right", na.rm = TRUE, fill = NA
         )
@@ -128,8 +130,8 @@ for(d in 1:length(days)) {
         message(paste("Error with", site_name, var, "at interval", days[d], ":", e$message))
       })
       
-      # Handle SD for water table depth variables
-      if (grepl("wtd", var)) {
+      # Handle SD for water table depth variables and soil moisture variables
+      if (grepl("wtd|vwc", var)) {   # Modified to include vwc variables
         var_sd <- paste0(var, "_sd")
         
         tryCatch({
@@ -250,7 +252,7 @@ heatmap_data <- heatmap_data %>%
 
 # Create heatmap
 if (nrow(heatmap_data) > 0) {
-  heatmap_plot <- ggplot(heatmap_data, aes(x = factor(interval), y = variable_label)) +
+  heatmap_plot <- ggplot(heatmap_data, aes(x = factor(round(interval, 1)), y = variable_label)) +
     facet_wrap(~ site) +
     geom_tile(aes(fill = correlation)) +
     geom_point(data = heatmap_data %>% filter(significant), 

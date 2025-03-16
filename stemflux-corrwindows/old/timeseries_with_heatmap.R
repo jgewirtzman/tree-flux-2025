@@ -25,7 +25,7 @@ n_bySiteSpecies = stem_flux %>%
             count = n())
 
 # Options to loop through for days time period
-days = c(2/24, 6/24, 1:30)  # Reduced to 30 days for faster processing, expand as needed
+days = c(1/24, 3/24, 6/24, 12/24, 1:30)  # Reduced to 30 days for faster processing, expand as needed
 
 # Define all meteorological variables to analyze
 met_vars <- c(
