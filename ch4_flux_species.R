@@ -127,3 +127,60 @@ mean_plot_family_discrete <- ggplot(summary_stats, aes(x = Species.Label, y = me
 
 # Display the discrete version
 print(mean_plot_family_discrete)
+
+
+# Assign colors manually to plant families based on ecology/visuals
+family_colors <- c(
+  "Pinaceae"     = "#1b9e77",  # Deep evergreen, conifer feel
+  "Rosaceae"     = "#d95f02",  # Warm reddish-orange (fruity, early flowering)
+  "Betulaceae"   = "#7570b3",  # Cool blue-purple (barky/cool climate)
+  "Fagaceae"     = "#e7298a",  # Strong magenta (dominant hardwoods)
+  "Sapindaceae"  = "#66a61e",  # Greenish (maples, shade-tolerant)
+  "Oleaceae"     = "#e6ab02"   # Yellow-gold (flowering, often ornamental)
+)
+
+mean_plot_custom_colors <- ggplot(summary_stats, aes(x = Species.Label, y = mean_flux * 1000, 
+                                                     fill = family)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_errorbar(aes(ymin = (mean_flux - se_flux) * 1000, ymax = (mean_flux + se_flux) * 1000),
+                width = 0.2) +
+  scale_fill_manual(
+    name = "Plant Family",
+    values = family_colors
+  ) +
+  theme_minimal() +
+  labs(y = expression("Mean CH"[4]~"Flux (nmol CH"[4]*"/m²/s)"), 
+       x = "Species", 
+       title = expression("CH"[4]~"Flux per Species by Plant Family")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "bottom")
+
+print(mean_plot_custom_colors)
+
+
+library(MetBrewer)
+
+# Choose a rich categorical palette, e.g., "Hiroshige" or "Signac"
+met_colors <- rev(met.brewer("Hiroshige", length(unique(summary_stats$family))))
+
+# Assign colors to families in order
+family_levels <- names(sort(family_order))
+family_colors_met <- setNames(met_colors, family_levels)
+
+mean_plot_met <- ggplot(summary_stats, aes(x = Species.Label, y = mean_flux * 1000, 
+                                           fill = family)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_errorbar(aes(ymin = (mean_flux - se_flux) * 1000, ymax = (mean_flux + se_flux) * 1000),
+                width = 0.2) +
+  scale_fill_manual(
+    name = "Plant Family",
+    values = family_colors_met
+  ) +
+  theme_minimal() +
+  labs(y = expression("Mean CH"[4]~"Flux (nmol CH"[4]*"/m²/s)"), 
+       x = "Species") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "bottom")
+
+print(mean_plot_met)
+
