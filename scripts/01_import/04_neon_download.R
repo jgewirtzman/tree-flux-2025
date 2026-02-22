@@ -174,4 +174,36 @@ for (dp in dp_list) {
   )
 }
 
+# ============================================================
+# Extract sensor depths from NEON SWC stacked data
+# Produces data/raw/neon_sensor_depths.csv for scripts 05 & 06
+# ============================================================
 
+message("\n=== Extracting NEON sensor depths ===")
+
+swc_stacked <- file.path(base_dir, "DP1.00094.001", "stackedFiles",
+                          "sensor_positions_00094.csv")
+
+if (file.exists(swc_stacked)) {
+  sensor_pos <- read.csv(swc_stacked, stringsAsFactors = FALSE)
+
+  # Build the depths table that scripts 05/06 expect
+  swc_depths <- data.frame(
+    siteID = "HARV",
+    HOR.VER = sensor_pos$HOR.VER,
+    horizontalPosition.HOR = sub("\\..*", "", sensor_pos$HOR.VER),
+    verticalPosition.VER = sub(".*\\.", "", sensor_pos$HOR.VER),
+    sensorDepth = sensor_pos$zOffset,
+    endDateTime = sensor_pos$positionEndDateTime,
+    stringsAsFactors = FALSE
+  )
+
+  depths_path <- "data/raw/neon_sensor_depths.csv"
+  dir.create(dirname(depths_path), recursive = TRUE, showWarnings = FALSE)
+  write.csv(swc_depths, depths_path, row.names = FALSE)
+  message("  Saved sensor depths to: ", depths_path)
+  message("  Rows: ", nrow(swc_depths))
+} else {
+  message("  WARNING: SWC sensor_positions file not found at: ", swc_stacked)
+  message("  Ensure DP1.00094.001 was downloaded and stacked above.")
+}

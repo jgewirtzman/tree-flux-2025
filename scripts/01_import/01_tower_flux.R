@@ -1,16 +1,12 @@
-Ha1<-read.csv(
-  'data/raw/ameriflux/AMF_US-Ha1_BASE-BADM_26-5/AMF_US-Ha1_BASE_HR_26-5.csv',
-  header=T, skip=2)
+source("scripts/helpers/find_ameriflux.R")
+
+Ha1 <- read.csv(find_ameriflux("US-Ha1"), header = TRUE, skip = 2)
 head(Ha1)
 
-Ha2<-read.csv(
-  'data/raw/ameriflux/AMF_US-Ha2_BASE-BADM_15-5/AMF_US-Ha2_BASE_HH_15-5.csv',
-  header=T, skip=2)
+Ha2 <- read.csv(find_ameriflux("US-Ha2"), header = TRUE, skip = 2)
 head(Ha2)
 
-xHA<-read.csv(
-  'data/raw/ameriflux/AMF_US-xHA_BASE-BADM_11-5/AMF_US-xHA_BASE_HH_11-5.csv',
-  header=T, skip=2)
+xHA <- read.csv(find_ameriflux("US-xHA"), header = TRUE, skip = 2)
 head(xHA)
 
 library(dplyr)

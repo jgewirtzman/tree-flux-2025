@@ -17,6 +17,8 @@ library(tidyverse)
 library(lubridate)
 library(stringr)
 
+source("scripts/helpers/find_ameriflux.R")
+
 # ============================================================
 # CONFIGURATION
 # ============================================================
@@ -24,17 +26,17 @@ library(stringr)
 START_YEAR <- 2023
 END_YEAR <- 2026
 
-# File paths - UPDATE THESE
+# File paths
 PATHS <- list(
   # Preprocessed data
   wtd_met = "data/processed/wtd_met.csv",
   neon_swc = "data/processed/neon_swc_hourly.csv",
   tower_swc_ts = "data/processed/tower_swc_ts_hourly.csv",
-  
-  # AmeriFlux tower data (raw)
-  Ha1 = "data/raw/ameriflux/AMF_US-Ha1_BASE-BADM_26-5/AMF_US-Ha1_BASE_HR_26-5.csv",
-  Ha2 = "data/raw/ameriflux/AMF_US-Ha2_BASE-BADM_15-5/AMF_US-Ha2_BASE_HH_15-5.csv",
-  xHA = "data/raw/ameriflux/AMF_US-xHA_BASE-BADM_11-5/AMF_US-xHA_BASE_HH_11-5.csv",
+
+  # AmeriFlux tower data (version-agnostic lookup)
+  Ha1 = find_ameriflux("US-Ha1"),
+  Ha2 = find_ameriflux("US-Ha2"),
+  xHA = find_ameriflux("US-xHA"),
 
   # Phenocam
   phenocam = "data/raw/phenocam/harvardems2_DB_1000_ndvi_1day.txt"
