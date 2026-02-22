@@ -9,7 +9,7 @@ library(tidyverse)
 # ============================================================
 
 PATHS <- list(
-  flux = "data/input/HF_2023-2025_tree_flux.csv"
+  flux = "data/input/HF_2023-2025_tree_flux_corrected.csv"
 )
 
 OUTPUT_DIR <- "outputs/figures"
