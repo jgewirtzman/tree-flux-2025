@@ -9,7 +9,11 @@ This project analyzes tree stem methane (CH4) emissions in upland and wetland fo
 ```
 tree-flux-2025/
 ├── scripts/
-│   ├── 01_import/           # Data download, preprocessing, alignment
+│   ├── 00_download/         # Programmatic data downloads
+│   │   ├── 01_download_ameriflux.R    # AmeriFlux towers (Ha1, Ha2, xHA)
+│   │   ├── 02_download_phenocam.R     # PhenoCam GCC/NDVI
+│   │   └── 03_download_hf_met_hydro.R # Fisher Met + water table → wtd_met.csv
+│   ├── 01_import/           # Data preprocessing and alignment
 │   │   ├── 01_tower_flux.R
 │   │   ├── 02_tower_temperature.R
 │   │   ├── 03_tower_moisture.R
@@ -49,8 +53,21 @@ tree-flux-2025/
 
 Scripts are numbered to indicate execution order. Run them sequentially within each phase:
 
+### Phase 0: Data Download (`scripts/00_download/`)
+Programmatically downloads all external data sources. Most environmental data can be reproduced from scratch using these scripts:
+
+| Script | Source | Requires |
+|--------|--------|----------|
+| `01_download_ameriflux.R` | AmeriFlux (Ha1, Ha2, xHA) | `amerifluxr` + free account ([register here](https://ameriflux-data.lbl.gov/Pages/RequestAccount.aspx)) |
+| `02_download_phenocam.R` | PhenoCam (harvardems2) | `phenocamr` |
+| `03_download_hf_met_hydro.R` | Harvard Forest LTER (Fisher Met + hydro) | `plantecophys` (downloads from [EDI/PASTA](https://pasta.lternet.edu/)) |
+
+NEON data is downloaded directly within the import scripts (`04_neon_download.R`, `05_neon_moisture.R`, `06_preprocess_soil_moisture.R`) via `neonUtilities::loadByProduct()`.
+
+**Note:** Tree flux data (`data/input/HF_2023-2025_tree_flux.csv`) is not publicly downloadable -- it will be deposited in a data repository upon publication.
+
 ### Phase 1: Data Import (`scripts/01_import/`)
-Downloads and preprocesses environmental data from AmeriFlux towers, NEON, and PhenoCam. The final script (`08_align.R`) joins everything into `data/processed/aligned_hourly_dataset.csv`.
+Preprocesses raw downloads and aligns everything into a single hourly dataset. The final script (`08_align.R`) produces `data/processed/aligned_hourly_dataset.csv`.
 
 ### Phase 2: Analysis (`scripts/02_analysis/`)
 Runs independently once Phase 1 is complete. Produces publication figures and summary statistics.
@@ -68,7 +85,11 @@ All data files are gitignored. See `data/README.md` for sources and instructions
 
 ## Requirements
 
-R packages: `tidyverse`, `lubridate`, `lme4`, `emmeans`, `performance`, `patchwork`, `zoo`, `ggtext`, `scales`, `neonUtilities`, `magick`, `ggpointdensity`, `viridis`
+R packages:
+
+**Download:** `amerifluxr`, `phenocamr`, `plantecophys`, `neonUtilities`
+
+**Analysis:** `tidyverse`, `lubridate`, `lme4`, `emmeans`, `performance`, `patchwork`, `zoo`, `ggtext`, `scales`, `magick`, `ggpointdensity`, `viridis`
 
 ## Sites
 
