@@ -1,0 +1,571 @@
+# ============================================================================
+# Download and Plot NEON Soil Moisture Data from HARV
+# Data Product: DP1.00094.001 (Soil water content and water salinity)
+# Date Range: 2022-present (including provisional data)
+# ============================================================================
+
+# Install packages (run once)
+# install.packages("neonUtilities")
+# install.packages("ggplot2")
+# install.packages("dplyr")
+# install.packages("viridis")
+
+# Load libraries
+library(neonUtilities)
+library(ggplot2)
+library(dplyr)
+library(viridis)
+
+# ============================================================================
+# STEP 1: Download Soil Water Content Data
+# ============================================================================
+
+# Download data from HARV (Harvard Forest)
+# Including provisional data with include.provisional = TRUE
+
+swc <- loadByProduct(
+  dpID = "DP1.00094.001",
+  site = "HARV",
+  startdate = "2022-01",
+  enddate = NA,                    # NA = through most recent available
+  timeIndex = 30,
+  package = "basic",
+  include.provisional = TRUE,      # Include provisional/preliminary data
+  check.size = FALSE
+)
+
+# View the downloaded tables
+names(swc)
+
+# ============================================================================
+# STEP 2: Load Sensor Depths from CSV
+# ============================================================================
+
+# Load the corrected depths CSV file
+# Update this path to where your swc_depthsV2.csv file is located
+swc_depths <- read.csv("swc_depthsV2.csv")
+
+# View structure
+head(swc_depths)
+
+# Filter to HARV only and select relevant columns
+harv_depths <- swc_depths %>%
+  filter(siteID == "HARV") %>%
+  # Handle sensors with date ranges - keep only current depths (endDateTime = NA)
+  filter(is.na(endDateTime) | endDateTime == "NA") %>%
+  # Create position columns matching the data format
+  mutate(
+    horizontalPosition = sprintf("%03d", as.numeric(gsub("^0+", "", horizontalPosition.HOR))),
+    verticalPosition = sprintf("%03d", as.numeric(gsub("^0+", "", verticalPosition.VER)))
+  ) %>%
+  select(siteID, horizontalPosition, verticalPosition, sensorDepth)
+
+# Create HOR.VER column for merging
+harv_depths$HOR.VER <- paste(harv_depths$horizontalPosition, 
+                             harv_depths$verticalPosition, 
+                             sep = ".")
+
+# View the HARV depths
+print(harv_depths)
+
+# ============================================================================
+# STEP 3: Prepare and Merge Data
+# ============================================================================
+
+# Extract the 30-minute soil water content data
+sws30 <- swc$SWS_30_minute
+
+# Create HOR.VER column for merging
+sws30$HOR.VER <- paste(sws30$horizontalPosition, 
+                       sws30$verticalPosition, 
+                       sep = ".")
+
+# Merge data with sensor depths
+sws_merged <- merge(sws30, harv_depths[, c("HOR.VER", "sensorDepth")],
+                    by = "HOR.VER", all.x = TRUE)
+
+# Convert depth to positive values for plotting (easier to interpret)
+sws_merged$depth_cm <- abs(sws_merged$sensorDepth) * 100  # Convert m to cm
+
+# Create a depth label for plotting
+sws_merged$depth_label <- paste0(sws_merged$depth_cm, " cm")
+
+# Remove rows with missing depth or soil water content
+sws_clean <- sws_merged %>%
+  filter(!is.na(sensorDepth) & !is.na(VSWCMean))
+
+# ============================================================================
+# STEP 4: Basic Quality Filtering
+# ============================================================================
+
+# Filter to only include data that passed quality checks
+# VSWCFinalQF = 0 means all quality tests passed
+# However, as noted in the QSG, data with VSWCFinalQF = 1 may still be usable
+# if it was only flagged due to using default calibration
+
+sws_qc <- sws_clean %>%
+  filter(VSWCFinalQF == 0)  # Strict QC filtering
+
+# For less strict filtering (include default calibration data):
+# sws_qc <- sws_clean %>%
+#   filter(is.na(VSWCFinalQF) | VSWCFinalQF == 0 | 
+#          (VSWCFinalQF == 1 & VSWCAlphaQM < 10 & VSWCBetaQM < 20))
+
+# ============================================================================
+# STEP 5: Create Depth Groups and Calculate Averages
+# ============================================================================
+
+# Define depth group bins (approximate target depths: 5, 15, 25, 35, 45, 55, 65 cm)
+# Using cut() to bin continuous depth values into groups
+sws_qc <- sws_qc %>%
+  mutate(
+    depth_group = cut(
+      depth_cm,
+      breaks = c(0, 10, 20, 30, 40, 50, 60, 70),
+      labels = c("~5 cm", "~15 cm", "~25 cm", "~35 cm", "~45 cm", "~55 cm", "~65 cm"),
+      include.lowest = TRUE
+    )
+  )
+
+# Check depth groupings
+cat("\n=== Depth Group Summary ===\n")
+sws_qc %>%
+  group_by(depth_group) %>%
+  summarise(
+    min_depth = min(depth_cm),
+    max_depth = max(depth_cm),
+    n_sensors = n_distinct(HOR.VER),
+    mean_vwc = mean(VSWCMean, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  print()
+
+# Check data by soil plot - identify problematic plots
+cat("\n=== Data Summary by Soil Plot ===\n")
+sws_qc %>%
+  group_by(horizontalPosition) %>%
+  summarise(
+    n_obs = n(),
+    mean_vwc = mean(VSWCMean, na.rm = TRUE),
+    median_vwc = median(VSWCMean, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  print()
+
+# OPTIONAL: Filter to only reliable soil plots
+# Based on the plots, 002, 004, 005 appear to have issues (very low values)
+# Uncomment the next line to exclude problematic plots:
+# sws_qc <- sws_qc %>% filter(horizontalPosition %in% c("001", "003"))
+
+# Create a date column for daily aggregation
+sws_qc$date <- as.Date(sws_qc$endDateTime)
+
+# Calculate DAILY average soil moisture by depth group
+# This smooths out the 30-minute noise and makes trends visible
+sws_daily <- sws_qc %>%
+  filter(!is.na(depth_group)) %>%
+  group_by(date, depth_group) %>%
+  summarise(
+    mean_vwc = mean(VSWCMean, na.rm = TRUE),
+    sd_vwc = sd(VSWCMean, na.rm = TRUE),
+    n_obs = n(),
+    .groups = "drop"
+  )
+
+# Also calculate 30-minute averages (original resolution) for comparison
+sws_avg <- sws_qc %>%
+  filter(!is.na(depth_group)) %>%
+  group_by(endDateTime, depth_group) %>%
+  summarise(
+    mean_vwc = mean(VSWCMean, na.rm = TRUE),
+    sd_vwc = sd(VSWCMean, na.rm = TRUE),
+    n_sensors = n(),
+    .groups = "drop"
+  )
+
+# ============================================================================
+# STEP 6: Plot Average Soil Moisture by Depth Group Over Time
+# ============================================================================
+
+p1 <- ggplot(sws_avg, aes(x = endDateTime, y = mean_vwc, color = depth_group)) +
+  geom_line(linewidth = 0.6, alpha = 0.9) +
+  scale_color_viridis_d(option = "plasma", name = "Depth Group") +
+  labs(
+    title = "Average Soil Volumetric Water Content by Depth at HARV (2022-Present)",
+    subtitle = "Data Product: DP1.00094.001 (includes provisional data) — averaged across all soil plots",
+    x = "Date",
+    y = expression("Mean Volumetric Water Content (cm"^3*"/cm"^3*")")
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "right",
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+print(p1)
+
+# Save plot
+ggsave("HARV_soil_moisture_avg_by_depth.png", p1, width = 12, height = 6, dpi = 300)
+
+# ============================================================================
+# STEP 6b: Plot with Ribbon Showing Variability (Optional)
+# ============================================================================
+
+p1b <- ggplot(sws_avg, aes(x = endDateTime, y = mean_vwc, 
+                           color = depth_group, fill = depth_group)) +
+  geom_ribbon(aes(ymin = mean_vwc - sd_vwc, ymax = mean_vwc + sd_vwc), 
+              alpha = 0.2, color = NA) +
+  geom_line(linewidth = 0.6) +
+  scale_color_viridis_d(option = "plasma", name = "Depth Group") +
+  scale_fill_viridis_d(option = "plasma", name = "Depth Group") +
+  labs(
+    title = "Average Soil Volumetric Water Content by Depth at HARV (2022-Present)",
+    subtitle = "Lines = mean across soil plots; ribbons = ±1 SD",
+    x = "Date",
+    y = expression("Mean Volumetric Water Content (cm"^3*"/cm"^3*")")
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "right",
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+print(p1b)
+
+ggsave("HARV_soil_moisture_avg_by_depth_with_sd.png", p1b, width = 12, height = 6, dpi = 300)
+
+# ============================================================================
+# STEP 6c: Plot Time Series by Soil Plot (Faceted) - Original Style
+# ============================================================================
+
+# Plot soil moisture over time for each soil plot, colored by depth
+p1c <- ggplot(sws_qc, aes(x = endDateTime, y = VSWCMean, 
+                          color = depth_group)) +
+  geom_line(linewidth = 0.5, alpha = 0.8) +
+  facet_wrap(~horizontalPosition, ncol = 1, 
+             labeller = labeller(horizontalPosition = function(x) paste("Soil Plot", x))) +
+  scale_color_viridis_d(option = "plasma", name = "Depth Group") +
+  labs(
+    title = "Soil Volumetric Water Content at HARV (2022-Present)",
+    subtitle = "Data Product: DP1.00094.001 (includes provisional data)",
+    x = "Date",
+    y = expression("Volumetric Water Content (cm"^3*"/cm"^3*")")
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "right",
+    strip.text = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+print(p1c)
+
+# Save plot
+ggsave("HARV_soil_moisture_by_plot.png", p1c, width = 12, height = 10, dpi = 300)
+
+# ============================================================================
+# STEP 7: Summary Statistics by Depth Group
+# ============================================================================
+
+# Calculate summary statistics by depth group
+summary_stats <- sws_qc %>%
+  group_by(depth_group) %>%
+  summarise(
+    n_obs = n(),
+    n_sensors = n_distinct(HOR.VER),
+    mean_vwc = mean(VSWCMean, na.rm = TRUE),
+    sd_vwc = sd(VSWCMean, na.rm = TRUE),
+    min_vwc = min(VSWCMean, na.rm = TRUE),
+    max_vwc = max(VSWCMean, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+print(summary_stats)
+
+# ============================================================================
+# STEP 8: Summary Boxplot by Depth Group
+# ============================================================================
+
+p4 <- ggplot(sws_qc, aes(x = depth_group, y = VSWCMean, fill = depth_group)) +
+  geom_boxplot(alpha = 0.7, outlier.size = 0.5) +
+  scale_fill_viridis_d(option = "plasma", guide = "none") +
+  labs(
+    title = "Distribution of Soil Moisture by Depth Group at HARV (2022-Present)",
+    x = "Depth Group",
+    y = expression("Volumetric Water Content (cm"^3*"/cm"^3*")")
+  ) +
+  theme_minimal()
+
+print(p4)
+
+ggsave("HARV_soil_moisture_boxplot.png", p4, width = 10, height = 6, dpi = 300)
+
+# ============================================================================
+# OPTIONAL: Save data for later use
+# ============================================================================
+
+# Save the processed data
+# saveRDS(swc, "HARV_soil_water_content_data.rds")
+# write.csv(sws_qc, "HARV_soil_moisture_processed.csv", row.names = FALSE)
+
+# To reload later:
+# swc <- readRDS("HARV_soil_water_content_data.rds")
+
+cat("\n=== Script complete! ===\n")
+cat("Data downloaded from:", format(min(sws_qc$endDateTime), "%Y-%m-%d"), 
+    "to", format(max(sws_qc$endDateTime), "%Y-%m-%d"), "\n")
+cat("Total observations (QC-passed):", nrow(sws_qc), "\n")
+cat("Soil plots with data:", paste(unique(sws_qc$horizontalPosition), collapse = ", "), "\n")
+cat("Depth groups:", paste(levels(sws_qc$depth_group), collapse = ", "), "\n")
+
+
+
+
+
+# Plot daily average soil moisture faceted by depth group
+# Run this after loading and processing data from the main script
+
+# Redefine depth groups: shallow (0-15), mid (15-35), deep (45-65)
+sws_qc <- sws_qc %>%
+  mutate(
+    depth_group = cut(
+      depth_cm,
+      breaks = c(0, 15, 35, 70),
+      labels = c("Shallow (0-15 cm)", "Mid (15-35 cm)", "Deep (45-65 cm)"),
+      include.lowest = TRUE
+    )
+  )
+
+# Recalculate daily averages with new grouping
+sws_daily <- sws_qc %>%
+  filter(!is.na(depth_group)) %>%
+  group_by(date, depth_group) %>%
+  summarise(
+    mean_vwc = mean(VSWCMean, na.rm = TRUE),
+    sd_vwc = sd(VSWCMean, na.rm = TRUE),
+    n_obs = n(),
+    .groups = "drop"
+  )
+
+# Plot
+p <- ggplot(sws_daily, aes(x = date, y = mean_vwc, color = depth_group)) +
+  geom_line(linewidth = 0.6) +
+  #facet_wrap(~depth_group, ncol = 1, scales = "free_y") +
+  scale_color_viridis_d(option = "plasma") +
+  labs(
+    title = "Daily Average Soil Moisture by Depth Group at HARV (2022-Present)",
+    x = "Date",
+    y = expression("VWC (cm"^3*"/cm"^3*")")
+  ) +
+  theme_minimal() +
+  theme(
+    strip.text = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+print(p)
+
+ggsave("HARV_soil_moisture_by_depth_group.png", p, width = 10, height = 8, dpi = 300)
+
+
+
+
+# Plot daily average soil moisture faceted by depth group
+# Run this after loading and processing data from the main script
+
+# ============================================================================
+# DIAGNOSTIC: Check depth matching
+# ============================================================================
+
+cat("\n=== Checking depth matching ===\n\n")
+
+# 1. What depths are in the CSV file for HARV?
+cat("Depths from CSV (harv_depths):\n")
+print(harv_depths %>% arrange(horizontalPosition, verticalPosition))
+
+# 2. What HOR.VER combinations are in the data?
+cat("\n\nUnique HOR.VER in data (sws30):\n")
+data_horvr <- unique(sws30$HOR.VER)
+print(sort(data_horvr))
+
+# 3. What HOR.VER combinations are in the depths file?
+cat("\n\nUnique HOR.VER in depths file:\n")
+depths_horvr <- unique(harv_depths$HOR.VER)
+print(sort(depths_horvr))
+
+# 4. Which data HOR.VER are NOT in the depths file?
+cat("\n\nHOR.VER in data but NOT in depths file (will have NA depth):\n")
+missing_depths <- setdiff(data_horvr, depths_horvr)
+print(missing_depths)
+
+# 5. Which depths file HOR.VER are NOT in the data?
+cat("\n\nHOR.VER in depths file but NOT in data:\n")
+missing_data <- setdiff(depths_horvr, data_horvr)
+print(missing_data)
+
+# 6. After merging, check for NA depths
+cat("\n\nRecords with NA sensorDepth after merge:\n")
+na_depths <- sws_merged %>%
+  filter(is.na(sensorDepth)) %>%
+  distinct(HOR.VER, horizontalPosition, verticalPosition)
+print(na_depths)
+
+# 7. Summary of matched depths
+cat("\n\nSummary of matched depths in final data (sws_qc):\n")
+depth_summary <- sws_qc %>%
+  group_by(horizontalPosition, verticalPosition, HOR.VER, sensorDepth, depth_cm) %>%
+  summarise(n_obs = n(), .groups = "drop") %>%
+  arrange(horizontalPosition, verticalPosition)
+print(depth_summary)
+
+# 8. Compare to expected HARV depths from CSV
+cat("\n\nExpected vs actual depth comparison:\n")
+comparison <- harv_depths %>%
+  select(HOR.VER, sensorDepth) %>%
+  rename(expected_depth = sensorDepth) %>%
+  full_join(
+    sws_qc %>% 
+      distinct(HOR.VER, sensorDepth) %>%
+      rename(actual_depth = sensorDepth),
+    by = "HOR.VER"
+  ) %>%
+  mutate(match = expected_depth == actual_depth)
+print(comparison)
+
+# ============================================================================
+# Continue with depth grouping after verification
+# ============================================================================
+
+# Redefine depth groups: shallow (0-15), mid (15-35), deep (45-65)
+sws_qc <- sws_qc %>%
+  mutate(
+    depth_group = cut(
+      depth_cm,
+      breaks = c(0, 15, 35, 70),
+      labels = c("Shallow (0-15 cm)", "Mid (15-35 cm)", "Deep (45-65 cm)"),
+      include.lowest = TRUE
+    )
+  )
+
+# ============================================================================
+# Baseline-adjusted averaging
+# Removes persistent sensor wet/dry offsets before averaging
+# ============================================================================
+
+# Define baseline period (adjust as needed)
+baseline_start <- as.Date("2024-01-01")
+baseline_end <- as.Date("2024-12-31")
+
+# Calculate per-sensor baseline (median during baseline period)
+sensor_baselines <- sws_qc %>%
+  filter(date >= baseline_start & date <= baseline_end) %>%
+  group_by(HOR.VER, depth_group) %>%
+  summarise(
+    b_s = median(VSWCMean, na.rm = TRUE),
+    n_base = n(),
+    .groups = "drop"
+  ) %>%
+  filter(!is.na(b_s))
+
+# Grand baseline (mean of sensor baselines) per depth group
+grand_baselines <- sensor_baselines %>%
+  group_by(depth_group) %>%
+  summarise(
+    b_bar = mean(b_s, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Join baselines and compute anomalies
+sws_adj <- sws_qc %>%
+  inner_join(sensor_baselines %>% select(HOR.VER, depth_group, b_s), 
+             by = c("HOR.VER", "depth_group")) %>%
+  mutate(anom = VSWCMean - b_s)
+
+# Calculate daily baseline-adjusted mean by depth group
+sws_daily_adj <- sws_adj %>%
+  filter(!is.na(depth_group)) %>%
+  group_by(date, depth_group) %>%
+  summarise(
+    mean_anom = mean(anom, na.rm = TRUE),
+    n_sensors = n_distinct(HOR.VER),
+    .groups = "drop"
+  ) %>%
+  left_join(grand_baselines, by = "depth_group") %>%
+  mutate(mean_adj = mean_anom + b_bar)
+
+# Plot baseline-adjusted daily means
+p <- ggplot(sws_daily_adj, aes(x = date, y = mean_adj, color = depth_group)) +
+  geom_line(linewidth = 0.6) +
+  #facet_wrap(~depth_group, ncol = 1, scales = "free_y") +
+  #scale_color_viridis_d(option = "plasma", guide = "none") +
+  labs(
+    title = "Daily Baseline-Adjusted Soil Moisture by Depth Group at HARV (2022-Present)",
+    #subtitle = paste0("Baseline period: ", baseline_start, " to ", baseline_end),
+    x = "Date",
+    y = expression("VWC (cm"^3*"/cm"^3*")")
+  ) +
+  theme_minimal() +
+  theme(
+    strip.text = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+print(p)
+
+ggsave("HARV_soil_moisture_baseline_adj_by_depth_group.png", p, width = 10, height = 8, dpi = 300)
+
+# Load required libraries
+library(tidyverse)
+library(lubridate)
+
+# Read the data
+df <- read_csv('data/raw/hf069-19-swc-since-2017 (1).csv')
+
+# Convert Time_EST to datetime
+df <- df %>%
+  mutate(datetime = ymd_hms(Time_EST))
+
+# Reshape the moisture (vwc) columns from wide to long format
+# Select only the volumetric water content columns
+vwc_long <- df %>%
+  select(datetime, year, starts_with("vwc_")) %>%
+  pivot_longer(
+    cols = starts_with("vwc_"),
+    names_to = "variable",
+    values_to = "vwc"
+  ) %>%
+  # Parse the column names to extract depth and site
+  mutate(
+    depth = case_when(
+      str_detect(variable, "15cm") ~ "15 cm",
+      str_detect(variable, "35cm") ~ "35 cm",
+      str_detect(variable, "50cm") ~ "50 cm",
+      str_detect(variable, "90cm") ~ "90 cm"
+    ),
+    site = case_when(
+      str_detect(variable, "_a$") ~ "Site A",
+      str_detect(variable, "_b$") ~ "Site B"
+    )
+  ) %>%
+  # Convert depth to factor with correct order
+  mutate(depth = factor(depth, levels = c("15 cm", "35 cm", "50 cm", "90 cm")))
+
+# Plot moisture by depth over time
+ggplot(vwc_long, aes(x = datetime, y = vwc, color = depth)) +
+  geom_line(alpha = 0.7) +
+  facet_wrap(~site, ncol = 1) +
+  labs(
+    title = "Soil Volumetric Water Content by Depth Over Time",
+    x = "Date",
+    y = expression("Volumetric Water Content (m"^3*"/m"^3*")"),
+    color = "Depth"
+  ) +
+  scale_color_viridis_d(option = "plasma") +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    strip.text = element_text(face = "bold")
+  )
+
+# Optional: Save the plot
+# ggsave("soil_moisture_by_depth.png", width = 12, height = 8, dpi = 300)

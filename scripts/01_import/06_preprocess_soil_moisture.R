@@ -1,0 +1,473 @@
+# ============================================================
+# 06a_process_neon_swc.R
+# Process NEON soil water content data and save for alignment
+# Output: data/processed/neon_swc_hourly.csv
+# ============================================================
+
+library(tidyverse)
+library(lubridate)
+library(neonUtilities)
+
+# ============================================================
+# CONFIGURATION
+# ============================================================
+
+OUTPUT_PATH <- "data/processed/neon_swc_hourly.csv"
+DEPTHS_PATH <- "data/raw/swc_depthsV2.csv"
+
+# Baseline period for adjustment
+BASELINE_START <- as.Date("2024-01-01")
+BASELINE_END <- as.Date("2024-12-31")
+
+# ============================================================
+# STEP 1: Download NEON Soil Water Content Data
+# ============================================================
+
+message("Downloading NEON soil water content data...")
+
+swc <- loadByProduct(
+  dpID = "DP1.00094.001",
+  site = "HARV",
+  startdate = "2022-01",
+  enddate = NA,
+  timeIndex = 30,
+  package = "basic",
+  include.provisional = TRUE,
+  check.size = FALSE
+)
+
+# ============================================================
+# STEP 2: Load Sensor Depths
+# ============================================================
+
+message("Loading sensor depths...")
+
+swc_depths <- read.csv(DEPTHS_PATH)
+
+harv_depths <- swc_depths %>%
+  filter(siteID == "HARV") %>%
+  filter(is.na(endDateTime) | endDateTime == "NA") %>%
+  mutate(
+    horizontalPosition = sprintf("%03d", as.numeric(gsub("^0+", "", horizontalPosition.HOR))),
+    verticalPosition = sprintf("%03d", as.numeric(gsub("^0+", "", verticalPosition.VER)))
+  ) %>%
+  select(siteID, horizontalPosition, verticalPosition, sensorDepth)
+
+harv_depths$HOR.VER <- paste(harv_depths$horizontalPosition, 
+                             harv_depths$verticalPosition, 
+                             sep = ".")
+
+# ============================================================
+# STEP 3: Prepare and Merge Data
+# ============================================================
+
+message("Merging data with depths...")
+
+sws30 <- swc$SWS_30_minute
+
+sws30$HOR.VER <- paste(sws30$horizontalPosition, 
+                       sws30$verticalPosition, 
+                       sep = ".")
+
+sws_merged <- merge(sws30, harv_depths[, c("HOR.VER", "sensorDepth")],
+                    by = "HOR.VER", all.x = TRUE)
+
+sws_merged$depth_cm <- abs(sws_merged$sensorDepth) * 100
+
+# Remove rows with missing depth or soil water content
+sws_clean <- sws_merged %>%
+  filter(!is.na(sensorDepth) & !is.na(VSWCMean))
+
+# ============================================================
+# STEP 4: Quality Filtering
+# ============================================================
+
+message("Applying quality filters...")
+
+sws_qc <- sws_clean %>%
+  filter(VSWCFinalQF == 0)
+
+# ============================================================
+# STEP 5: Create Depth Groups
+# ============================================================
+
+# Three depth groups: shallow, mid, deep
+sws_qc <- sws_qc %>%
+  mutate(
+    depth_group = cut(
+      depth_cm,
+      breaks = c(0, 15, 35, 70),
+      labels = c("shallow", "mid", "deep"),
+      include.lowest = TRUE
+    ),
+    datetime = as.POSIXct(endDateTime, tz = "UTC"),
+    date = as.Date(datetime)
+  )
+
+message("Depth group summary:")
+print(
+  sws_qc %>%
+    group_by(depth_group) %>%
+    summarise(
+      n_sensors = n_distinct(HOR.VER),
+      mean_depth_cm = mean(depth_cm),
+      n_obs = n(),
+      .groups = "drop"
+    )
+)
+
+# ============================================================
+# STEP 6: Baseline-Adjusted Averaging by Depth Group
+# ============================================================
+
+message("Computing baseline-adjusted means...")
+
+# Per-sensor baseline (median during baseline period)
+sensor_baselines <- sws_qc %>%
+  filter(date >= BASELINE_START & date <= BASELINE_END) %>%
+  group_by(HOR.VER, depth_group) %>%
+  summarise(
+    b_s = median(VSWCMean, na.rm = TRUE),
+    n_base = n(),
+    .groups = "drop"
+  ) %>%
+  filter(!is.na(b_s))
+
+# Grand baseline per depth group
+grand_baselines <- sensor_baselines %>%
+  group_by(depth_group) %>%
+  summarise(
+    b_bar = mean(b_s, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Join baselines and compute anomalies
+sws_adj <- sws_qc %>%
+  inner_join(sensor_baselines %>% select(HOR.VER, depth_group, b_s), 
+             by = c("HOR.VER", "depth_group")) %>%
+  mutate(anom = VSWCMean - b_s)
+
+# ============================================================
+# STEP 7: Aggregate to Hourly by Depth Group
+# ============================================================
+
+message("Aggregating to hourly...")
+
+sws_hourly <- sws_adj %>%
+  mutate(datetime_hour = floor_date(datetime, "hour")) %>%
+  group_by(datetime_hour, depth_group) %>%
+  summarise(
+    mean_anom = mean(anom, na.rm = TRUE),
+    n_sensors = n_distinct(HOR.VER),
+    .groups = "drop"
+  ) %>%
+  left_join(grand_baselines, by = "depth_group") %>%
+  mutate(swc_adj = mean_anom + b_bar) %>%
+  select(datetime_hour, depth_group, swc_adj, n_sensors) %>%
+  rename(datetime = datetime_hour)
+
+# Pivot to wide format
+sws_wide <- sws_hourly %>%
+  select(datetime, depth_group, swc_adj) %>%
+  pivot_wider(
+    names_from = depth_group,
+    values_from = swc_adj,
+    names_prefix = "NEON_SWC_"
+  )
+
+# ============================================================
+# STEP 8: Save Output
+# ============================================================
+
+message("Saving output...")
+
+dir.create(dirname(OUTPUT_PATH), recursive = TRUE, showWarnings = FALSE)
+write_csv(sws_wide, OUTPUT_PATH)
+
+message("\n============================================================")
+message("NEON SWC PROCESSING COMPLETE")
+message("============================================================")
+message("Output saved to: ", OUTPUT_PATH)
+message("Date range: ", min(sws_wide$datetime), " to ", max(sws_wide$datetime))
+message("Rows: ", nrow(sws_wide))
+message("Columns: ", paste(names(sws_wide), collapse = ", "))
+
+
+# ============================================================
+# 06b_process_tower_swc_ts.R
+# Process AmeriFlux tower soil moisture (SWC) and temperature (TS)
+# Uses baseline-adjusted multi-sensor averaging
+# Output: data/processed/tower_swc_ts_hourly.csv
+# ============================================================
+
+library(tidyverse)
+library(lubridate)
+library(stringr)
+
+# ============================================================
+# CONFIGURATION
+# ============================================================
+
+# File paths - UPDATE THESE
+PATHS <- list(
+  Ha1 = "data/raw/ameriflux/AMF_US-Ha1_BASE-BADM_26-5/AMF_US-Ha1_BASE_HR_26-5.csv",
+  Ha2 = "data/raw/ameriflux/AMF_US-Ha2_BASE-BADM_15-5/AMF_US-Ha2_BASE_HH_15-5.csv",
+  xHA = "data/raw/ameriflux/AMF_US-xHA_BASE-BADM_11-5/AMF_US-xHA_BASE_HH_11-5.csv"
+)
+
+OUTPUT_PATH <- "data/processed/tower_swc_ts_hourly.csv"
+
+# Analysis settings
+START_YEAR <- 2022
+END_YEAR <- 2026
+BASELINE_START <- "2024-01-01"
+BASELINE_END <- "2024-12-31"
+BASELINE_FUN <- median
+MIN_SENSORS <- 4  # Reduced from 8 to get more coverage
+OFFLINE_CODES <- c(-9999)
+INCLUDE_PI <- TRUE  # Include _PI columns (Ha2 has SWC_PI_*)
+
+# ============================================================
+# HELPER FUNCTIONS
+# ============================================================
+
+to_posix_af <- function(x) {
+  x_chr <- format(as.numeric(x), scientific = FALSE, trim = TRUE)
+  x_chr <- str_pad(x_chr, width = 12, side = "left", pad = "0")
+  ymd_hm(x_chr, tz = "UTC")
+}
+
+#' Extract long-form sensor data
+extract_sensor_long <- function(df, var_prefix = "SWC",
+                                start_year = 2022, end_year = 2026,
+                                offline_codes = c(-9999),
+                                include_pi = TRUE) {
+  
+  if (!("TIMESTAMP_START" %in% names(df))) {
+    stop("Expected column TIMESTAMP_START is missing.")
+  }
+  
+  # Match columns
+  pattern <- paste0("^", var_prefix, "($|_[0-9])")
+  var_cols <- names(df)[str_detect(names(df), pattern)]
+  
+  # Also match PI columns if requested
+  if (include_pi) {
+    pi_pattern <- paste0("^", var_prefix, "_PI")
+    pi_cols <- names(df)[str_detect(names(df), pi_pattern)]
+    var_cols <- union(var_cols, pi_cols)
+  }
+  
+  if (length(var_cols) == 0) {
+    message("    No ", var_prefix, " columns found")
+    return(NULL)
+  }
+  
+  message("    Found ", length(var_cols), " ", var_prefix, " columns")
+  
+  df %>%
+    mutate(datetime = to_posix_af(TIMESTAMP_START)) %>%
+    filter(year(datetime) >= start_year, year(datetime) <= end_year) %>%
+    select(datetime, all_of(var_cols)) %>%
+    mutate(across(all_of(var_cols), ~ replace(as.numeric(.x), as.numeric(.x) %in% offline_codes, NA_real_))) %>%
+    pivot_longer(all_of(var_cols), names_to = "sensor", values_to = "value") %>%
+    filter(!is.na(value)) %>%
+    arrange(datetime, sensor)
+}
+
+#' Compute baseline-adjusted mean
+baseline_adjusted_mean <- function(long_df,
+                                   baseline_start = "2024-01-01",
+                                   baseline_end = "2024-12-31",
+                                   baseline_fun = median,
+                                   min_sensors = 4) {
+  
+  if (is.null(long_df) || nrow(long_df) == 0) {
+    return(NULL)
+  }
+  
+  # Per-sensor baselines
+  base_tbl <- long_df %>%
+    filter(as.Date(datetime) >= as.Date(baseline_start),
+           as.Date(datetime) <= as.Date(baseline_end)) %>%
+    group_by(sensor) %>%
+    summarize(
+      b_s = baseline_fun(value, na.rm = TRUE),
+      n_base = n(),
+      .groups = "drop"
+    ) %>%
+    filter(!is.na(b_s))
+  
+  if (nrow(base_tbl) == 0) {
+    message("    No sensor baselines computed")
+    return(NULL)
+  }
+  
+  message("    ", nrow(base_tbl), " sensors with valid baselines")
+  
+  b_bar <- mean(base_tbl$b_s, na.rm = TRUE)
+  
+  # Compute standardized means
+  ts <- long_df %>%
+    inner_join(base_tbl %>% select(sensor, b_s), by = "sensor") %>%
+    mutate(anom = value - b_s) %>%
+    group_by(datetime) %>%
+    summarize(
+      mean_anom = mean(anom, na.rm = TRUE),
+      n_sensors = n_distinct(sensor),
+      mean_std = mean_anom + b_bar,
+      .groups = "drop"
+    ) %>%
+    filter(n_sensors >= min_sensors) %>%
+    arrange(datetime)
+  
+  message("    ", nrow(ts), " timestamps with >= ", min_sensors, " sensors")
+  
+  ts
+}
+
+# ============================================================
+# LOAD DATA
+# ============================================================
+
+message("Loading AmeriFlux tower data...")
+
+Ha1 <- read.csv(PATHS$Ha1, header = TRUE, skip = 2)
+Ha2 <- read.csv(PATHS$Ha2, header = TRUE, skip = 2)
+xHA <- read.csv(PATHS$xHA, header = TRUE, skip = 2)
+
+towers <- list(Ha1 = Ha1, Ha2 = Ha2, xHA = xHA)
+
+# ============================================================
+# PROCESS SWC FOR EACH TOWER
+# ============================================================
+
+message("\n--- Processing SWC ---")
+
+swc_results <- list()
+
+for (nm in names(towers)) {
+  message("\n  ", nm, ":")
+  
+  swc_long <- extract_sensor_long(
+    towers[[nm]], var_prefix = "SWC",
+    start_year = START_YEAR, end_year = END_YEAR,
+    offline_codes = OFFLINE_CODES, include_pi = INCLUDE_PI
+  )
+  
+  if (!is.null(swc_long) && nrow(swc_long) > 0) {
+    swc_adj <- baseline_adjusted_mean(
+      swc_long,
+      baseline_start = BASELINE_START,
+      baseline_end = BASELINE_END,
+      baseline_fun = BASELINE_FUN,
+      min_sensors = MIN_SENSORS
+    )
+    
+    if (!is.null(swc_adj) && nrow(swc_adj) > 0) {
+      swc_adj$tower <- nm
+      swc_results[[nm]] <- swc_adj
+    }
+  }
+}
+
+# ============================================================
+# PROCESS TS FOR EACH TOWER
+# ============================================================
+
+message("\n--- Processing TS ---")
+
+ts_results <- list()
+
+for (nm in names(towers)) {
+  message("\n  ", nm, ":")
+  
+  ts_long <- extract_sensor_long(
+    towers[[nm]], var_prefix = "TS",
+    start_year = START_YEAR, end_year = END_YEAR,
+    offline_codes = OFFLINE_CODES, include_pi = INCLUDE_PI
+  )
+  
+  if (!is.null(ts_long) && nrow(ts_long) > 0) {
+    ts_adj <- baseline_adjusted_mean(
+      ts_long,
+      baseline_start = BASELINE_START,
+      baseline_end = BASELINE_END,
+      baseline_fun = BASELINE_FUN,
+      min_sensors = MIN_SENSORS
+    )
+    
+    if (!is.null(ts_adj) && nrow(ts_adj) > 0) {
+      ts_adj$tower <- nm
+      ts_results[[nm]] <- ts_adj
+    }
+  }
+}
+
+# ============================================================
+# AGGREGATE TO HOURLY AND COMBINE
+# ============================================================
+
+message("\n--- Aggregating to hourly ---")
+
+# Combine SWC results
+if (length(swc_results) > 0) {
+  swc_combined <- bind_rows(swc_results) %>%
+    mutate(datetime_hour = floor_date(datetime, "hour")) %>%
+    group_by(tower, datetime_hour) %>%
+    summarize(SWC_adj = mean(mean_std, na.rm = TRUE), .groups = "drop") %>%
+    rename(datetime = datetime_hour) %>%
+    pivot_wider(names_from = tower, values_from = SWC_adj, names_prefix = "SWC_")
+} else {
+  swc_combined <- NULL
+}
+
+# Combine TS results
+if (length(ts_results) > 0) {
+  ts_combined <- bind_rows(ts_results) %>%
+    mutate(datetime_hour = floor_date(datetime, "hour")) %>%
+    group_by(tower, datetime_hour) %>%
+    summarize(TS_adj = mean(mean_std, na.rm = TRUE), .groups = "drop") %>%
+    rename(datetime = datetime_hour) %>%
+    pivot_wider(names_from = tower, values_from = TS_adj, names_prefix = "TS_")
+} else {
+  ts_combined <- NULL
+}
+
+# Merge SWC and TS
+if (!is.null(swc_combined) && !is.null(ts_combined)) {
+  output <- full_join(swc_combined, ts_combined, by = "datetime")
+} else if (!is.null(swc_combined)) {
+  output <- swc_combined
+} else if (!is.null(ts_combined)) {
+  output <- ts_combined
+} else {
+  stop("No data processed!")
+}
+
+output <- output %>% arrange(datetime)
+
+# ============================================================
+# SAVE OUTPUT
+# ============================================================
+
+message("\n--- Saving ---")
+
+dir.create(dirname(OUTPUT_PATH), recursive = TRUE, showWarnings = FALSE)
+write_csv(output, OUTPUT_PATH)
+
+message("\n============================================================")
+message("TOWER SWC/TS PROCESSING COMPLETE")
+message("============================================================")
+message("Output saved to: ", OUTPUT_PATH)
+message("Date range: ", min(output$datetime), " to ", max(output$datetime))
+message("Rows: ", nrow(output))
+message("Columns: ", paste(names(output), collapse = ", "))
+
+# Print coverage summary
+coverage <- output %>%
+  summarize(across(-datetime, ~ sum(!is.na(.x)) / n() * 100)) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "pct_coverage")
+
+message("\nCoverage:")
+print(coverage)
