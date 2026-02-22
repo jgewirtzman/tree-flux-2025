@@ -37,16 +37,12 @@ tree-flux-2025/
 │   │   ├── 03_ems_model_B.R          # Upland BGS-style drivers
 │   │   ├── 04_interaction_plots.R
 │   │   └── 05_compare_models.R
-│   ├── 04_publish/          # Data publication to EDI
-│   │   ├── 01_build_edi_package.R    # Build EML + zip package
-│   │   └── 02_upload_edi.R           # Upload to EDI repository
 │   └── helpers/             # Shared utilities
 │       └── find_ameriflux.R          # Version-agnostic AmeriFlux path lookup
 ├── data/                    # All data gitignored (see data/README.md)
 │   ├── raw/                 # Source data downloads
 │   ├── input/               # Study data (from EDI package)
-│   ├── processed/           # Script-generated intermediates
-│   └── edi/                 # EML templates + built package
+│   └── processed/           # Script-generated intermediates
 ├── outputs/                 # All gitignored
 │   ├── figures/
 │   ├── tables/

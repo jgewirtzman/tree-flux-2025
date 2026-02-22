@@ -1,9 +1,0 @@
-id	unitType	parentSI	multiplierToSI	description
-nanomolePerMeterSquaredPerSecond	arealAmountRate	molesPerMeterSquaredPerSecond	0.000000001	nanomoles per square meter per second
-micromolePerMeterSquaredPerSecond	arealAmountRate	molesPerMeterSquaredPerSecond	0.000001	micromoles per square meter per second
-cubicCentimeter	volume	cubicMeter	0.000001	cubic centimeters
-ohmMeter	resistivity	ohmMeter	1	ohm meters
-millibar	pressure	pascal	100	millibars
-squareCentimeter	area	squareMeter	0.0001	square centimeters
-micromolesPerSquareMeterPerSecond	arealAmountRate	molesPerMeterSquaredPerSecond	0.000001	micromoles per square meter per second
-partsPerMillion	dimensionless	dimensionless	0.000001	parts per million

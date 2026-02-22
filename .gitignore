@@ -54,6 +54,6 @@ DRAFT_*
 !data/README.md
 !**/README.md
 
-# Allow EDI metadata templates (but not built package)
-!data/edi/*.txt
-data/edi/package/
+# EDI data package (one-time build/upload, not needed in repo)
+data/edi/
+scripts/04_publish/

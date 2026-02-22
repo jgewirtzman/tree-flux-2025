@@ -1,7 +1,0 @@
-attributeName	code	definition
-Classification	hummock	Elevated microtopographic position within wetland
-Classification	hollow	Low-lying microtopographic position within wetland
-Classification	hollow/hummock	Intermediate or transitional microtopographic position
-Species	bg	Nyssa sylvatica (black gum)
-Species	rm	Acer rubrum (red maple)
-Species	hem	Tsuga canadensis (eastern hemlock)
