@@ -30,12 +30,14 @@ tree-flux-2025/
 │   │   ├── 05_combined_driver_timeseries.R
 │   │   ├── 06_filtering_snr.R        # QC visualization
 │   │   └── 07_tomography.R           # ERT/Sonic imaging + flux
-│   └── 03_modeling/         # Statistical models
-│       ├── 01_bgs_model.R            # Wetland mixed-effects model
-│       ├── 02_ems_model_A.R          # Upland instantaneous drivers
-│       ├── 03_ems_model_B.R          # Upland BGS-style drivers
-│       ├── 04_interaction_plots.R
-│       └── 05_compare_models.R
+│   ├── 03_modeling/         # Statistical models
+│   │   ├── 01_bgs_model.R            # Wetland mixed-effects model
+│   │   ├── 02_ems_model_A.R          # Upland instantaneous drivers
+│   │   ├── 03_ems_model_B.R          # Upland BGS-style drivers
+│   │   ├── 04_interaction_plots.R
+│   │   └── 05_compare_models.R
+│   └── helpers/             # Shared utilities
+│       └── find_ameriflux.R          # Version-agnostic AmeriFlux path lookup
 ├── data/                    # All data gitignored (see data/README.md)
 │   ├── raw/                 # Source data downloads
 │   ├── input/               # Curated input CSVs
@@ -44,6 +46,7 @@ tree-flux-2025/
 │   ├── figures/
 │   ├── tables/
 │   └── models/              # Saved .rds model objects
+├── archive/                 # Legacy scripts for reference
 ├── .gitignore
 ├── tree-flux-2025.Rproj
 └── README.md
@@ -85,11 +88,13 @@ All data files are gitignored. See `data/README.md` for sources and instructions
 
 ## Requirements
 
+All scripts assume the working directory is the project root (`tree-flux-2025/`).
+
 R packages:
 
 **Download:** `amerifluxr`, `phenocamr`, `plantecophys`, `neonUtilities`
 
-**Analysis:** `tidyverse`, `lubridate`, `lme4`, `emmeans`, `performance`, `patchwork`, `zoo`, `ggtext`, `scales`, `magick`, `ggpointdensity`, `viridis`
+**Analysis:** `tidyverse`, `lubridate`, `lme4`, `emmeans`, `performance`, `patchwork`, `zoo`, `RcppRoll`, `ggtext`, `scales`, `magick`, `ggpointdensity`, `viridis`, `car`, `cowplot`, `pheatmap`
 
 ## Sites
 
