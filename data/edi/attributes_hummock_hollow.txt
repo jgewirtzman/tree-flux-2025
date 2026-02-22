@@ -1,0 +1,4 @@
+attributeName	attributeDefinition	class	unit	dateTimeFormatString	missingValueCode	missingValueCodeExplanation
+Tag	Tree identifier (ForestGEO tag number)	character			NA	Missing identifier
+Classification	Microtopography classification of tree location within wetland	categorical			NA	Missing classification
+Species	Species code (bg = N. sylvatica, rm = A. rubrum, hem = T. canadensis)	categorical			NA	Missing species

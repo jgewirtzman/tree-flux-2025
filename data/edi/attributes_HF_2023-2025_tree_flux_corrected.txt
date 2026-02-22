@@ -1,0 +1,39 @@
+attributeName	attributeDefinition	class	unit	dateTimeFormatString	missingValueCode	missingValueCodeExplanation
+...1	Row index	character			NA	Not applicable
+airt	Air temperature at time of measurement from Fisher Meteorological Station	numeric	celsius		NA	Missing measurement
+rh	Relative humidity at time of measurement from Fisher Meteorological Station	numeric	dimensionless		NA	Missing measurement
+parr	Photosynthetically active radiation at time of measurement	numeric	micromolesPerSquareMeterPerSecond		NA	Missing measurement
+bar	Barometric pressure at time of measurement from Fisher Meteorological Station	numeric	millibar		NA	Missing measurement
+datetime_posx	Date and time of measurement in UTC	Date		YYYY-MM-DDThh:mm:ssZ	NA	Missing timestamp
+Tree	Unique tree identifier (ForestGEO tag number)	character			NA	Missing identifier
+DATE	Date of measurement	character			NA	Missing date
+H2O	Water vapor concentration during measurement	numeric	partsPerMillion		NA	Not measured
+CO2	Carbon dioxide concentration during measurement	numeric	partsPerMillion		NA	Not measured
+CH4	Methane concentration during measurement	numeric	partsPerMillion		NA	Not measured
+ERROR	Error flag for measurement quality	character			NA	No error
+ERROR_comment	Description of measurement error	character			NA	No error
+REMARK_LENGTH	Duration or length remark for measurement	character			NA	No remark
+PLOT	Study site identifier (BGS = wetland, EMS = upland)	categorical			NA	Missing site
+SPECIES	Species code (bg = N. sylvatica, rm = A. rubrum, hem = T. canadensis, ro = Q. rubra)	categorical			NA	Missing species
+DBH	Diameter at breast height	numeric	centimeter		NA	Missing measurement
+OLD_TAG	Previous tag number if tree was retagged	character			NA	No previous tag
+MEAN_DEPTH	Mean collar depth measured at four interior locations	numeric	centimeter		NA	Missing measurement
+vol_system	Total volume of closed measurement system	numeric	cubicCentimeter		NA	Missing measurement
+nmol	Total moles of gas in closed system calculated via ideal gas law	numeric	mole		NA	Missing measurement
+surfarea	Bark surface area enclosed by collar	numeric	squareCentimeter		NA	Missing measurement
+CO2_r2	R-squared of linear regression of CO2 concentration vs time	numeric	dimensionless		NA	Missing value
+CH4_r2	R-squared of linear regression of CH4 concentration vs time	numeric	dimensionless		NA	Missing value
+CO2_SE	Standard error of CO2 flux slope	numeric	dimensionless		NA	Missing value
+CH4_SE	Standard error of CH4 flux slope	numeric	dimensionless		NA	Missing value
+CO2_flux_umolpm2ps	CO2 flux rate	numeric	micromolePerMeterSquaredPerSecond		NA	Missing value
+CH4_flux_nmolpm2ps	CH4 flux rate	numeric	nanomolePerMeterSquaredPerSecond		NA	Missing value
+year	Year of measurement	numeric	nominalYear		NA	Missing value
+jday	Julian day of measurement	numeric	nominalDay		NA	Missing value
+UniqueID	Unique measurement identifier combining tree and date	character			NA	Missing identifier
+qa_check	Quality assurance classification	categorical			NA	Missing QA
+date	Date of measurement	Date		YYYY-MM-DD	NA	Missing date
+location	Site classification (Wetland or Upland)	categorical			NA	Missing location
+days_since_last	Days since previous measurement of this tree	numeric	nominalDay		NA	First measurement
+new_round	Whether this measurement starts a new sampling round	categorical			NA	Missing value
+sampling_round	Sequential sampling round number	numeric	number		NA	Missing value
+species_label	Formatted species label for plotting	character			NA	Missing label

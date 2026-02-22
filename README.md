@@ -10,6 +10,7 @@ This project analyzes tree stem methane (CH4) emissions in upland and wetland fo
 tree-flux-2025/
 ├── scripts/
 │   ├── 00_download/         # Programmatic data downloads
+│   │   ├── 00_download_edi.R          # Study data from EDI → data/input/
 │   │   ├── 01_download_ameriflux.R    # AmeriFlux towers (Ha1, Ha2, xHA)
 │   │   ├── 02_download_phenocam.R     # PhenoCam GCC/NDVI
 │   │   └── 03_download_hf_met_hydro.R # Fisher Met + water table → wtd_met.csv
@@ -36,12 +37,16 @@ tree-flux-2025/
 │   │   ├── 03_ems_model_B.R          # Upland BGS-style drivers
 │   │   ├── 04_interaction_plots.R
 │   │   └── 05_compare_models.R
+│   ├── 04_publish/          # Data publication to EDI
+│   │   ├── 01_build_edi_package.R    # Build EML + zip package
+│   │   └── 02_upload_edi.R           # Upload to EDI repository
 │   └── helpers/             # Shared utilities
 │       └── find_ameriflux.R          # Version-agnostic AmeriFlux path lookup
 ├── data/                    # All data gitignored (see data/README.md)
 │   ├── raw/                 # Source data downloads
-│   ├── input/               # Curated input CSVs
-│   └── processed/           # Script-generated intermediates
+│   ├── input/               # Study data (from EDI package)
+│   ├── processed/           # Script-generated intermediates
+│   └── edi/                 # EML templates + built package
 ├── outputs/                 # All gitignored
 │   ├── figures/
 │   ├── tables/
@@ -57,17 +62,16 @@ tree-flux-2025/
 Scripts are numbered to indicate execution order. Run them sequentially within each phase:
 
 ### Phase 0: Data Download (`scripts/00_download/`)
-Programmatically downloads all external data sources. Most environmental data can be reproduced from scratch using these scripts:
+Programmatically downloads all data sources. Run in order:
 
 | Script | Source | Requires |
 |--------|--------|----------|
-| `01_download_ameriflux.R` | AmeriFlux (Ha1, Ha2, xHA) | `amerifluxr` + free account ([register here](https://ameriflux-data.lbl.gov/Pages/RequestAccount.aspx)) |
+| `00_download_edi.R` | Study data (flux, tomography) from [EDI](https://portal.edirepository.org/) | `EDIutils` |
+| `01_download_ameriflux.R` | AmeriFlux towers (Ha1, Ha2, xHA) | `amerifluxr` + free account ([register here](https://ameriflux-data.lbl.gov/Pages/RequestAccount.aspx)) |
 | `02_download_phenocam.R` | PhenoCam (harvardems2) | `phenocamr` |
 | `03_download_hf_met_hydro.R` | Harvard Forest LTER (Fisher Met + hydro) | `plantecophys` (downloads from [EDI/PASTA](https://pasta.lternet.edu/)) |
 
 NEON data is downloaded directly within the import scripts (`04_neon_download.R`, `05_neon_moisture.R`, `06_preprocess_soil_moisture.R`) via `neonUtilities::loadByProduct()`.
-
-**Note:** Tree flux data (`data/input/HF_2023-2025_tree_flux.csv`) is not publicly downloadable -- it will be deposited in a data repository upon publication.
 
 ### Phase 1: Data Import (`scripts/01_import/`)
 Preprocesses raw downloads and aligns everything into a single hourly dataset. The final script (`08_align.R`) produces `data/processed/aligned_hourly_dataset.csv`.
@@ -92,7 +96,7 @@ All scripts assume the working directory is the project root (`tree-flux-2025/`)
 
 R packages:
 
-**Download:** `amerifluxr`, `phenocamr`, `plantecophys`, `neonUtilities`
+**Download:** `EDIutils`, `amerifluxr`, `phenocamr`, `plantecophys`, `neonUtilities`
 
 **Analysis:** `tidyverse`, `lubridate`, `lme4`, `emmeans`, `performance`, `patchwork`, `zoo`, `RcppRoll`, `ggtext`, `scales`, `magick`, `ggpointdensity`, `viridis`, `car`, `cowplot`, `pheatmap`
 
