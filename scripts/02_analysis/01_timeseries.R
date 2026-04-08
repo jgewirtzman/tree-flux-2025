@@ -82,21 +82,19 @@ asinh_trans <- function() {
   )
 }
 
+# Add MDF detection status for shape mapping
+fluxes <- fluxes %>%
+  mutate(mdf_status = ifelse(CH4_below_MDF == TRUE, "Below MDF", "Above MDF"),
+         mdf_status = factor(mdf_status, levels = c("Above MDF", "Below MDF")))
+
 p <- ggplot() +
   geom_hline(yintercept = 0, linewidth = 0.4, color = "gray40") +
-  # Above MDF: filled points (species color)
   geom_point(
-    data = fluxes %>% filter(!CH4_below_MDF %in% TRUE),
-    aes(x = date, y = CH4_flux_nmolpm2ps, color = species_label),
-    position = position_jitter(width = 2, height = 0, seed = 42),
-    size = 1.5, alpha = 0.4, shape = 16
-  ) +
-  # Below MDF: open points (species color border only)
-  geom_point(
-    data = fluxes %>% filter(CH4_below_MDF == TRUE),
-    aes(x = date, y = CH4_flux_nmolpm2ps, color = species_label),
-    position = position_jitter(width = 2, height = 0, seed = 43),
-    size = 1.5, alpha = 0.35, shape = 1, stroke = 0.4
+    data = fluxes,
+    aes(x = date, y = CH4_flux_nmolpm2ps, color = species_label,
+        shape = mdf_status),
+    position = position_jitter(width = 2, height = 0),
+    size = 1.5, alpha = 0.4, stroke = 0.4
   ) +
   geom_line(
     data = round_means,
@@ -108,6 +106,7 @@ p <- ggplot() +
     aes(x = date, y = mean_CH4, fill = species_label),
     size = 2.5, shape = 21, color = "gray30", stroke = 0.3
   ) +
+  scale_shape_manual(values = c("Above MDF" = 16, "Below MDF" = 1), name = NULL) +
   scale_y_continuous(
     trans = asinh_trans(),
     breaks = c(-1, 0, 1, 2, 5, 10, 20, 50, 100)
@@ -121,11 +120,11 @@ p <- ggplot() +
     x = NULL,
     y = expression(CH[4]~flux~(nmol~m^{-2}~s^{-1})),
     fill = NULL,
-    color = NULL,
-    caption = expression("Filled = above MDF"~";"~"Open = below MDF (Wassmann 95%)")
+    color = NULL
   ) +
   guides(fill = guide_legend(override.aes = list(size = 3)),
-         color = "none") +
+         color = "none",
+         shape = guide_legend(override.aes = list(size = 2.5, alpha = 0.8, color = "gray30"))) +
   theme_classic(base_size = 12) +
   theme(
     strip.background = element_blank(),
