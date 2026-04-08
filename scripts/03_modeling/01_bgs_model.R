@@ -1579,7 +1579,7 @@ fixef_summary <- fixef_summary %>%
     ci_upper = Estimate + 1.96 * `Std. Error`,
     p_value = 2 * (1 - pt(abs(`t value`), df = nrow(model_data_scaled) - length(fixef(m_final))))
   ) %>%
-  dplyr:: dplyr::select(term, Estimate, `Std. Error`, ci_lower, ci_upper, `t value`, p_value)
+  dplyr::select(term, Estimate, `Std. Error`, ci_lower, ci_upper, `t value`, p_value)
 print(fixef_summary, digits = 3)
 
 # Variance components

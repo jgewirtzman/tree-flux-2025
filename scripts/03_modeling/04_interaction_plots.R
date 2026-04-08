@@ -552,9 +552,11 @@ cat(sprintf("  Wetland (BGS): R² = %.1f%%\n", r2_bgs * 100))
 cat(sprintf("  Upland (EMS):  R² = %.1f%%\n", r2_ems * 100))
 
 cat("\nPrediction ranges (nmol m⁻² s⁻¹):\n")
-cat(sprintf("  Wetland: %.2f to %.2f\n", 
+pred_bgs_avg <- pred_combined_full %>% filter(site == "Wetland")
+pred_ems_avg <- pred_combined_full %>% filter(site == "Upland")
+cat(sprintf("  Wetland: %.2f to %.2f\n",
             min(pred_bgs_avg$fit_nmol), max(pred_bgs_avg$fit_nmol)))
-cat(sprintf("  Upland:  %.2f to %.2f\n", 
+cat(sprintf("  Upland:  %.2f to %.2f\n",
             min(pred_ems_avg$fit_nmol), max(pred_ems_avg$fit_nmol)))
 
 cat("\n══════════════════════════════════════════════════════════════\n")

@@ -13,8 +13,8 @@ data/processed/
 outputs/
 
 
-# Nested working folder (legacy, will be removed)
-tree-flux-2025/
+# Archived legacy working folder
+archive/tree-flux-2025-nested/
 
 # Large/binary files
 *.csv
