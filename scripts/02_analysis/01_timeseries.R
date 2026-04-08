@@ -84,17 +84,19 @@ asinh_trans <- function() {
 
 p <- ggplot() +
   geom_hline(yintercept = 0, linewidth = 0.4, color = "gray40") +
+  # Above MDF: filled points (species color)
   geom_point(
-    data = fluxes,
-    aes(x = date, y = CH4_flux_nmolpm2ps, fill = species_label,
-        shape = ifelse(CH4_below_MDF == TRUE, "Below MDF", "Above MDF")),
-    position = position_jitter(width = 2, height = 0),
-    size = 1.5, alpha = 0.4, color = "gray30", stroke = 0.2
+    data = fluxes %>% filter(!CH4_below_MDF %in% TRUE),
+    aes(x = date, y = CH4_flux_nmolpm2ps, color = species_label),
+    position = position_jitter(width = 2, height = 0, seed = 42),
+    size = 1.5, alpha = 0.4, shape = 16
   ) +
-  scale_shape_manual(
-    values = c("Above MDF" = 21, "Below MDF" = 1),
-    name = NULL,
-    guide = guide_legend(override.aes = list(alpha = 0.8, size = 2))
+  # Below MDF: open points (species color border only)
+  geom_point(
+    data = fluxes %>% filter(CH4_below_MDF == TRUE),
+    aes(x = date, y = CH4_flux_nmolpm2ps, color = species_label),
+    position = position_jitter(width = 2, height = 0, seed = 43),
+    size = 1.5, alpha = 0.35, shape = 1, stroke = 0.4
   ) +
   geom_line(
     data = round_means,
@@ -119,9 +121,11 @@ p <- ggplot() +
     x = NULL,
     y = expression(CH[4]~flux~(nmol~m^{-2}~s^{-1})),
     fill = NULL,
-    color = NULL
+    color = NULL,
+    caption = expression("Filled = above MDF"~";"~"Open = below MDF (Wassmann 95%)")
   ) +
-  guides(color = "none") +
+  guides(fill = guide_legend(override.aes = list(size = 3)),
+         color = "none") +
   theme_classic(base_size = 12) +
   theme(
     strip.background = element_blank(),
