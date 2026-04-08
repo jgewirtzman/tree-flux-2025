@@ -99,31 +99,42 @@ flux_stats(df$CH4_flux_nmolpm2ps[df$year == 2025], "LI-7810 (2025)")
 # ============================================================
 
 cat("\n", strrep("-", 60), "\n")
-cat("  SIGN ANALYSIS\n")
+cat("  SIGN ANALYSIS (among measurements above Wassmann 95% MDF)\n")
 cat(strrep("-", 60), "\n\n")
 
-sign_summary <- df %>%
+# Only classify sign for measurements above the detection limit
+df_detected <- df %>%
+  filter(CH4_below_MDF_wass95 == FALSE)
+
+sign_summary <- df_detected %>%
   mutate(inst = ifelse(year < 2025, "LGR/UGGA", "LI-7810")) %>%
   group_by(inst) %>%
   summarise(
-    n = n(),
+    n_detected = n(),
     n_positive = sum(CH4_flux_nmolpm2ps > 0, na.rm = TRUE),
-    n_zero     = sum(CH4_flux_nmolpm2ps == 0, na.rm = TRUE),
     n_negative = sum(CH4_flux_nmolpm2ps < 0, na.rm = TRUE),
-    pct_negative = round(100 * n_negative / n, 1),
+    pct_negative = round(100 * n_negative / n_detected, 1),
     .groups = "drop"
   )
 
-# Overall
-n_neg <- sum(df$CH4_flux_nmolpm2ps < 0, na.rm = TRUE)
-cat(sprintf("Overall: %d/%d negative (%.1f%%)\n\n", n_neg, n_total,
-            100 * n_neg / n_total))
+n_detected_total <- nrow(df_detected)
+n_neg <- sum(df_detected$CH4_flux_nmolpm2ps < 0, na.rm = TRUE)
+n_below_mdf <- sum(df$CH4_below_MDF_wass95 == TRUE, na.rm = TRUE)
 
-cat("By instrument:\n")
+cat(sprintf("Total measurements:   %d\n", n_total))
+cat(sprintf("Below Wass95 MDF:     %d (%.1f%%) — sign not meaningful\n",
+            n_below_mdf, 100 * n_below_mdf / n_total))
+cat(sprintf("Above Wass95 MDF:     %d (%.1f%%)\n\n",
+            n_detected_total, 100 * n_detected_total / n_total))
+
+cat(sprintf("Among detected: %d/%d negative (%.1f%%)\n\n",
+            n_neg, n_detected_total, 100 * n_neg / n_detected_total))
+
+cat("By instrument (detected only):\n")
 for (i in seq_len(nrow(sign_summary))) {
-  cat(sprintf("  %-15s %d/%d negative (%.1f%%)\n",
-              sign_summary$inst[i], sign_summary$n_negative[i],
-              sign_summary$n[i], sign_summary$pct_negative[i]))
+  cat(sprintf("  %-15s %d detected, %d negative (%.1f%%)\n",
+              sign_summary$inst[i], sign_summary$n_detected[i],
+              sign_summary$n_negative[i], sign_summary$pct_negative[i]))
 }
 
 # ============================================================
@@ -321,18 +332,23 @@ flux_by_group <- df %>%
     mean_ch4   = round(mean(CH4_flux_nmolpm2ps, na.rm = TRUE), 3),
     median_ch4 = round(median(CH4_flux_nmolpm2ps, na.rm = TRUE), 3),
     sd_ch4     = round(sd(CH4_flux_nmolpm2ps, na.rm = TRUE), 3),
-    pct_neg    = round(100 * mean(CH4_flux_nmolpm2ps < 0, na.rm = TRUE), 1),
     pct_below_wass95 = round(100 * mean(CH4_below_MDF_wass95 == TRUE, na.rm = TRUE), 1),
+    n_detected = sum(CH4_below_MDF_wass95 == FALSE, na.rm = TRUE),
+    n_neg_detected = sum(CH4_flux_nmolpm2ps < 0 & CH4_below_MDF_wass95 == FALSE, na.rm = TRUE),
+    pct_neg_detected = ifelse(n_detected > 0,
+                              round(100 * n_neg_detected / n_detected, 1), NA),
     .groups = "drop"
   ) %>%
   arrange(location, SPECIES)
 
 for (i in seq_len(nrow(flux_by_group))) {
-  cat(sprintf("  %-5s %-8s  n=%d  mean=%.3f  median=%.3f  SD=%.3f  neg=%.1f%%  <Wass95=%.1f%%\n",
+  neg_str <- ifelse(is.na(flux_by_group$pct_neg_detected[i]), "n/a",
+                    sprintf("%.1f%%", flux_by_group$pct_neg_detected[i]))
+  cat(sprintf("  %-5s %-8s  n=%d  mean=%.3f  median=%.3f  SD=%.3f  <Wass95=%.1f%%  neg(detected)=%s\n",
               flux_by_group$SPECIES[i], flux_by_group$location[i],
               flux_by_group$n[i], flux_by_group$mean_ch4[i],
               flux_by_group$median_ch4[i], flux_by_group$sd_ch4[i],
-              flux_by_group$pct_neg[i], flux_by_group$pct_below_wass95[i]))
+              flux_by_group$pct_below_wass95[i], neg_str))
 }
 
 # ============================================================
@@ -343,15 +359,20 @@ for (i in seq_len(nrow(flux_by_group))) {
 overall <- data.frame(
   metric = c("Total measurements", "LGR/UGGA (2023-24)", "LI-7810 (2025)",
              "CH4 mean (nmol/m2/s)", "CH4 median", "CH4 SD",
-             "% negative (overall)", "% negative (LGR)", "% negative (LI-7810)",
+             "Below Wass95 MDF", "Above Wass95 MDF (detected)",
+             "% negative (among detected)", "% negative (detected, LGR)",
+             "% negative (detected, LI-7810)",
              "Allan deviation coverage"),
   value = c(n_total, n_lgr, n_7810,
             round(mean(df$CH4_flux_nmolpm2ps, na.rm = TRUE), 3),
             round(median(df$CH4_flux_nmolpm2ps, na.rm = TRUE), 3),
             round(sd(df$CH4_flux_nmolpm2ps, na.rm = TRUE), 3),
-            round(100 * n_neg / n_total, 1),
-            round(100 * sum(df$CH4_flux_nmolpm2ps[df$year < 2025] < 0) / n_lgr, 1),
-            round(100 * sum(df$CH4_flux_nmolpm2ps[df$year == 2025] < 0) / n_7810, 1),
+            n_below_mdf, n_detected_total,
+            round(100 * n_neg / n_detected_total, 1),
+            round(100 * sum(df_detected$CH4_flux_nmolpm2ps[df_detected$year < 2025] < 0) /
+                    sum(df_detected$year < 2025), 1),
+            round(100 * sum(df_detected$CH4_flux_nmolpm2ps[df_detected$year == 2025] < 0) /
+                    sum(df_detected$year == 2025), 1),
             round(100 * n_with_allan / n_total, 1)),
   stringsAsFactors = FALSE
 )
