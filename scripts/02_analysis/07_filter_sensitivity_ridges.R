@@ -5,12 +5,12 @@
 # MDF-based thresholds (manufacturer, Wassmann, Christiansen),
 # empirical SNR (Allan deviation), SE-based SNR, and R^2 filters.
 #
-# Computes per-measurement Allan deviation from raw 1-Hz timeseries
-# for BOTH instruments:
-#   - 2025 LI-7810: pre-segmented CSVs in 7810_Processed/Tree_Fluxes/
-#   - 2023-24 LGR/UGGA: continuous recordings segmented by field log timestamps
+# Loads pre-computed quality flags from 09_quality_flags.R
+# (scripts/01_import/09_quality_flags.R must be run first).
 #
-# Chamber geometry from tree_volumes.csv (actual measured dimensions)
+# Two instruments:
+#   - 2025 LI-7810
+#   - 2023-24 LGR/UGGA
 # ============================================================
 
 library(dplyr)
@@ -20,44 +20,48 @@ library(tidyr)
 library(scales)
 
 # ============================================================
-# CONSTANTS
+# CONSTANTS (for reference lines in plots)
 # ============================================================
 
-SURFAREA_M2    <- pi * 0.0508^2       # m^2, collar radius = 5.08 cm
-R_hPa_L       <- 83.14472            # hPa*L/(mol*K)
-EXTRA_TUBE_VOL <- 0.028              # L, connecting tubing not in tree_volumes.csv
-
-# Manufacturer precision (1-sigma, 1 sec)
-PREC_CH4_LGR   <- 0.9    # ppb, GLA131 (UGGA)
+PREC_CH4_LGR   <- 0.9    # ppb, GLA131 (UGGA) manufacturer spec
 PREC_CO2_LGR   <- 0.35   # ppm, GLA131
-PREC_CH4_7810  <- 0.6    # ppb, LI-7810
+PREC_CH4_7810  <- 0.6    # ppb, LI-7810 manufacturer spec
 PREC_CO2_7810  <- 3.5    # ppm, LI-7810
 
-# Allan deviation function
-allan_sd <- function(x) {
-  x <- x[!is.na(x)]
-  diffs <- diff(x)
-  if (length(diffs) < 2) return(NA_real_)
-  sd(diffs) / sqrt(2)
+# ============================================================
+# LOAD PRE-COMPUTED QUALITY FLAGS
+# (from scripts/01_import/09_quality_flags.R)
+# ============================================================
+
+flagged_path <- file.path("data", "processed", "flux_with_quality_flags.csv")
+if (!file.exists(flagged_path)) {
+  stop("flux_with_quality_flags.csv not found. Run scripts/01_import/09_quality_flags.R first.")
 }
 
-# ============================================================
-# PART 1: LOAD CORRECTED FLUX DATA
-# ============================================================
+df <- read.csv(flagged_path, stringsAsFactors = FALSE)
+n_total <- nrow(df)
+message("Loaded pre-computed quality flags: ", n_total, " measurements")
+message("  2023-24 (LGR/UGGA): ", sum(df$year < 2025),
+        " | 2025 (LI-7810): ", sum(df$year == 2025))
 
-fluxes <- read.csv(file.path("data", "input",
-                              "HF_2023-2025_tree_flux_corrected.csv"),
-                   stringsAsFactors = FALSE)
-message("Loaded corrected flux file: ", nrow(fluxes), " rows")
+# Reconstruct per-instrument Allan deviation summaries for plotting
+allan_df_lgr <- df %>%
+  filter(year < 2025, !is.na(allan_sd_CH4)) %>%
+  select(allan_sd_CO2, allan_sd_CH4)
+allan_df_7810 <- df %>%
+  filter(year == 2025, !is.na(allan_sd_CH4)) %>%
+  select(allan_sd_CO2, allan_sd_CH4)
 
-df <- fluxes %>%
-  filter(
-    !is.na(year),
-    !is.na(CO2_flux_umolpm2ps), !is.na(CO2_r2), !is.na(CO2_SE),
-    !is.na(CH4_flux_nmolpm2ps), !is.na(CH4_r2), !is.na(CH4_SE)
-  ) %>%
+# NOTE: Parts 1-7 (Allan deviation, chamber geometry, field log parsing, MDF
+# computation) have been moved to scripts/01_import/09_quality_flags.R.
+# The code below was formerly Part 8+.
+
+# DEAD CODE MARKER — everything between here and Part 8 is skipped
+if (FALSE) {
+# Preserved for git history reference only
+fluxes_UNUSED <- data.frame()
+df_UNUSED <- fluxes_UNUSED %>%
   mutate(
-    # Pre-2025 CH4_SE needs x1000 correction (flux already corrected in file)
     CH4_SE_corr = if_else(year < 2025, CH4_SE * 1000, CH4_SE),
     # SE-based SNR
     CO2_snr_se = abs(CO2_flux_umolpm2ps) / CO2_SE,
@@ -785,9 +789,10 @@ report_mdf("CH4_below_MDF_wass99", "Wassmann 99%")
 report_mdf("CH4_below_MDF_chr90", "Christiansen 90%")
 report_mdf("CH4_below_MDF_chr95", "Christiansen 95%")
 report_mdf("CH4_below_MDF_chr99", "Christiansen 99%")
+} # end if (FALSE) — dead code from old Parts 1-7
 
 # ============================================================
-# PART 8: DEFINE ALL QUALITY FILTERS
+# DEFINE ALL QUALITY FILTERS
 # ============================================================
 
 r2_sym <- "\u00B2"

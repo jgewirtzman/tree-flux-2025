@@ -26,7 +26,7 @@ suppressPackageStartupMessages({
 # ============================================================
 
 PATHS <- list(
-  flux = "data/input/HF_2023-2025_tree_flux_corrected.csv",
+  flux = "data/processed/flux_with_quality_flags.csv",
   aligned = "data/processed/aligned_hourly_dataset.csv"
 )
 
@@ -43,8 +43,7 @@ fluxes <- read_csv(PATHS$flux, show_col_types = FALSE) %>%
   group_by(Tree) %>%
   mutate(SPECIES = ifelse(is.na(SPECIES), first(na.omit(SPECIES)), SPECIES)) %>%
   ungroup() %>%
-  filter(CH4_flux_nmolpm2ps >= -1,
-         !is.na(PLOT)) %>%
+  filter(!is.na(PLOT)) %>%
   mutate(
     date = as.Date(datetime_posx),
     location = factor(

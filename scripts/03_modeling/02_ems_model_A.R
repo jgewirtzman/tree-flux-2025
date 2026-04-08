@@ -24,7 +24,7 @@ set.seed(42)
 
 PATHS <- list(
   aligned   = "data/processed/aligned_hourly_dataset.csv",
-  flux      = "data/input/HF_2023-2025_tree_flux_corrected.csv",
+  flux      = "data/processed/flux_with_quality_flags.csv",
   best_windows = "outputs/figures/rolling_correlations/best_windows_by_variable.csv"
 )
 

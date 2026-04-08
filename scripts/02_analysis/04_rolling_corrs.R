@@ -29,7 +29,7 @@ suppressPackageStartupMessages({
 # ============================================================
 
 PATHS <- list(
-  stem_flux = "data/input/HF_2023-2025_tree_flux_corrected.csv",
+  stem_flux = "data/processed/flux_with_quality_flags.csv",
   aligned   = "data/processed/aligned_hourly_dataset.csv"
 )
 

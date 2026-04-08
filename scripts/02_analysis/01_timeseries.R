@@ -9,7 +9,7 @@ library(tidyverse)
 # ============================================================
 
 PATHS <- list(
-  flux = "data/input/HF_2023-2025_tree_flux_corrected.csv"
+  flux = "data/processed/flux_with_quality_flags.csv"
 )
 
 OUTPUT_DIR <- "outputs/figures"
@@ -20,11 +20,10 @@ dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
 # ============================================================
 
 fluxes <- read_csv(PATHS$flux, show_col_types = FALSE) %>%
-  mutate(CH4_flux_nmolpm2ps = ifelse(year < 2025, CH4_flux_nmolpm2ps * 1000, CH4_flux_nmolpm2ps)) %>%
   group_by(Tree) %>%
   mutate(SPECIES = ifelse(is.na(SPECIES), first(na.omit(SPECIES)), SPECIES)) %>%
   ungroup() %>%
-  filter(CH4_flux_nmolpm2ps >= -1, !is.na(PLOT)) %>%
+  filter(!is.na(PLOT)) %>%
   mutate(
     date = as.Date(datetime_posx),
     location = ifelse(PLOT == "BGS", "Wetland", "Upland")
@@ -136,10 +135,6 @@ ggsave(file.path(OUTPUT_DIR, "flux_temporal_species.png"), p,
        width = 8, height = 8, dpi = 300, bg = "white")
 ggsave(file.path(OUTPUT_DIR, "flux_temporal_species.pdf"), p, 
        width = 8, height = 8)
-
-# Save corrected flux data to same folder as original
-output_csv <- "data/input/HF_2023-2025_tree_flux_corrected.csv"
-write_csv(fluxes, output_csv)
 
 message("Saved: flux_temporal_species.png/pdf")
 message("Saved: ", output_csv)

@@ -32,7 +32,7 @@ suppressPackageStartupMessages({
 PATHS <- list(
   tomography = "data/input/tomography_results_compiled.csv",
   hummock = "data/input/hummock_hollow.csv",
-  flux = "data/input/HF_2023-2025_tree_flux_corrected.csv",
+  flux = "data/processed/flux_with_quality_flags.csv",
   ert_images = "data/input/tomography/ERTs_Absolute",
   sonic_images = "data/input/tomography/CH4_PITs"
 )
@@ -72,7 +72,7 @@ flux_data <- read_csv(PATHS$flux, show_col_types = FALSE) %>%
   group_by(Tree) %>%
   mutate(SPECIES = ifelse(is.na(SPECIES), first(na.omit(SPECIES)), SPECIES)) %>%
   ungroup() %>%
-  filter(CH4_flux_nmolpm2ps >= -1, !is.na(PLOT)) %>%
+  filter(!is.na(PLOT)) %>%
   mutate(
     location = factor(
       ifelse(PLOT == "BGS", "Wetland", "Upland"),

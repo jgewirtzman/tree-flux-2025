@@ -31,7 +31,7 @@ CO2_R2_THR  <- 0.8
 
 if (!exists("fluxes")) {
   message("Loading flux data...")
-  fluxes <- read.csv("data/input/HF_2023-2025_tree_flux_corrected.csv")
+  fluxes <- read.csv("data/processed/flux_with_quality_flags.csv")
 }
 
 # ============================================================
