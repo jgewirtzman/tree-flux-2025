@@ -104,7 +104,7 @@ cat(strrep("-", 60), "\n\n")
 
 # Only classify sign for measurements above the detection limit
 df_detected <- df %>%
-  filter(CH4_below_MDF_wass95 == FALSE)
+  filter(CH4_below_MDF == FALSE)
 
 sign_summary <- df_detected %>%
   mutate(inst = ifelse(year < 2025, "LGR/UGGA", "LI-7810")) %>%
@@ -119,7 +119,7 @@ sign_summary <- df_detected %>%
 
 n_detected_total <- nrow(df_detected)
 n_neg <- sum(df_detected$CH4_flux_nmolpm2ps < 0, na.rm = TRUE)
-n_below_mdf <- sum(df$CH4_below_MDF_wass95 == TRUE, na.rm = TRUE)
+n_below_mdf <- sum(df$CH4_below_MDF == TRUE, na.rm = TRUE)
 
 cat(sprintf("Total measurements:   %d\n", n_total))
 cat(sprintf("Below Wass95 MDF:     %d (%.1f%%) — sign not meaningful\n",
@@ -186,7 +186,7 @@ cat(strrep("-", 60), "\n\n")
 mdf_cols <- c(
   "Manufacturer MDF"  = "CH4_below_MDF_manuf",
   "Wassmann 90%"      = "CH4_below_MDF_wass90",
-  "Wassmann 95%"      = "CH4_below_MDF_wass95",
+  "Wassmann 95%"      = "CH4_below_MDF",
   "Wassmann 99%"      = "CH4_below_MDF_wass99",
   "Christiansen 90%"  = "CH4_below_MDF_chr90",
   "Christiansen 95%"  = "CH4_below_MDF_chr95",
@@ -332,9 +332,9 @@ flux_by_group <- df %>%
     mean_ch4   = round(mean(CH4_flux_nmolpm2ps, na.rm = TRUE), 3),
     median_ch4 = round(median(CH4_flux_nmolpm2ps, na.rm = TRUE), 3),
     sd_ch4     = round(sd(CH4_flux_nmolpm2ps, na.rm = TRUE), 3),
-    pct_below_wass95 = round(100 * mean(CH4_below_MDF_wass95 == TRUE, na.rm = TRUE), 1),
-    n_detected = sum(CH4_below_MDF_wass95 == FALSE, na.rm = TRUE),
-    n_neg_detected = sum(CH4_flux_nmolpm2ps < 0 & CH4_below_MDF_wass95 == FALSE, na.rm = TRUE),
+    pct_below_wass95 = round(100 * mean(CH4_below_MDF == TRUE, na.rm = TRUE), 1),
+    n_detected = sum(CH4_below_MDF == FALSE, na.rm = TRUE),
+    n_neg_detected = sum(CH4_flux_nmolpm2ps < 0 & CH4_below_MDF == FALSE, na.rm = TRUE),
     pct_neg_detected = ifelse(n_detected > 0,
                               round(100 * n_neg_detected / n_detected, 1), NA),
     .groups = "drop"

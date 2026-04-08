@@ -86,9 +86,15 @@ p <- ggplot() +
   geom_hline(yintercept = 0, linewidth = 0.4, color = "gray40") +
   geom_point(
     data = fluxes,
-    aes(x = date, y = CH4_flux_nmolpm2ps, fill = species_label),
+    aes(x = date, y = CH4_flux_nmolpm2ps, fill = species_label,
+        shape = ifelse(CH4_below_MDF == TRUE, "Below MDF", "Above MDF")),
     position = position_jitter(width = 2, height = 0),
-    size = 1.5, alpha = 0.4, shape = 21, color = "gray30", stroke = 0.2
+    size = 1.5, alpha = 0.4, color = "gray30", stroke = 0.2
+  ) +
+  scale_shape_manual(
+    values = c("Above MDF" = 21, "Below MDF" = 1),
+    name = NULL,
+    guide = guide_legend(override.aes = list(alpha = 0.8, size = 2))
   ) +
   geom_line(
     data = round_means,
@@ -137,7 +143,6 @@ ggsave(file.path(OUTPUT_DIR, "flux_temporal_species.pdf"), p,
        width = 8, height = 8)
 
 message("Saved: flux_temporal_species.png/pdf")
-message("Saved: ", output_csv)
 
 
 

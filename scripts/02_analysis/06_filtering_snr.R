@@ -197,8 +197,10 @@ p_co2_flags <- ggplot(df_qc, aes(x = CO2_r2, y = CO2_flux_lin, color = co2_class
   theme(legend.position = "bottom") +
   guides(color = guide_legend(override.aes = list(alpha = 1, size = 3), nrow = 2, byrow = TRUE))
 
-p_ch4_flags <- ggplot(df_qc, aes(x = CH4_r2, y = CH4_flux_asinh, color = ch4_class)) +
+p_ch4_flags <- ggplot(df_qc, aes(x = CH4_r2, y = CH4_flux_asinh, color = ch4_class,
+                                  shape = ifelse(CH4_below_MDF == TRUE, "Below MDF", "Above MDF"))) +
   geom_point(alpha = 0.6, size = 1.6) +
+  scale_shape_manual(values = c("Above MDF" = 16, "Below MDF" = 1), name = NULL) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey40", linewidth = 0.4) +
   coord_cartesian(xlim = c(-0.2, 1.02)) +
   scale_x_continuous(breaks = seq(0, 1, 0.2)) +

@@ -715,6 +715,10 @@ report_mdf("CH4_below_MDF_chr99", "Christiansen 99%")
 # CLEAN UP AND SAVE
 # ============================================================
 
+# Canonical MDF flag: Wassmann 95% is the recommended detection threshold
+df <- df %>%
+  mutate(CH4_below_MDF = CH4_below_MDF_wass95)
+
 # Drop intermediate columns not needed downstream
 df <- df %>%
   select(-match_key_7810, -df_meas, -t99, -t95, -t90,
@@ -727,6 +731,7 @@ write.csv(df, output_path, row.names = FALSE)
 message("\n=== Output saved ===")
 message("  ", output_path)
 message("  Rows: ", nrow(df))
-message("  Key MDF columns: CH4_below_MDF_manuf, CH4_below_MDF_wass{90,95,99},")
+message("  Primary flag: CH4_below_MDF (Wassmann 95%)")
+message("  All MDF columns: CH4_below_MDF_manuf, CH4_below_MDF_wass{90,95,99},")
 message("    CH4_below_MDF_chr{90,95,99}, CH4_snr_allan, CH4_noise_floor,")
 message("    allan_sd_CH4, inst_label, flux_term, t_sec")
