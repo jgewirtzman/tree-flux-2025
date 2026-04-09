@@ -52,6 +52,13 @@ PATHS <- list(
 OUTPUT_DIR <- "outputs/figures/tomography"
 dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
 
+# Project-wide color palettes (consistent across all figures)
+species_colors <- c("N. sylvatica" = "#2A7F7A", "Q. rubra" = "#6E8B3D",
+                     "A. rubrum" = "#A7DAD1", "T. canadensis" = "#C9D6A4")
+site_colors <- c("Wetland" = "#2A7F7A", "Upland" = "#6E8B3D")
+spp_shapes <- c("N. sylvatica" = 15, "A. rubrum" = 17,
+                "T. canadensis" = 16, "Q. rubra" = 18)
+
 # ============================================================
 # LOAD AND PREPARE DATA
 # ============================================================
@@ -217,10 +224,10 @@ upland_hem_trees <- flux_data %>% filter(location == "Upland", SPECIES == "hem")
 # HELPER FUNCTIONS (image panels)
 # ============================================================
 
-prepare_species_data <- function(tree_ids, species_name) {
+prepare_species_data <- function(tree_ids, species_name, sort_metric = "ert_cv") {
   df <- tomography %>%
     filter(tree %in% tree_ids) %>%
-    arrange(ert_cv) %>%
+    arrange(.data[[sort_metric]]) %>%
     mutate(order = row_number()) %>%
     left_join(tree_flux_means %>% select(Tree, CH4_mean), by = c("tree" = "Tree")) %>%
     mutate(
@@ -253,7 +260,9 @@ read_image_as_raster <- function(path, target_size = 200) {
 }
 
 create_species_panel <- function(data, species_label, bad_sonic_indices = c(),
-                                  annotation_pos = "topright") {
+                                  annotation_pos = "topright",
+                                  metric = "ert_cv", metric_label = "ERT CV",
+                                  metric_x_label = "ERT CV (higher = more heterogeneous)") {
   n <- nrow(data)
   if (n == 0) return(NULL)
 
@@ -271,13 +280,13 @@ create_species_panel <- function(data, species_label, bad_sonic_indices = c(),
           plot.title = element_text(hjust = 0.5, size = 14, face = "italic")) +
     ggtitle(species_label)
 
-  # ERT CV axis guide
+  # ERT metric axis guide
   arrow_y <- 3.4
   p_images <- p_images +
     annotate("segment", x = 0, xend = n, y = arrow_y, yend = arrow_y,
              arrow = arrow(ends = "both", length = unit(0.08, "inches")), linewidth = 0.4) +
     annotate("text", x = 0, y = arrow_y + 0.15, label = "lower", size = 3, hjust = 0) +
-    annotate("text", x = n / 2, y = arrow_y + 0.15, label = "ERT CV", size = 3.5,
+    annotate("text", x = n / 2, y = arrow_y + 0.15, label = metric_label, size = 3.5,
              hjust = 0.5, fontface = "bold") +
     annotate("text", x = n, y = arrow_y + 0.15, label = "higher", size = 3, hjust = 1)
 
@@ -335,8 +344,8 @@ create_species_panel <- function(data, species_label, bad_sonic_indices = c(),
                label = row$flux_label, color = row$text_color, size = 5)
   }
 
-  # Scatter: ERT CV vs CH4 flux
-  cor_test <- cor.test(data$ert_cv, data$CH4_mean)
+  # Scatter: ERT metric vs CH4 flux
+  cor_test <- cor.test(data[[metric]], data$CH4_mean)
   r_val <- cor_test$estimate; p_val <- cor_test$p.value
 
   if (annotation_pos == "bottomright") {
@@ -345,13 +354,13 @@ create_species_panel <- function(data, species_label, bad_sonic_indices = c(),
     ann_x <- Inf; ann_y <- Inf; ann_hjust <- 1.1; ann_vjust <- 1.5
   }
 
-  p_scatter <- ggplot(data, aes(x = ert_cv, y = CH4_mean)) +
+  p_scatter <- ggplot(data, aes(x = .data[[metric]], y = CH4_mean)) +
     geom_point(size = 2.5, shape = 16)
   if (p_val < 0.05) {
     p_scatter <- p_scatter + geom_smooth(method = "lm", se = FALSE, color = "black", linewidth = 0.8)
   }
   p_scatter <- p_scatter +
-    labs(x = expression("ERT CV (higher = more heterogeneous)"), y = expression(CH[4]~flux)) +
+    labs(x = metric_x_label, y = expression(CH[4]~flux)) +
     annotate("text", x = ann_x, y = ann_y,
              label = sprintf("r = %.2f\np = %.3f", r_val, p_val),
              hjust = ann_hjust, vjust = ann_vjust, size = 3.5) +
@@ -390,11 +399,6 @@ site_scatter <- function(site_name, metric = "ert_cv", x_label = "ERT CV (higher
   ct <- cor.test(site_data[[metric]], site_data$CH4_mean)
   pooled_label <- sprintf("r = %.2f, p = %.3f", ct$estimate, ct$p.value)
 
-  spp_colors <- c("N. sylvatica" = "#1b9e77", "A. rubrum" = "#d95f02",
-                   "T. canadensis" = "#7570b3", "Q. rubra" = "#e7298a")
-  spp_shapes <- c("N. sylvatica" = 15, "A. rubrum" = 17,
-                   "T. canadensis" = 16, "Q. rubra" = 18)
-
   p <- ggplot(site_data, aes(x = .data[[metric]], y = CH4_mean)) +
     # Per-species regression lines (thin, colored)
     geom_smooth(aes(color = species_full), method = "lm", se = FALSE,
@@ -404,7 +408,7 @@ site_scatter <- function(site_name, metric = "ert_cv", x_label = "ERT CV (higher
                 linetype = "dashed", alpha = 0.15) +
     # Points
     geom_point(aes(color = species_full, shape = species_full), size = 3, alpha = 0.8) +
-    scale_color_manual(values = spp_colors, name = "Species") +
+    scale_color_manual(values = species_colors, name = "Species") +
     scale_shape_manual(values = spp_shapes, name = "Species") +
     annotate("text", x = Inf, y = Inf, label = pooled_label,
              hjust = 1.1, vjust = 1.5, size = 4, color = "grey30") +
@@ -421,13 +425,17 @@ site_scatter <- function(site_name, metric = "ert_cv", x_label = "ERT CV (higher
   p
 }
 
-# --- Specialists ---
+# --- Specialists (main figure: CV) ---
 message("\nBuilding specialist panels...")
 if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
   p_nyssa <- create_species_panel(nyssa_data, "Nyssa sylvatica",
-                                  bad_sonic_indices = c(7), annotation_pos = "topright")
+                                  bad_sonic_indices = c(7), annotation_pos = "topright",
+                                  metric = "ert_cv", metric_label = "ERT CV",
+                                  metric_x_label = "ERT CV (higher = more heterogeneous)")
   p_oak <- create_species_panel(oak_data, "Quercus rubra",
-                                bad_sonic_indices = c(6), annotation_pos = "bottomright")
+                                bad_sonic_indices = c(6), annotation_pos = "bottomright",
+                                metric = "ert_cv", metric_label = "ERT CV",
+                                metric_x_label = "ERT CV (higher = more heterogeneous)")
 
   # Site-level ERT CV vs CH4 flux scatter panels
   p_wet_cv <- site_scatter("Wetland", metric = "ert_cv",
@@ -445,13 +453,25 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
          width = 14, height = 14, bg = "white")
   message("  Saved: tomography_specialists.png/pdf")
 
-  # --- SI figure: same layout but with ERT mean instead of CV ---
+  # --- SI figure: ERT mean throughout (re-sort images + scatter by mean) ---
+  nyssa_data_mean <- prepare_species_data(nyssa_trees, "Nyssa sylvatica", sort_metric = "ert_mean")
+  oak_data_mean   <- prepare_species_data(oak_trees, "Quercus rubra", sort_metric = "ert_mean")
+
+  p_nyssa_mean <- create_species_panel(nyssa_data_mean, "Nyssa sylvatica",
+                                       bad_sonic_indices = c(), annotation_pos = "topright",
+                                       metric = "ert_mean", metric_label = "ERT Mean",
+                                       metric_x_label = "Mean resistivity (Ohm-m, higher = drier)")
+  p_oak_mean <- create_species_panel(oak_data_mean, "Quercus rubra",
+                                     bad_sonic_indices = c(), annotation_pos = "bottomright",
+                                     metric = "ert_mean", metric_label = "ERT Mean",
+                                     metric_x_label = "Mean resistivity (Ohm-m, higher = drier)")
+
   p_wet_mean <- site_scatter("Wetland", metric = "ert_mean",
                              x_label = "Mean resistivity (Ohm-m, higher = drier)")
   p_up_mean  <- site_scatter("Upland",  metric = "ert_mean",
                              x_label = "Mean resistivity (Ohm-m, higher = drier)")
 
-  p_specialists_si <- p_nyssa / plot_spacer() / p_oak / plot_spacer() /
+  p_specialists_si <- p_nyssa_mean / plot_spacer() / p_oak_mean / plot_spacer() /
     (p_wet_mean | p_up_mean) +
     plot_layout(heights = c(1, 0.05, 1, 0.05, 0.8))
   print(p_specialists_si)
@@ -718,7 +738,7 @@ for (i in seq_len(nrow(metric_info))) {
     geom_point(aes(color = location, shape = species_full), size = 3, alpha = 0.7) +
     geom_smooth(method = "lm", se = TRUE, color = "black", linewidth = 0.7,
                 linetype = "dashed", alpha = 0.15) +
-    scale_color_manual(values = c("Wetland" = "#2166AC", "Upland" = "#B2182B")) +
+    scale_color_manual(values = site_colors) +
     annotate("text", x = Inf, y = Inf, label = overall_label,
              hjust = 1.1, vjust = 1.3, size = 4, color = "grey30") +
     labs(
@@ -759,9 +779,6 @@ metric_labels_pca <- c(ert_mean = "Mean", ert_median = "Median", ert_sd = "SD",
                        abs_cma = "|CMA|", abs_radgrad = "|RadGrad|")
 loadings$label <- metric_labels_pca[loadings$metric]
 
-spp_shapes <- c("N. sylvatica" = 15, "A. rubrum" = 17,
-                "T. canadensis" = 16, "Q. rubra" = 18)
-
 p_biplot <- ggplot(tomo_flux, aes(x = pc1, y = pc2)) +
   geom_hline(yintercept = 0, color = "grey70", linewidth = 0.3) +
   geom_vline(xintercept = 0, color = "grey70", linewidth = 0.3) +
@@ -774,7 +791,7 @@ p_biplot <- ggplot(tomo_flux, aes(x = pc1, y = pc2)) +
             aes(x = PC1 * 1.15, y = PC2 * 1.15, label = label),
             color = "#B22222", size = 3.5, fontface = "bold", inherit.aes = FALSE) +
   scale_shape_manual(name = "Species", values = spp_shapes) +
-  scale_color_manual(name = "Site", values = c("Wetland" = "#2166AC", "Upland" = "#B2182B")) +
+  scale_color_manual(name = "Site", values = site_colors) +
   labs(x = paste0("PC1 (", round(ve[1], 1), "% var) — high = wetter/more anomalous"),
        y = paste0("PC2 (", round(ve[2], 1), "% var)")) +
   theme_classic(base_size = 13) +
