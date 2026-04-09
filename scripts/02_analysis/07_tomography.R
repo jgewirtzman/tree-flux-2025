@@ -392,7 +392,8 @@ message("  Nyssa: ", nrow(nyssa_data), " | Oak: ", nrow(oak_data),
 # --- Site-level scatter plot helper ---
 # Creates a scatter of ERT metric vs CH4 flux for one site,
 # with per-species regression lines + pooled line + pooled r,p
-site_scatter <- function(site_name, metric = "ert_cv", x_label = "ERT CV") {
+site_scatter <- function(site_name, metric = "ert_cv", x_label = "ERT CV",
+                         annotation_pos = "topright") {
   site_data <- tomo_flux %>% filter(location == site_name)
 
   # Pooled stats
@@ -430,8 +431,11 @@ site_scatter <- function(site_name, metric = "ert_cv", x_label = "ERT CV") {
     geom_point(aes(color = species_full, shape = species_full), size = 3, alpha = 0.8) +
     scale_color_manual(values = species_colors, name = "Species") +
     scale_shape_manual(values = spp_shapes, name = "Species") +
-    annotate("text", x = Inf, y = Inf, label = pooled_label,
-             hjust = 1.1, vjust = 1.5, size = 4, color = "grey30") +
+    annotate("text",
+             x = if (annotation_pos == "topleft") -Inf else Inf,
+             y = Inf, label = pooled_label,
+             hjust = if (annotation_pos == "topleft") -0.1 else 1.1,
+             vjust = 1.5, size = 4, color = "grey30") +
     labs(
       x = x_label,
       y = expression(Mean~CH[4]~flux~(nmol~m^{-2}~s^{-1})),
@@ -461,7 +465,7 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
   p_wet_cv <- site_scatter("Wetland", metric = "ert_cv",
                            x_label = "ERT CV")
   p_up_cv  <- site_scatter("Upland",  metric = "ert_cv",
-                           x_label = "ERT CV")
+                           x_label = "ERT CV", annotation_pos = "topleft")
 
   p_specialists <- p_nyssa / plot_spacer() / p_oak / plot_spacer() /
     (p_wet_cv | p_up_cv) +
@@ -489,7 +493,8 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
   p_wet_mean <- site_scatter("Wetland", metric = "ert_mean",
                              x_label = "Mean resistivity (Ohm-m)")
   p_up_mean  <- site_scatter("Upland",  metric = "ert_mean",
-                             x_label = "Mean resistivity (Ohm-m)")
+                             x_label = "Mean resistivity (Ohm-m)",
+                             annotation_pos = "topleft")
 
   p_specialists_si <- p_nyssa_mean / plot_spacer() / p_oak_mean / plot_spacer() /
     (p_wet_mean | p_up_mean) +
