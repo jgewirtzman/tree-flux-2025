@@ -273,10 +273,9 @@ create_species_panel <- function(data, species_label, bad_sonic_indices = c(),
   })
 
   p_images <- ggplot() +
-    xlim(-0.8, n) + ylim(0, 3.6) +
-    coord_fixed(ratio = 1) +
+    coord_fixed(ratio = 1, xlim = c(0, n), ylim = c(0, 3.6), clip = "off") +
     theme_void() +
-    theme(plot.margin = margin(5, 5, 5, 5),
+    theme(plot.margin = margin(5, 10, 5, 40),
           plot.title = element_text(hjust = 0.5, size = 14, face = "italic")) +
     ggtitle(species_label)
 
@@ -367,9 +366,10 @@ create_species_panel <- function(data, species_label, bad_sonic_indices = c(),
     theme_classic(base_size = 11) +
     theme(axis.line = element_line(linewidth = 0.5),
           axis.ticks = element_line(linewidth = 0.5),
+          aspect.ratio = 1,
           plot.margin = margin(15, 15, 15, 15))
 
-  p_images + p_scatter + plot_layout(widths = c(4, 1))
+  p_images + p_scatter + plot_layout(widths = c(3, 1.2))
 }
 
 # ============================================================
