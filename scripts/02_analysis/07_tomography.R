@@ -589,6 +589,80 @@ for (i in seq_len(nrow(metric_info))) {
   ggsave(file.path(OUTPUT_DIR, gsub(".png$", ".pdf", fname)), p,
          width = 12, height = 6, bg = "white")
   message("  Saved: ", fname)
+
+  # --- Pooled by location ---
+  pooled_stats <- tomo_flux %>%
+    group_by(location) %>%
+    filter(sum(!is.na(.data[[m]]) & !is.na(CH4_mean)) >= 3) %>%
+    summarise(
+      n = sum(!is.na(.data[[m]]) & !is.na(CH4_mean)),
+      r = cor(.data[[m]], CH4_mean, use = "complete.obs"),
+      r2 = r^2,
+      p = cor.test(.data[[m]], CH4_mean)$p.value,
+      label = sprintf("r=%.2f  R\u00b2=%.2f\np=%.3f  n=%d", r, r2, p, n),
+      x_pos = max(.data[[m]], na.rm = TRUE),
+      y_pos = max(CH4_mean, na.rm = TRUE),
+      .groups = "drop"
+    )
+
+  p_pooled <- ggplot(tomo_flux, aes(x = .data[[m]], y = CH4_mean)) +
+    geom_point(aes(color = species_full, shape = species_full), size = 3, alpha = 0.7) +
+    geom_smooth(method = "lm", se = TRUE, color = "black", linewidth = 0.7,
+                linetype = "dashed", alpha = 0.15) +
+    geom_text(data = pooled_stats,
+              aes(x = x_pos, y = y_pos, label = label),
+              hjust = 1, vjust = 1, size = 3.5, color = "grey30", inherit.aes = FALSE) +
+    facet_wrap(~ location, scales = "free") +
+    labs(
+      x = paste0(m_label, " (", m_dir, ")"),
+      y = expression(Mean~CH[4]~flux~(nmol~m^{-2}~s^{-1})),
+      title = paste0(m_label, " vs CH4 flux — pooled by location"),
+      color = "Species", shape = "Species"
+    ) +
+    theme_classic(base_size = 12) +
+    theme(
+      strip.text = element_text(face = "bold", size = 12),
+      strip.background = element_blank(),
+      legend.position = "bottom",
+      plot.title = element_text(face = "bold", size = 13)
+    )
+
+  fname_pooled <- paste0("ert_pooled_vs_flux_", gsub("[^a-z0-9]", "_", m), ".png")
+  ggsave(file.path(OUTPUT_DIR, fname_pooled), p_pooled,
+         width = 10, height = 5, dpi = 300, bg = "white")
+  ggsave(file.path(OUTPUT_DIR, gsub(".png$", ".pdf", fname_pooled)), p_pooled,
+         width = 10, height = 5, bg = "white")
+  message("  Saved: ", fname_pooled)
+
+  # --- Overall (all trees, colored by location) ---
+  overall_ct <- cor.test(tomo_flux[[m]], tomo_flux$CH4_mean)
+  overall_label <- sprintf("r=%.2f  R\u00b2=%.2f\np=%.4f  n=%d",
+                           overall_ct$estimate, overall_ct$estimate^2,
+                           overall_ct$p.value, nrow(tomo_flux))
+
+  p_overall <- ggplot(tomo_flux, aes(x = .data[[m]], y = CH4_mean)) +
+    geom_point(aes(color = location, shape = species_full), size = 3, alpha = 0.7) +
+    geom_smooth(method = "lm", se = TRUE, color = "black", linewidth = 0.7,
+                linetype = "dashed", alpha = 0.15) +
+    scale_color_manual(values = c("Wetland" = "#2166AC", "Upland" = "#B2182B")) +
+    annotate("text", x = Inf, y = Inf, label = overall_label,
+             hjust = 1.1, vjust = 1.3, size = 4, color = "grey30") +
+    labs(
+      x = paste0(m_label, " (", m_dir, ")"),
+      y = expression(Mean~CH[4]~flux~(nmol~m^{-2}~s^{-1})),
+      title = paste0(m_label, " vs CH4 flux — all trees"),
+      color = "Site", shape = "Species"
+    ) +
+    theme_classic(base_size = 12) +
+    theme(legend.position = "bottom",
+          plot.title = element_text(face = "bold", size = 13))
+
+  fname_overall <- paste0("ert_overall_vs_flux_", gsub("[^a-z0-9]", "_", m), ".png")
+  ggsave(file.path(OUTPUT_DIR, fname_overall), p_overall,
+         width = 7, height = 6, dpi = 300, bg = "white")
+  ggsave(file.path(OUTPUT_DIR, gsub(".png$", ".pdf", fname_overall)), p_overall,
+         width = 7, height = 6, bg = "white")
+  message("  Saved: ", fname_overall)
 }
 
 # ============================================================
