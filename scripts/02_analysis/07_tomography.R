@@ -470,7 +470,7 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
 
   p_specialists <- p_nyssa / plot_spacer() / p_oak / plot_spacer() /
     (p_wet_cv + plot_spacer() + p_up_cv + plot_layout(widths = c(1, 0.1, 1))) +
-    plot_layout(heights = c(1, 0.05, 1, 0.05, 1.1))
+    plot_layout(heights = c(1, 0.05, 1, 0.05, 1.5))
   print(p_specialists)
   ggsave(file.path(OUTPUT_DIR, "tomography_specialists.png"), p_specialists,
          width = 14, height = 14, dpi = 300, bg = "white")
@@ -498,7 +498,7 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
 
   p_specialists_si <- p_nyssa_mean / plot_spacer() / p_oak_mean / plot_spacer() /
     (p_wet_mean + plot_spacer() + p_up_mean + plot_layout(widths = c(1, 0.1, 1))) +
-    plot_layout(heights = c(1, 0.05, 1, 0.05, 1.1))
+    plot_layout(heights = c(1, 0.05, 1, 0.05, 1.5))
   print(p_specialists_si)
   ggsave(file.path(OUTPUT_DIR, "tomography_specialists_SI_mean.png"), p_specialists_si,
          width = 14, height = 14, dpi = 300, bg = "white")
