@@ -369,7 +369,7 @@ create_species_panel <- function(data, species_label, bad_sonic_indices = c(),
           aspect.ratio = 1,
           plot.margin = margin(15, 15, 15, 15))
 
-  p_images + p_scatter + plot_layout(widths = c(3, 1.2))
+  list(images = p_images, scatter = p_scatter)
 }
 
 # ============================================================
@@ -453,20 +453,32 @@ site_scatter <- function(site_name, metric = "ert_cv", x_label = "ERT CV",
 # --- Specialists (main figure: CV) ---
 message("\nBuilding specialist panels...")
 if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
-  p_nyssa <- create_species_panel(nyssa_data, "Nyssa sylvatica",
-                                  bad_sonic_indices = c(7), annotation_pos = "topright",
-                                  metric = "ert_cv", metric_label = "ERT CV",
-                                  metric_x_label = "ERT CV")
-  p_oak <- create_species_panel(oak_data, "Quercus rubra",
-                                bad_sonic_indices = c(6), annotation_pos = "bottomright",
-                                metric = "ert_cv", metric_label = "ERT CV",
-                                metric_x_label = "ERT CV")
+  panels_nyssa <- create_species_panel(nyssa_data, "Nyssa sylvatica",
+                                      bad_sonic_indices = c(7), annotation_pos = "topright",
+                                      metric = "ert_cv", metric_label = "ERT CV",
+                                      metric_x_label = "ERT CV")
+  panels_oak <- create_species_panel(oak_data, "Quercus rubra",
+                                     bad_sonic_indices = c(6), annotation_pos = "bottomright",
+                                     metric = "ert_cv", metric_label = "ERT CV",
+                                     metric_x_label = "ERT CV")
+
+  tag_theme <- theme(plot.tag = element_text(size = 16, face = "bold"),
+                     plot.tag.position = "topleft")
+
+  # Add panel labels — tag on the image sub-panel (left side)
+  panels_nyssa$images <- panels_nyssa$images + labs(tag = "a") + tag_theme
+  panels_oak$images   <- panels_oak$images   + labs(tag = "b") + tag_theme
+
+  p_nyssa <- panels_nyssa$images + panels_nyssa$scatter + plot_layout(widths = c(3, 1.2))
+  p_oak   <- panels_oak$images   + panels_oak$scatter   + plot_layout(widths = c(3, 1.2))
 
   # Site-level ERT CV vs CH4 flux scatter panels
   p_wet_cv <- site_scatter("Wetland", metric = "ert_cv",
-                           x_label = "ERT CV")
+                           x_label = "ERT CV") +
+    labs(tag = "c") + tag_theme
   p_up_cv  <- site_scatter("Upland",  metric = "ert_cv",
-                           x_label = "ERT CV", annotation_pos = "topleft")
+                           x_label = "ERT CV", annotation_pos = "topleft") +
+    labs(tag = "d") + tag_theme
 
   p_specialists <- p_nyssa / plot_spacer() / p_oak / plot_spacer() /
     (p_wet_cv + plot_spacer() + p_up_cv + plot_layout(widths = c(1, 0.1, 1))) +
@@ -482,19 +494,27 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
   nyssa_data_mean <- prepare_species_data(nyssa_trees, "Nyssa sylvatica", sort_metric = "ert_mean")
   oak_data_mean   <- prepare_species_data(oak_trees, "Quercus rubra", sort_metric = "ert_mean")
 
-  p_nyssa_mean <- create_species_panel(nyssa_data_mean, "Nyssa sylvatica",
-                                       bad_sonic_indices = c(), annotation_pos = "topright",
-                                       metric = "ert_mean", metric_label = "ERT Mean",
-                                       metric_x_label = "Mean resistivity (Ohm-m)")
-  p_oak_mean <- create_species_panel(oak_data_mean, "Quercus rubra",
-                                     bad_sonic_indices = c(), annotation_pos = "bottomright",
-                                     metric = "ert_mean", metric_label = "ERT Mean",
-                                     metric_x_label = "Mean resistivity (Ohm-m)")
+  panels_nyssa_mean <- create_species_panel(nyssa_data_mean, "Nyssa sylvatica",
+                                            bad_sonic_indices = c(), annotation_pos = "topright",
+                                            metric = "ert_mean", metric_label = "ERT Mean",
+                                            metric_x_label = "Mean resistivity (Ohm-m)")
+  panels_oak_mean <- create_species_panel(oak_data_mean, "Quercus rubra",
+                                          bad_sonic_indices = c(), annotation_pos = "bottomright",
+                                          metric = "ert_mean", metric_label = "ERT Mean",
+                                          metric_x_label = "Mean resistivity (Ohm-m)")
+
+  panels_nyssa_mean$images <- panels_nyssa_mean$images + labs(tag = "a") + tag_theme
+  panels_oak_mean$images   <- panels_oak_mean$images   + labs(tag = "b") + tag_theme
+
+  p_nyssa_mean <- panels_nyssa_mean$images + panels_nyssa_mean$scatter + plot_layout(widths = c(3, 1.2))
+  p_oak_mean   <- panels_oak_mean$images   + panels_oak_mean$scatter   + plot_layout(widths = c(3, 1.2))
 
   p_wet_mean <- site_scatter("Wetland", metric = "ert_mean",
-                             x_label = "Mean resistivity (Ohm-m)")
+                             x_label = "Mean resistivity (Ohm-m)") +
+    labs(tag = "c") + tag_theme
   p_up_mean  <- site_scatter("Upland",  metric = "ert_mean",
-                             x_label = "Mean resistivity (Ohm-m)")
+                             x_label = "Mean resistivity (Ohm-m)") +
+    labs(tag = "d") + tag_theme
 
   p_specialists_si <- p_nyssa_mean / plot_spacer() / p_oak_mean / plot_spacer() /
     (p_wet_mean + plot_spacer() + p_up_mean + plot_layout(widths = c(1, 0.1, 1))) +
@@ -520,7 +540,8 @@ for (d in list(
     if (length(panel_list) > 0) {
       panel_list <- c(panel_list, list(plot_spacer())); height_list <- c(height_list, 0.05)
     }
-    p <- create_species_panel(d$data, d$label, annotation_pos = "topright")
+    panels <- create_species_panel(d$data, d$label, annotation_pos = "topright")
+    p <- panels$images + panels$scatter + plot_layout(widths = c(3, 1.2))
     panel_list <- c(panel_list, list(p)); height_list <- c(height_list, 1)
   }
 }
