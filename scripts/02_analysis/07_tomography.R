@@ -262,7 +262,7 @@ read_image_as_raster <- function(path, target_size = 200) {
 create_species_panel <- function(data, species_label, bad_sonic_indices = c(),
                                   annotation_pos = "topright",
                                   metric = "ert_cv", metric_label = "ERT CV",
-                                  metric_x_label = "ERT CV (higher = more heterogeneous)") {
+                                  metric_x_label = "ERT CV") {
   n <- nrow(data)
   if (n == 0) return(NULL)
 
@@ -392,7 +392,7 @@ message("  Nyssa: ", nrow(nyssa_data), " | Oak: ", nrow(oak_data),
 # --- Site-level scatter plot helper ---
 # Creates a scatter of ERT metric vs CH4 flux for one site,
 # with per-species regression lines + pooled line + pooled r,p
-site_scatter <- function(site_name, metric = "ert_cv", x_label = "ERT CV (higher = more heterogeneous)") {
+site_scatter <- function(site_name, metric = "ert_cv", x_label = "ERT CV") {
   site_data <- tomo_flux %>% filter(location == site_name)
 
   # Pooled stats
@@ -451,17 +451,17 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
   p_nyssa <- create_species_panel(nyssa_data, "Nyssa sylvatica",
                                   bad_sonic_indices = c(7), annotation_pos = "topright",
                                   metric = "ert_cv", metric_label = "ERT CV",
-                                  metric_x_label = "ERT CV (higher = more heterogeneous)")
+                                  metric_x_label = "ERT CV")
   p_oak <- create_species_panel(oak_data, "Quercus rubra",
                                 bad_sonic_indices = c(6), annotation_pos = "bottomright",
                                 metric = "ert_cv", metric_label = "ERT CV",
-                                metric_x_label = "ERT CV (higher = more heterogeneous)")
+                                metric_x_label = "ERT CV")
 
   # Site-level ERT CV vs CH4 flux scatter panels
   p_wet_cv <- site_scatter("Wetland", metric = "ert_cv",
-                           x_label = "ERT CV (higher = more heterogeneous)")
+                           x_label = "ERT CV")
   p_up_cv  <- site_scatter("Upland",  metric = "ert_cv",
-                           x_label = "ERT CV (higher = more heterogeneous)")
+                           x_label = "ERT CV")
 
   p_specialists <- p_nyssa / plot_spacer() / p_oak / plot_spacer() /
     (p_wet_cv | p_up_cv) +
@@ -480,16 +480,16 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
   p_nyssa_mean <- create_species_panel(nyssa_data_mean, "Nyssa sylvatica",
                                        bad_sonic_indices = c(), annotation_pos = "topright",
                                        metric = "ert_mean", metric_label = "ERT Mean",
-                                       metric_x_label = "Mean resistivity (Ohm-m, higher = drier)")
+                                       metric_x_label = "Mean resistivity (Ohm-m)")
   p_oak_mean <- create_species_panel(oak_data_mean, "Quercus rubra",
                                      bad_sonic_indices = c(), annotation_pos = "bottomright",
                                      metric = "ert_mean", metric_label = "ERT Mean",
-                                     metric_x_label = "Mean resistivity (Ohm-m, higher = drier)")
+                                     metric_x_label = "Mean resistivity (Ohm-m)")
 
   p_wet_mean <- site_scatter("Wetland", metric = "ert_mean",
-                             x_label = "Mean resistivity (Ohm-m, higher = drier)")
+                             x_label = "Mean resistivity (Ohm-m)")
   p_up_mean  <- site_scatter("Upland",  metric = "ert_mean",
-                             x_label = "Mean resistivity (Ohm-m, higher = drier)")
+                             x_label = "Mean resistivity (Ohm-m)")
 
   p_specialists_si <- p_nyssa_mean / plot_spacer() / p_oak_mean / plot_spacer() /
     (p_wet_mean | p_up_mean) +
@@ -684,7 +684,7 @@ for (i in seq_len(nrow(metric_info))) {
               hjust = 1, vjust = 1, size = 3, color = "grey30", inherit.aes = FALSE) +
     facet_grid(location ~ species_full, scales = "free") +
     labs(
-      x = paste0(m_label, " (", m_dir, ")"),
+      x = m_label,
       y = expression(Mean~CH[4]~flux~(nmol~m^{-2}~s^{-1})),
       title = paste0(m_label, " vs CH4 flux"),
       color = "Species"
@@ -728,7 +728,7 @@ for (i in seq_len(nrow(metric_info))) {
               hjust = 1, vjust = 1, size = 3.5, color = "grey30", inherit.aes = FALSE) +
     facet_wrap(~ location, scales = "free") +
     labs(
-      x = paste0(m_label, " (", m_dir, ")"),
+      x = m_label,
       y = expression(Mean~CH[4]~flux~(nmol~m^{-2}~s^{-1})),
       title = paste0(m_label, " vs CH4 flux — pooled by location"),
       color = "Species", shape = "Species"
@@ -762,7 +762,7 @@ for (i in seq_len(nrow(metric_info))) {
     annotate("text", x = Inf, y = Inf, label = overall_label,
              hjust = 1.1, vjust = 1.3, size = 4, color = "grey30") +
     labs(
-      x = paste0(m_label, " (", m_dir, ")"),
+      x = m_label,
       y = expression(Mean~CH[4]~flux~(nmol~m^{-2}~s^{-1})),
       title = paste0(m_label, " vs CH4 flux — all trees"),
       color = "Site", shape = "Species"
