@@ -444,6 +444,7 @@ site_scatter <- function(site_name, metric = "ert_cv", x_label = "ERT CV",
     theme_classic(base_size = 12) +
     theme(
       plot.title = element_text(face = "bold", size = 13, hjust = 0.5),
+      aspect.ratio = 1,
       legend.position = "bottom"
     )
   p
@@ -493,8 +494,7 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
   p_wet_mean <- site_scatter("Wetland", metric = "ert_mean",
                              x_label = "Mean resistivity (Ohm-m)")
   p_up_mean  <- site_scatter("Upland",  metric = "ert_mean",
-                             x_label = "Mean resistivity (Ohm-m)",
-                             annotation_pos = "topleft")
+                             x_label = "Mean resistivity (Ohm-m)")
 
   p_specialists_si <- p_nyssa_mean / plot_spacer() / p_oak_mean / plot_spacer() /
     (p_wet_mean | p_up_mean) +
