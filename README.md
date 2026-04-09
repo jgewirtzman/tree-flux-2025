@@ -33,7 +33,7 @@ tree-flux-2025/
 │   │   ├── 05_combined_driver_timeseries.R
 │   │   ├── 06_filtering_snr.R        # QC visualization
 │   │   ├── 07_filter_sensitivity_ridges.R  # MDF filter sensitivity analysis
-│   │   └── 07_tomography.R           # ERT/Sonic imaging + flux
+│   │   └── 08_tomography.R           # ERT/Sonic imaging + flux
 │   ├── 03_modeling/         # Statistical models
 │   │   ├── 01_bgs_model.R            # Wetland mixed-effects model
 │   │   ├── 02_ems_model_A.R          # Upland instantaneous drivers
