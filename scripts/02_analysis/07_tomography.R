@@ -169,22 +169,30 @@ message("\n  PC1 loadings (high PC1 = wetter/more anomalous):")
 pc1_load <- round(pca_fit$rotation[, 1], 3)
 for (nm in names(pc1_load)) message("    ", nm, ": ", pc1_load[nm])
 
-# --- Decay classification (PCA-based phase diagram) ---
+# --- Decay classification (CV-based) ---
 # SoT threshold: 1% structural damage
-# ERT threshold: mean of PC1 (species-normalized)
+# ERT threshold: species-normalized CV z-score = 0
+#   Higher CV = more moisture heterogeneity = more decay
 sot_threshold <- 1
-ert_threshold <- mean(tomo_flux$pc1, na.rm = TRUE)
+
+cv_spp_stats <- tomo_flux %>%
+  group_by(species_full) %>%
+  summarise(cv_mu = mean(ert_cv, na.rm = TRUE),
+            cv_sd = sd(ert_cv, na.rm = TRUE), .groups = "drop")
 
 tomo_flux <- tomo_flux %>%
+  left_join(cv_spp_stats, by = "species_full") %>%
   mutate(
+    cv_z = (ert_cv - cv_mu) / cv_sd,
     decay_phase = case_when(
-      sot_damaged <= sot_threshold & pc1 <= ert_threshold ~ "I: Sound",
-      sot_damaged <= sot_threshold & pc1 >  ert_threshold ~ "II: Incipient",
-      sot_damaged >  sot_threshold & pc1 >  ert_threshold ~ "III: Active",
-      sot_damaged >  sot_threshold & pc1 <= ert_threshold ~ "IV: Cavity"
+      sot_damaged <= sot_threshold & cv_z <= 0 ~ "I: Sound",
+      sot_damaged <= sot_threshold & cv_z >  0 ~ "II: Incipient",
+      sot_damaged >  sot_threshold & cv_z >  0 ~ "III: Active",
+      sot_damaged >  sot_threshold & cv_z <= 0 ~ "IV: Cavity"
     ),
     decay_phase_short = str_extract(decay_phase, "^[IV]+")
-  )
+  ) %>%
+  select(-cv_mu, -cv_sd)
 
 message("\n  Decay phase distribution:")
 print(table(tomo_flux$decay_phase))
@@ -372,6 +380,47 @@ message("  Nyssa: ", nrow(nyssa_data), " | Oak: ", nrow(oak_data),
         " | Wet rm: ", nrow(wetland_rm_data), " | Wet hem: ", nrow(wetland_hem_data),
         " | Up rm: ", nrow(upland_rm_data), " | Up hem: ", nrow(upland_hem_data))
 
+# --- Site-level scatter plot helper ---
+# Creates a scatter of ERT metric vs CH4 flux for one site,
+# with per-species regression lines + pooled line + pooled r,p
+site_scatter <- function(site_name, metric = "ert_cv", x_label = "ERT CV (higher = more heterogeneous)") {
+  site_data <- tomo_flux %>% filter(location == site_name)
+
+  # Pooled stats
+  ct <- cor.test(site_data[[metric]], site_data$CH4_mean)
+  pooled_label <- sprintf("r = %.2f, p = %.3f", ct$estimate, ct$p.value)
+
+  spp_colors <- c("N. sylvatica" = "#1b9e77", "A. rubrum" = "#d95f02",
+                   "T. canadensis" = "#7570b3", "Q. rubra" = "#e7298a")
+  spp_shapes <- c("N. sylvatica" = 15, "A. rubrum" = 17,
+                   "T. canadensis" = 16, "Q. rubra" = 18)
+
+  p <- ggplot(site_data, aes(x = .data[[metric]], y = CH4_mean)) +
+    # Per-species regression lines (thin, colored)
+    geom_smooth(aes(color = species_full), method = "lm", se = FALSE,
+                linewidth = 0.6, alpha = 0.6) +
+    # Pooled regression line (black dashed)
+    geom_smooth(method = "lm", se = TRUE, color = "black", linewidth = 0.9,
+                linetype = "dashed", alpha = 0.15) +
+    # Points
+    geom_point(aes(color = species_full, shape = species_full), size = 3, alpha = 0.8) +
+    scale_color_manual(values = spp_colors, name = "Species") +
+    scale_shape_manual(values = spp_shapes, name = "Species") +
+    annotate("text", x = Inf, y = Inf, label = pooled_label,
+             hjust = 1.1, vjust = 1.5, size = 4, color = "grey30") +
+    labs(
+      x = x_label,
+      y = expression(Mean~CH[4]~flux~(nmol~m^{-2}~s^{-1})),
+      title = site_name
+    ) +
+    theme_classic(base_size = 12) +
+    theme(
+      plot.title = element_text(face = "bold", size = 13, hjust = 0.5),
+      legend.position = "bottom"
+    )
+  p
+}
+
 # --- Specialists ---
 message("\nBuilding specialist panels...")
 if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
@@ -379,13 +428,38 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
                                   bad_sonic_indices = c(7), annotation_pos = "topright")
   p_oak <- create_species_panel(oak_data, "Quercus rubra",
                                 bad_sonic_indices = c(6), annotation_pos = "bottomright")
-  p_specialists <- p_nyssa / plot_spacer() / p_oak + plot_layout(heights = c(1, 0.05, 1))
+
+  # Site-level ERT CV vs CH4 flux scatter panels
+  p_wet_cv <- site_scatter("Wetland", metric = "ert_cv",
+                           x_label = "ERT CV (higher = more heterogeneous)")
+  p_up_cv  <- site_scatter("Upland",  metric = "ert_cv",
+                           x_label = "ERT CV (higher = more heterogeneous)")
+
+  p_specialists <- p_nyssa / plot_spacer() / p_oak / plot_spacer() /
+    (p_wet_cv | p_up_cv) +
+    plot_layout(heights = c(1, 0.05, 1, 0.05, 0.8))
   print(p_specialists)
   ggsave(file.path(OUTPUT_DIR, "tomography_specialists.png"), p_specialists,
-         width = 14, height = 10, dpi = 300, bg = "white")
+         width = 14, height = 14, dpi = 300, bg = "white")
   ggsave(file.path(OUTPUT_DIR, "tomography_specialists.pdf"), p_specialists,
-         width = 14, height = 10, bg = "white")
+         width = 14, height = 14, bg = "white")
   message("  Saved: tomography_specialists.png/pdf")
+
+  # --- SI figure: same layout but with ERT mean instead of CV ---
+  p_wet_mean <- site_scatter("Wetland", metric = "ert_mean",
+                             x_label = "Mean resistivity (Ohm-m, higher = drier)")
+  p_up_mean  <- site_scatter("Upland",  metric = "ert_mean",
+                             x_label = "Mean resistivity (Ohm-m, higher = drier)")
+
+  p_specialists_si <- p_nyssa / plot_spacer() / p_oak / plot_spacer() /
+    (p_wet_mean | p_up_mean) +
+    plot_layout(heights = c(1, 0.05, 1, 0.05, 0.8))
+  print(p_specialists_si)
+  ggsave(file.path(OUTPUT_DIR, "tomography_specialists_SI_mean.png"), p_specialists_si,
+         width = 14, height = 14, dpi = 300, bg = "white")
+  ggsave(file.path(OUTPUT_DIR, "tomography_specialists_SI_mean.pdf"), p_specialists_si,
+         width = 14, height = 14, bg = "white")
+  message("  Saved: tomography_specialists_SI_mean.png/pdf")
 }
 
 # --- Generalists ---
