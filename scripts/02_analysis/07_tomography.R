@@ -397,16 +397,36 @@ site_scatter <- function(site_name, metric = "ert_cv", x_label = "ERT CV (higher
 
   # Pooled stats
   ct <- cor.test(site_data[[metric]], site_data$CH4_mean)
-  pooled_label <- sprintf("r = %.2f, p = %.3f", ct$estimate, ct$p.value)
+  pooled_p <- ct$p.value
+  pooled_label <- sprintf("r = %.2f, p = %.3f", ct$estimate, pooled_p)
 
-  p <- ggplot(site_data, aes(x = .data[[metric]], y = CH4_mean)) +
-    # Per-species regression lines (thin, colored)
-    geom_smooth(aes(color = species_full), method = "lm", se = FALSE,
-                linewidth = 0.6, alpha = 0.6) +
-    # Pooled regression line (black dashed)
-    geom_smooth(method = "lm", se = TRUE, color = "black", linewidth = 0.9,
-                linetype = "dashed", alpha = 0.15) +
-    # Points
+  # Per-species significance (only show regression line if p < 0.05)
+  sig_species <- site_data %>%
+    group_by(species_full) %>%
+    filter(sum(!is.na(.data[[metric]]) & !is.na(CH4_mean)) >= 3) %>%
+    summarise(p = cor.test(.data[[metric]], CH4_mean)$p.value, .groups = "drop") %>%
+    filter(p < 0.05) %>%
+    pull(species_full)
+
+  sig_data <- site_data %>% filter(species_full %in% sig_species)
+
+  p <- ggplot(site_data, aes(x = .data[[metric]], y = CH4_mean))
+
+  # Per-species regression lines (dashed, only significant)
+  if (nrow(sig_data) > 0) {
+    p <- p + geom_smooth(data = sig_data, aes(color = species_full),
+                         method = "lm", se = FALSE, linetype = "dashed",
+                         linewidth = 0.6, alpha = 0.6)
+  }
+
+  # Pooled regression line (solid, only if significant)
+  if (pooled_p < 0.05) {
+    p <- p + geom_smooth(method = "lm", se = TRUE, color = "black", linewidth = 0.9,
+                         alpha = 0.15)
+  }
+
+  # Points
+  p <- p +
     geom_point(aes(color = species_full, shape = species_full), size = 3, alpha = 0.8) +
     scale_color_manual(values = species_colors, name = "Species") +
     scale_shape_manual(values = spp_shapes, name = "Species") +
