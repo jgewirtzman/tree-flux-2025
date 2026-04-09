@@ -529,6 +529,99 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
   ggsave(file.path(OUTPUT_DIR, "tomography_specialists_SI_mean.pdf"), p_specialists_si,
          width = 14, height = 14, bg = "white")
   message("  Saved: tomography_specialists_SI_mean.png/pdf")
+
+  # --- Individual measurements vs ERT (nonlinearity check) ---
+  # Instead of tree means, plot all individual flux measurements against
+  # ERT CV (one ERT value per tree, repeated across measurements).
+  # Tests whether tree-mean approach masks threshold/nonlinear effects.
+  message("\nBuilding individual-measurement ERT plots...")
+
+  indiv_flux <- flux_data %>%
+    select(-any_of(c("species_full"))) %>%
+    inner_join(tomo_flux %>% select(tree, ert_cv, ert_mean, species_full, location),
+               by = c("Tree" = "tree"), suffix = c("_flux", "")) %>%
+    filter(!is.na(CH4_flux_nmolpm2ps), !is.na(ert_cv))
+
+  n_meas <- nrow(indiv_flux)
+  n_trees_indiv <- n_distinct(indiv_flux$Tree)
+  meas_per_tree <- indiv_flux %>% group_by(Tree) %>% summarise(n = n(), .groups = "drop")
+  message("  ", n_meas, " measurements across ", n_trees_indiv, " trees",
+          " (median ", median(meas_per_tree$n), " per tree, range ",
+          min(meas_per_tree$n), "-", max(meas_per_tree$n), ")")
+
+  for (ert_metric in c("ert_cv", "ert_mean")) {
+    ert_label <- if (ert_metric == "ert_cv") "ERT CV" else "Mean resistivity (Ohm-m)"
+
+    # Per-site stats (linear)
+    site_stats <- indiv_flux %>%
+      group_by(location) %>%
+      summarise(
+        n_meas = n(),
+        n_trees = n_distinct(Tree),
+        r = cor(.data[[ert_metric]], CH4_flux_nmolpm2ps, use = "complete.obs"),
+        p = cor.test(.data[[ert_metric]], CH4_flux_nmolpm2ps)$p.value,
+        .groups = "drop"
+      ) %>%
+      mutate(label = sprintf("r = %.2f, p = %.3f\n%d meas., %d trees", r, p, n_meas, n_trees))
+
+    # Also compute tree-mean stats for comparison annotation
+    mean_stats <- tomo_flux %>%
+      group_by(location) %>%
+      summarise(
+        r_mean = cor(.data[[ert_metric]], CH4_mean, use = "complete.obs"),
+        p_mean = cor.test(.data[[ert_metric]], CH4_mean)$p.value,
+        .groups = "drop"
+      ) %>%
+      mutate(label_mean = sprintf("tree means: r = %.2f, p = %.3f", r_mean, p_mean))
+
+    site_stats <- site_stats %>% left_join(mean_stats, by = "location")
+
+    p_indiv <- ggplot(indiv_flux, aes(x = .data[[ert_metric]], y = CH4_flux_nmolpm2ps)) +
+      # Individual points (small, transparent)
+      geom_point(aes(color = species_full), size = 0.8, alpha = 0.2) +
+      # Tree means as larger points
+      geom_point(data = tomo_flux, aes(x = .data[[ert_metric]], y = CH4_mean,
+                                        color = species_full),
+                 size = 2.5, alpha = 0.8, shape = 18) +
+      # Linear fit (all individual measurements)
+      geom_smooth(method = "lm", se = TRUE, color = "black", linewidth = 0.8,
+                  alpha = 0.15) +
+      # LOESS fit to check nonlinearity
+      geom_smooth(method = "loess", se = FALSE, color = "#E31A1C", linewidth = 0.8,
+                  linetype = "dashed", span = 0.75) +
+      # Stats
+      geom_text(data = site_stats,
+                aes(x = Inf, y = Inf, label = label),
+                hjust = 1.05, vjust = 1.3, size = 3.2, color = "grey30",
+                inherit.aes = FALSE) +
+      geom_text(data = site_stats,
+                aes(x = Inf, y = Inf, label = label_mean),
+                hjust = 1.05, vjust = 4.5, size = 2.8, color = "grey50",
+                fontface = "italic", inherit.aes = FALSE) +
+      facet_wrap(~ location, scales = "free") +
+      scale_color_manual(values = species_colors, name = "Species") +
+      labs(
+        x = ert_label,
+        y = expression(CH[4]~flux~(nmol~m^{-2}~s^{-1})),
+        title = paste0(ert_label, " vs individual CH4 measurements"),
+        subtitle = "Small points = individual measurements; diamonds = tree means; black = linear; red dashed = LOESS"
+      ) +
+      theme_classic(base_size = 12) +
+      theme(
+        strip.text = element_text(face = "bold", size = 12),
+        strip.background = element_blank(),
+        legend.position = "bottom",
+        plot.title = element_text(face = "bold", size = 13),
+        plot.subtitle = element_text(size = 9, color = "grey40")
+      )
+
+    fname_indiv <- paste0("ert_individual_vs_flux_", gsub("[^a-z0-9]", "_", ert_metric), ".png")
+    ggsave(file.path(OUTPUT_DIR, fname_indiv), p_indiv,
+           width = 11, height = 6, dpi = 300, bg = "white")
+    ggsave(file.path(OUTPUT_DIR, gsub(".png$", ".pdf", fname_indiv)), p_indiv,
+           width = 11, height = 6, bg = "white")
+    message("  Saved: ", fname_indiv)
+  }
 }
 
 # --- Generalists ---
