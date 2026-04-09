@@ -881,7 +881,7 @@ p_combined_fig <- plot_grid(
   p_combined,        # Timeseries plot (from combined_driver_timeseries.R)
   ncol = 1,
   rel_heights = c(1, 1.5),
-  labels = c("A", "B"),
+  labels = c("a", "b"),
   label_size = 14
 )
 
