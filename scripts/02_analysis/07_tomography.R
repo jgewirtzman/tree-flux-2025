@@ -466,8 +466,10 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
                      plot.tag.position = "topleft")
 
   # Add panel labels — tag on the image sub-panel (left side)
-  panels_nyssa$images <- panels_nyssa$images + labs(tag = "a") + tag_theme
-  panels_oak$images   <- panels_oak$images   + labs(tag = "b") + tag_theme
+  panels_nyssa$images  <- panels_nyssa$images  + labs(tag = "a") + tag_theme
+  panels_nyssa$scatter <- panels_nyssa$scatter + labs(tag = "b") + tag_theme
+  panels_oak$images    <- panels_oak$images    + labs(tag = "c") + tag_theme
+  panels_oak$scatter   <- panels_oak$scatter   + labs(tag = "d") + tag_theme
 
   p_nyssa <- panels_nyssa$images + panels_nyssa$scatter + plot_layout(widths = c(3, 1.2))
   p_oak   <- panels_oak$images   + panels_oak$scatter   + plot_layout(widths = c(3, 1.2))
@@ -475,10 +477,10 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
   # Site-level ERT CV vs CH4 flux scatter panels
   p_wet_cv <- site_scatter("Wetland", metric = "ert_cv",
                            x_label = "ERT CV") +
-    labs(tag = "c") + tag_theme
+    labs(tag = "e") + tag_theme
   p_up_cv  <- site_scatter("Upland",  metric = "ert_cv",
                            x_label = "ERT CV", annotation_pos = "topleft") +
-    labs(tag = "d") + tag_theme
+    labs(tag = "f") + tag_theme
 
   p_specialists <- p_nyssa / plot_spacer() / p_oak / plot_spacer() /
     (p_wet_cv + plot_spacer() + p_up_cv + plot_layout(widths = c(1, 0.1, 1))) +
@@ -503,18 +505,20 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
                                           metric = "ert_mean", metric_label = "ERT Mean",
                                           metric_x_label = "Mean resistivity (Ohm-m)")
 
-  panels_nyssa_mean$images <- panels_nyssa_mean$images + labs(tag = "a") + tag_theme
-  panels_oak_mean$images   <- panels_oak_mean$images   + labs(tag = "b") + tag_theme
+  panels_nyssa_mean$images  <- panels_nyssa_mean$images  + labs(tag = "a") + tag_theme
+  panels_nyssa_mean$scatter <- panels_nyssa_mean$scatter + labs(tag = "b") + tag_theme
+  panels_oak_mean$images    <- panels_oak_mean$images    + labs(tag = "c") + tag_theme
+  panels_oak_mean$scatter   <- panels_oak_mean$scatter   + labs(tag = "d") + tag_theme
 
   p_nyssa_mean <- panels_nyssa_mean$images + panels_nyssa_mean$scatter + plot_layout(widths = c(3, 1.2))
   p_oak_mean   <- panels_oak_mean$images   + panels_oak_mean$scatter   + plot_layout(widths = c(3, 1.2))
 
   p_wet_mean <- site_scatter("Wetland", metric = "ert_mean",
                              x_label = "Mean resistivity (Ohm-m)") +
-    labs(tag = "c") + tag_theme
+    labs(tag = "e") + tag_theme
   p_up_mean  <- site_scatter("Upland",  metric = "ert_mean",
                              x_label = "Mean resistivity (Ohm-m)") +
-    labs(tag = "d") + tag_theme
+    labs(tag = "f") + tag_theme
 
   p_specialists_si <- p_nyssa_mean / plot_spacer() / p_oak_mean / plot_spacer() /
     (p_wet_mean + plot_spacer() + p_up_mean + plot_layout(widths = c(1, 0.1, 1))) +
