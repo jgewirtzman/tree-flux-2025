@@ -531,9 +531,9 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
   message("  Saved: tomography_specialists_SI_mean.png/pdf")
 
   # --- Individual measurements vs ERT (nonlinearity check) ---
-  # Instead of tree means, plot all individual flux measurements against
-  # ERT CV (one ERT value per tree, repeated across measurements).
-  # Tests whether tree-mean approach masks threshold/nonlinear effects.
+  # Mirrors all scatter panels from main (CV) and SI (mean) figures,
+  # but shows every temporal measurement instead of tree means.
+  # Tests whether averaging masks threshold/nonlinear effects.
   message("\nBuilding individual-measurement ERT plots...")
 
   indiv_flux <- flux_data %>%
@@ -549,22 +549,20 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
           " (median ", median(meas_per_tree$n), " per tree, range ",
           min(meas_per_tree$n), "-", max(meas_per_tree$n), ")")
 
+  # --- Per-metric faceted individual plots (Wetland/Upland) ---
   for (ert_metric in c("ert_cv", "ert_mean")) {
     ert_label <- if (ert_metric == "ert_cv") "ERT CV" else "Mean resistivity (Ohm-m)"
 
-    # Per-site stats (linear)
     site_stats <- indiv_flux %>%
       group_by(location) %>%
       summarise(
-        n_meas = n(),
-        n_trees = n_distinct(Tree),
+        n_meas = n(), n_trees = n_distinct(Tree),
         r = cor(.data[[ert_metric]], CH4_flux_nmolpm2ps, use = "complete.obs"),
         p = cor.test(.data[[ert_metric]], CH4_flux_nmolpm2ps)$p.value,
         .groups = "drop"
       ) %>%
       mutate(label = sprintf("r = %.2f, p = %.3f\n%d meas., %d trees", r, p, n_meas, n_trees))
 
-    # Also compute tree-mean stats for comparison annotation
     mean_stats <- tomo_flux %>%
       group_by(location) %>%
       summarise(
@@ -577,43 +575,28 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
     site_stats <- site_stats %>% left_join(mean_stats, by = "location")
 
     p_indiv <- ggplot(indiv_flux, aes(x = .data[[ert_metric]], y = CH4_flux_nmolpm2ps)) +
-      # Individual points (small, transparent)
       geom_point(aes(color = species_full), size = 0.8, alpha = 0.2) +
-      # Tree means as larger points
       geom_point(data = tomo_flux, aes(x = .data[[ert_metric]], y = CH4_mean,
                                         color = species_full),
                  size = 2.5, alpha = 0.8, shape = 18) +
-      # Linear fit (all individual measurements)
-      geom_smooth(method = "lm", se = TRUE, color = "black", linewidth = 0.8,
-                  alpha = 0.15) +
-      # LOESS fit to check nonlinearity
+      geom_smooth(method = "lm", se = TRUE, color = "black", linewidth = 0.8, alpha = 0.15) +
       geom_smooth(method = "loess", se = FALSE, color = "#E31A1C", linewidth = 0.8,
                   linetype = "dashed", span = 0.75) +
-      # Stats
-      geom_text(data = site_stats,
-                aes(x = Inf, y = Inf, label = label),
-                hjust = 1.05, vjust = 1.3, size = 3.2, color = "grey30",
-                inherit.aes = FALSE) +
-      geom_text(data = site_stats,
-                aes(x = Inf, y = Inf, label = label_mean),
+      geom_text(data = site_stats, aes(x = Inf, y = Inf, label = label),
+                hjust = 1.05, vjust = 1.3, size = 3.2, color = "grey30", inherit.aes = FALSE) +
+      geom_text(data = site_stats, aes(x = Inf, y = Inf, label = label_mean),
                 hjust = 1.05, vjust = 4.5, size = 2.8, color = "grey50",
                 fontface = "italic", inherit.aes = FALSE) +
       facet_wrap(~ location, scales = "free") +
       scale_color_manual(values = species_colors, name = "Species") +
-      labs(
-        x = ert_label,
-        y = expression(CH[4]~flux~(nmol~m^{-2}~s^{-1})),
-        title = paste0(ert_label, " vs individual CH4 measurements"),
-        subtitle = "Small points = individual measurements; diamonds = tree means; black = linear; red dashed = LOESS"
-      ) +
+      labs(x = ert_label, y = expression(CH[4]~flux~(nmol~m^{-2}~s^{-1})),
+           title = paste0(ert_label, " vs individual CH4 measurements"),
+           subtitle = "Small points = individual; diamonds = tree means; black = linear; red dashed = LOESS") +
       theme_classic(base_size = 12) +
-      theme(
-        strip.text = element_text(face = "bold", size = 12),
-        strip.background = element_blank(),
-        legend.position = "bottom",
-        plot.title = element_text(face = "bold", size = 13),
-        plot.subtitle = element_text(size = 9, color = "grey40")
-      )
+      theme(strip.text = element_text(face = "bold", size = 12),
+            strip.background = element_blank(), legend.position = "bottom",
+            plot.title = element_text(face = "bold", size = 13),
+            plot.subtitle = element_text(size = 9, color = "grey40"))
 
     fname_indiv <- paste0("ert_individual_vs_flux_", gsub("[^a-z0-9]", "_", ert_metric), ".png")
     ggsave(file.path(OUTPUT_DIR, fname_indiv), p_indiv,
@@ -622,6 +605,138 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
            width = 11, height = 6, bg = "white")
     message("  Saved: ", fname_indiv)
   }
+
+  # --- Combined 8-panel individual-measurement figure ---
+  # Mirrors scatter panels from main (CV) and SI (mean) figures
+  # 4 rows (Nyssa, Oak, Wetland, Upland) × 2 cols (CV, Mean)
+
+  # Helper: per-species scatter (individual measurements)
+  indiv_species_scatter <- function(sp_name, metric, x_label,
+                                    ann_pos = "topright") {
+    sp_indiv <- indiv_flux %>% filter(species_full == sp_name)
+    sp_means <- tomo_flux %>% filter(species_full == sp_name)
+
+    ct <- cor.test(sp_indiv[[metric]], sp_indiv$CH4_flux_nmolpm2ps)
+    ct_mean <- cor.test(sp_means[[metric]], sp_means$CH4_mean)
+    stat_label <- sprintf("individual: r=%.2f, p=%.3f (n=%d)\ntree means: r=%.2f, p=%.3f (n=%d)",
+                          ct$estimate, ct$p.value, nrow(sp_indiv),
+                          ct_mean$estimate, ct_mean$p.value, nrow(sp_means))
+
+    ann_x <- if (ann_pos == "topleft") -Inf else Inf
+    ann_hjust <- if (ann_pos == "topleft") -0.05 else 1.05
+
+    p <- ggplot(sp_indiv, aes(x = .data[[metric]], y = CH4_flux_nmolpm2ps)) +
+      geom_point(size = 0.8, alpha = 0.15, color = "grey50") +
+      geom_point(data = sp_means, aes(x = .data[[metric]], y = CH4_mean),
+                 size = 2.5, alpha = 0.9, shape = 18) +
+      geom_smooth(method = "lm", se = TRUE, color = "black", linewidth = 0.7, alpha = 0.15) +
+      geom_smooth(method = "loess", se = FALSE, color = "#E31A1C", linewidth = 0.7,
+                  linetype = "dashed", span = 0.75) +
+      annotate("text", x = ann_x, y = Inf, label = stat_label,
+               hjust = ann_hjust, vjust = 1.3, size = 2.8, color = "grey30") +
+      labs(x = x_label, y = expression(CH[4]~flux),
+           title = sp_name) +
+      theme_classic(base_size = 10) +
+      theme(plot.title = element_text(face = "italic", size = 11, hjust = 0.5),
+            aspect.ratio = 1)
+    p
+  }
+
+  # Helper: site-level scatter (individual measurements)
+  indiv_site_scatter <- function(site_name, metric, x_label,
+                                 ann_pos = "topright") {
+    site_indiv <- indiv_flux %>% filter(location == site_name)
+    site_means <- tomo_flux %>% filter(location == site_name)
+
+    ct <- cor.test(site_indiv[[metric]], site_indiv$CH4_flux_nmolpm2ps)
+    ct_mean <- cor.test(site_means[[metric]], site_means$CH4_mean)
+
+    # Per-species significance
+    sig_sp <- site_indiv %>%
+      group_by(species_full) %>%
+      filter(n() >= 10) %>%
+      summarise(p = cor.test(.data[[metric]], CH4_flux_nmolpm2ps)$p.value,
+                .groups = "drop") %>%
+      filter(p < 0.05) %>% pull(species_full)
+
+    sig_indiv <- site_indiv %>% filter(species_full %in% sig_sp)
+
+    stat_label <- sprintf("individual: r=%.2f, p=%.3f (n=%d)\ntree means: r=%.2f, p=%.3f (n=%d)",
+                          ct$estimate, ct$p.value, nrow(site_indiv),
+                          ct_mean$estimate, ct_mean$p.value, nrow(site_means))
+
+    ann_x <- if (ann_pos == "topleft") -Inf else Inf
+    ann_hjust <- if (ann_pos == "topleft") -0.05 else 1.05
+
+    p <- ggplot(site_indiv, aes(x = .data[[metric]], y = CH4_flux_nmolpm2ps))
+
+    # Per-species lines (dashed, significant only)
+    if (nrow(sig_indiv) > 0) {
+      p <- p + geom_smooth(data = sig_indiv, aes(color = species_full),
+                           method = "lm", se = FALSE, linetype = "dashed",
+                           linewidth = 0.5, alpha = 0.5)
+    }
+    # Pooled line (solid, if significant)
+    if (ct$p.value < 0.05) {
+      p <- p + geom_smooth(method = "lm", se = TRUE, color = "black",
+                           linewidth = 0.7, alpha = 0.15)
+    }
+    # LOESS
+    p <- p + geom_smooth(method = "loess", se = FALSE, color = "#E31A1C",
+                         linewidth = 0.7, linetype = "dashed", span = 0.75)
+
+    p <- p +
+      geom_point(aes(color = species_full), size = 0.8, alpha = 0.15) +
+      geom_point(data = site_means, aes(x = .data[[metric]], y = CH4_mean,
+                                         color = species_full, shape = species_full),
+                 size = 2.5, alpha = 0.9) +
+      scale_color_manual(values = species_colors, name = "Species") +
+      scale_shape_manual(values = spp_shapes, name = "Species") +
+      annotate("text", x = ann_x, y = Inf, label = stat_label,
+               hjust = ann_hjust, vjust = 1.3, size = 2.8, color = "grey30") +
+      labs(x = x_label, y = expression(CH[4]~flux),
+           title = site_name) +
+      theme_classic(base_size = 10) +
+      theme(plot.title = element_text(face = "bold", size = 11, hjust = 0.5),
+            aspect.ratio = 1, legend.position = "bottom")
+    p
+  }
+
+  # Build all 8 panels: 4 rows (Nyssa, Oak, Wetland, Upland) × 2 cols (CV, Mean)
+  tag_theme_sm <- theme(plot.tag = element_text(size = 14, face = "bold"))
+
+  p_ny_cv   <- indiv_species_scatter("N. sylvatica", "ert_cv", "ERT CV") +
+    labs(tag = "a") + tag_theme_sm
+  p_ny_mean <- indiv_species_scatter("N. sylvatica", "ert_mean", "Mean resistivity (Ohm-m)") +
+    labs(tag = "b") + tag_theme_sm
+  p_ok_cv   <- indiv_species_scatter("Q. rubra", "ert_cv", "ERT CV") +
+    labs(tag = "c") + tag_theme_sm
+  p_ok_mean <- indiv_species_scatter("Q. rubra", "ert_mean", "Mean resistivity (Ohm-m)") +
+    labs(tag = "d") + tag_theme_sm
+  p_wet_indiv_cv   <- indiv_site_scatter("Wetland", "ert_cv", "ERT CV") +
+    labs(tag = "e") + tag_theme_sm
+  p_wet_indiv_mean <- indiv_site_scatter("Wetland", "ert_mean", "Mean resistivity (Ohm-m)") +
+    labs(tag = "f") + tag_theme_sm
+  p_up_indiv_cv    <- indiv_site_scatter("Upland", "ert_cv", "ERT CV",
+                                          ann_pos = "topleft") +
+    labs(tag = "g") + tag_theme_sm
+  p_up_indiv_mean  <- indiv_site_scatter("Upland", "ert_mean", "Mean resistivity (Ohm-m)",
+                                          ann_pos = "topleft") +
+    labs(tag = "h") + tag_theme_sm
+
+  # Combine: 4 rows × 2 columns
+  p_indiv_combined <- (p_ny_cv | p_ny_mean) /
+    (p_ok_cv | p_ok_mean) /
+    (p_wet_indiv_cv | p_wet_indiv_mean) /
+    (p_up_indiv_cv | p_up_indiv_mean) +
+    plot_layout(guides = "collect")
+
+  print(p_indiv_combined)
+  ggsave(file.path(OUTPUT_DIR, "ert_individual_measurements_combined.png"), p_indiv_combined,
+         width = 12, height = 16, dpi = 300, bg = "white")
+  ggsave(file.path(OUTPUT_DIR, "ert_individual_measurements_combined.pdf"), p_indiv_combined,
+         width = 12, height = 16, bg = "white")
+  message("  Saved: ert_individual_measurements_combined.png/pdf")
 }
 
 # --- Generalists ---
