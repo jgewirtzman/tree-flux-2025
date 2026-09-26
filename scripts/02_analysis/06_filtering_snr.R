@@ -38,8 +38,9 @@ if (!exists("fluxes")) {
 # PREP + UNIT CORRECTION
 # ============================================================
 
-# NOTE: The corrected flux file already has proper units.
-#       We only need to correct pre-2025 CH4_SE (not flux)
+# NOTE: flux_with_quality_flags.csv (10_quality_flags.R) carries the goFlux
+#       flux and SE in nmol m-2 s-1 for every closure with a trace and the
+#       unit-corrected legacy SE otherwise; no further correction is needed.
 
 df_qc <- fluxes %>%
   filter(
@@ -48,8 +49,7 @@ df_qc <- fluxes %>%
     !is.na(CH4_flux_nmolpm2ps), !is.na(CH4_r2), !is.na(CH4_SE)
   ) %>%
   mutate(
-    # Unit correction: pre-2025 CH4_SE only (flux already corrected in file)
-    CH4_SE_corr = if_else(year < 2025, CH4_SE * 1000, CH4_SE),
+    CH4_SE_corr = CH4_SE,
     
     # SNR calculations
     CO2_snr = abs(CO2_flux_umolpm2ps) / CO2_SE,

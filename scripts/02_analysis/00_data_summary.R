@@ -4,7 +4,7 @@
 # Summary statistics for the flagged flux dataset, including
 # MDF detection rates, instrument comparison, and QC metrics.
 #
-# Run AFTER: scripts/01_import/09_quality_flags.R
+# Run AFTER: scripts/01_import/10_quality_flags.R
 #
 # Outputs:
 #   - Console: formatted summary
@@ -22,7 +22,7 @@ library(tidyr)
 
 flagged_path <- file.path("data", "processed", "flux_with_quality_flags.csv")
 if (!file.exists(flagged_path)) {
-  stop("flux_with_quality_flags.csv not found. Run scripts/01_import/09_quality_flags.R first.")
+  stop("flux_with_quality_flags.csv not found. Run scripts/01_import/10_quality_flags.R first.")
 }
 
 df <- read.csv(flagged_path, stringsAsFactors = FALSE)
@@ -99,7 +99,7 @@ flux_stats(df$CH4_flux_nmolpm2ps[df$year == 2025], "LI-7810 (2025)")
 # ============================================================
 
 cat("\n", strrep("-", 60), "\n")
-cat("  SIGN ANALYSIS (among measurements above Wassmann 95% MDF)\n")
+cat("  SIGN ANALYSIS (among measurements above the campaign-sigma 95% MDF)\n")
 cat(strrep("-", 60), "\n\n")
 
 # Only classify sign for measurements above the detection limit
@@ -184,13 +184,13 @@ cat("  MDF DETECTION RATES (% below MDF threshold)\n")
 cat(strrep("-", 60), "\n\n")
 
 mdf_cols <- c(
-  "Manufacturer MDF"  = "CH4_below_MDF_manuf",
-  "Wassmann 90%"      = "CH4_below_MDF_wass90",
-  "Wassmann 95%"      = "CH4_below_MDF",
-  "Wassmann 99%"      = "CH4_below_MDF_wass99",
-  "Christiansen 90%"  = "CH4_below_MDF_chr90",
-  "Christiansen 95%"  = "CH4_below_MDF_chr95",
-  "Christiansen 99%"  = "CH4_below_MDF_chr99"
+  "Datasheet MDF"  = "CH4_below_MDF_manuf",
+  "Campaign σ 90%"      = "CH4_below_MDF_wass90",
+  "Campaign σ 95%"      = "CH4_below_MDF",
+  "Campaign σ 99%"      = "CH4_below_MDF_wass99",
+  "Per-closure σ ×3t 90%"  = "CH4_below_MDF_chr90",
+  "Per-closure σ ×3t 95%"  = "CH4_below_MDF_chr95",
+  "Per-closure σ ×3t 99%"  = "CH4_below_MDF_chr99"
 )
 
 mdf_results <- list()

@@ -4,8 +4,8 @@
 # EMS (Upland) CH4 flux modeling - EXACT BGS CORE DRIVERS
 #
 # Forces the exact same core predictors from BGS wetland model:
-#   - TS_Ha2 (282h window) - soil temperature
-#   - bvs_wtd_cm (132h window) - water table depth
+#   - TS_Ha2 (optimal wetland window, from 04_rolling_corrs.R) - soil temperature
+#   - bvs_wtd_cm (optimal wetland window) - water table depth
 # 
 # This allows direct comparison of the same model structure
 # between wetland and upland sites
@@ -558,8 +558,15 @@ cat("Specific anomaly predictors (LE/FC):", nrow(ems_anom_subset), "\n")
 # These are the exact same predictors from the BGS wetland model
 # ════════════════════════════════════════════════════════════
 
-BGS_TS_WINDOW <- 282   # TS_Ha2 optimal window at BGS
-BGS_WTD_WINDOW <- 132  # bvs_wtd_cm optimal window at BGS
+# The BGS (wetland) optimal windows are read from the rolling-correlation output so
+# they track the wetland model (01_bgs_model.R) whenever the flux data change.
+bgs_win <- function(var, fallback) {
+  w <- bw %>% filter(site == "Wetland", variable == var, analysis == "raw") %>%
+    slice_max(abs(r), n = 1, with_ties = FALSE)
+  if (nrow(w) == 1) as.integer(w$window_hours) else fallback
+}
+BGS_TS_WINDOW <- bgs_win(CORE_TS_VAR, 282)    # TS_Ha2 optimal raw window at BGS
+BGS_WTD_WINDOW <- bgs_win(CORE_WTD_VAR, 132)  # bvs_wtd_cm optimal raw window at BGS
 
 forced_core <- tibble(
   variable = c(CORE_TS_VAR, CORE_WTD_VAR),

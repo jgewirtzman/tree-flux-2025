@@ -688,6 +688,10 @@ message("═══════════════════════�
 # Identify core interaction predictors dynamically
 ts_pred <- names(model_data_scaled)[grepl("^TS_Ha2_raw_", names(model_data_scaled))][1]
 wtd_pred <- names(model_data_scaled)[grepl("^bvs_wtd_cm_raw_", names(model_data_scaled))][1]
+# Alternative-driver predictors (optimal windows from 04_rolling_corrs.R; names carry the window)
+swc_pred <- names(model_data_scaled)[grepl("^NEON_SWC_shallow_raw_", names(model_data_scaled))][1]
+le1_pred <- names(model_data_scaled)[grepl("^LE_Ha1_raw_", names(model_data_scaled))][1]
+le2_pred <- names(model_data_scaled)[grepl("^LE_Ha2_anom_", names(model_data_scaled))][1]
 
 cat("Core interaction predictors (theory-driven):\n")
 cat("  Temperature:", ts_pred, "\n")
@@ -767,7 +771,7 @@ if (length(high_vif_preds) > 0) {
   # of each correlated pair to remove
   # ════════════════════════════════════════════════════════════
   
-  VIF_DROP <- c("TS_Ha1_raw_285h", "s10t_raw_264h", "LE_Ha2_anom_9h")  # EDIT THIS LIST
+  VIF_DROP <- c("TS_Ha1_raw_285h", "s10t_raw_264h", le2_pred)  # EDIT THIS LIST
   
   cat("\n→ Dropping (per VIF_DROP config):", paste(VIF_DROP, collapse = ", "), "\n")
   
@@ -1428,7 +1432,7 @@ message("═══════════════════════�
 
 
 # Model with SWC instead of WTD in the core interaction
-formula_swc_core <- "CH4_flux_asinh ~ TS_Ha2_raw_282h * NEON_SWC_shallow_raw_129h * species + (1|Tree)"
+formula_swc_core <- paste0("CH4_flux_asinh ~ ", ts_pred, " * ", swc_pred, " * species + (1|Tree)")
 
 m_swc_core <- lmer(as.formula(formula_swc_core), data = model_data_scaled, REML = FALSE)
 
@@ -1454,9 +1458,9 @@ cat("─────────────────────────
 
 # Extract species-specific SWC slopes
 coefs_swc <- fixef(m_swc_core)
-swc_bg <- coefs_swc["NEON_SWC_shallow_raw_129h"]
-swc_hem <- swc_bg + coefs_swc["NEON_SWC_shallow_raw_129h:specieshem"]
-swc_rm <- swc_bg + coefs_swc["NEON_SWC_shallow_raw_129h:speciesrm"]
+swc_bg <- coefs_swc[swc_pred]
+swc_hem <- swc_bg + coefs_swc[paste0(swc_pred, ":specieshem")]
+swc_rm <- swc_bg + coefs_swc[paste0(swc_pred, ":speciesrm")]
 
 cat("\nSWC slopes by species:\n")
 cat(sprintf("  Black gum: %.3f\n", swc_bg))
@@ -1478,7 +1482,7 @@ cat(sprintf("  Red maple: %.3f\n", swc_rm))
 
 
 # Model with LE_Ha1 instead of TEMP in the core interaction
-formula_le1_core <- "CH4_flux_asinh ~ LE_Ha1_raw_123h * bvs_wtd_cm_raw_132h * species + (1|Tree)"
+formula_le1_core <- paste0("CH4_flux_asinh ~ ", le1_pred, " * ", wtd_pred, " * species + (1|Tree)")
 
 m_le1_core <- lmer(as.formula(formula_le1_core), data = model_data_scaled, REML = FALSE)
 
@@ -1492,9 +1496,9 @@ print(round(summary(m_le1_core)$coefficients, 3))
 
 # Extract species-specific LE_Ha1 slopes
 coefs_le1 <- fixef(m_le1_core)
-le1_bg <- coefs_le1["LE_Ha1_raw_123h"]
-le1_hem <- le1_bg + coefs_le1["LE_Ha1_raw_123h:specieshem"]
-le1_rm <- le1_bg + coefs_le1["LE_Ha1_raw_123h:speciesrm"]
+le1_bg <- coefs_le1[le1_pred]
+le1_hem <- le1_bg + coefs_le1[paste0(le1_pred, ":specieshem")]
+le1_rm <- le1_bg + coefs_le1[paste0(le1_pred, ":speciesrm")]
 
 cat("\nLE_Ha1 slopes by species:\n")
 cat(sprintf("  Black gum: %.3f\n", le1_bg))
@@ -1502,7 +1506,7 @@ cat(sprintf("  Hemlock:   %.3f\n", le1_hem))
 cat(sprintf("  Red maple: %.3f\n", le1_rm))
 
 # Now test LE_Ha2_anom
-formula_le2_core <- "CH4_flux_asinh ~ LE_Ha2_anom_9h * bvs_wtd_cm_raw_132h * species + (1|Tree)"
+formula_le2_core <- paste0("CH4_flux_asinh ~ ", le2_pred, " * ", wtd_pred, " * species + (1|Tree)")
 
 m_le2_core <- lmer(as.formula(formula_le2_core), data = model_data_scaled, REML = FALSE)
 
@@ -1517,9 +1521,9 @@ print(round(summary(m_le2_core)$coefficients, 3))
 
 # Extract species-specific LE_Ha2_anom slopes
 coefs_le2 <- fixef(m_le2_core)
-le2_bg <- coefs_le2["LE_Ha2_anom_9h"]
-le2_hem <- le2_bg + coefs_le2["LE_Ha2_anom_9h:specieshem"]
-le2_rm <- le2_bg + coefs_le2["LE_Ha2_anom_9h:speciesrm"]
+le2_bg <- coefs_le2[le2_pred]
+le2_hem <- le2_bg + coefs_le2[paste0(le2_pred, ":specieshem")]
+le2_rm <- le2_bg + coefs_le2[paste0(le2_pred, ":speciesrm")]
 
 cat("\nLE_Ha2_anom slopes by species:\n")
 cat(sprintf("  Black gum: %.3f\n", le2_bg))
@@ -1610,7 +1614,7 @@ message("  T. canadensis: ", round(int_hem, 3))
 message("  A. rubrum: ", round(int_rm, 3))
 
 message("\nSoil water content effect:")
-message("  ", round(coefs["NEON_SWC_shallow_raw_129h"], 3))
+message("  ", round(coefs[swc_pred], 3))
 
 # Model comparison (alternatives)
 message("\n--- Model Comparison ---")
@@ -1743,66 +1747,66 @@ coefs_full <- fixef(m_final)
 
 message("\nCORE MODEL:")
 message("\nTemperature effects (standardized):")
-temp_core_bg <- coefs_core["TS_Ha2_raw_282h"]
-temp_core_hem <- coefs_core["TS_Ha2_raw_282h"] + coefs_core["TS_Ha2_raw_282h:specieshem"]
-temp_core_rm <- coefs_core["TS_Ha2_raw_282h"] + coefs_core["TS_Ha2_raw_282h:speciesrm"]
+temp_core_bg <- coefs_core[ts_pred]
+temp_core_hem <- coefs_core[ts_pred] + coefs_core[paste0(ts_pred, ":specieshem")]
+temp_core_rm <- coefs_core[ts_pred] + coefs_core[paste0(ts_pred, ":speciesrm")]
 message("  N. sylvatica: ", round(temp_core_bg, 3))
 message("  T. canadensis: ", round(temp_core_hem, 3))
 message("  A. rubrum: ", round(temp_core_rm, 3))
 
 message("\nWater table effects (standardized):")
-wtd_core_bg <- coefs_core["bvs_wtd_cm_raw_132h"]
-wtd_core_hem <- coefs_core["bvs_wtd_cm_raw_132h"] + coefs_core["bvs_wtd_cm_raw_132h:specieshem"]
-wtd_core_rm <- coefs_core["bvs_wtd_cm_raw_132h"] + coefs_core["bvs_wtd_cm_raw_132h:speciesrm"]
+wtd_core_bg <- coefs_core[wtd_pred]
+wtd_core_hem <- coefs_core[wtd_pred] + coefs_core[paste0(wtd_pred, ":specieshem")]
+wtd_core_rm <- coefs_core[wtd_pred] + coefs_core[paste0(wtd_pred, ":speciesrm")]
 message("  N. sylvatica: ", round(wtd_core_bg, 3))
 message("  T. canadensis: ", round(wtd_core_hem, 3))
 message("  A. rubrum: ", round(wtd_core_rm, 3))
 
 message("\nTemp × WTD interaction (standardized):")
-int_core_bg <- coefs_core["TS_Ha2_raw_282h:bvs_wtd_cm_raw_132h"]
-int_core_hem <- coefs_core["TS_Ha2_raw_282h:bvs_wtd_cm_raw_132h"] + coefs_core["TS_Ha2_raw_282h:bvs_wtd_cm_raw_132h:specieshem"]
-int_core_rm <- coefs_core["TS_Ha2_raw_282h:bvs_wtd_cm_raw_132h"] + coefs_core["TS_Ha2_raw_282h:bvs_wtd_cm_raw_132h:speciesrm"]
+int_core_bg <- coefs_core[paste0(ts_pred, ":", wtd_pred)]
+int_core_hem <- coefs_core[paste0(ts_pred, ":", wtd_pred)] + coefs_core[paste0(ts_pred, ":", wtd_pred, ":specieshem")]
+int_core_rm <- coefs_core[paste0(ts_pred, ":", wtd_pred)] + coefs_core[paste0(ts_pred, ":", wtd_pred, ":speciesrm")]
 message("  N. sylvatica: ", round(int_core_bg, 3))
 message("  T. canadensis: ", round(int_core_hem, 3))
 message("  A. rubrum: ", round(int_core_rm, 3))
 
 message("\nFULL MODEL:")
 message("\nTemperature effects (standardized):")
-temp_full_bg <- coefs_full["TS_Ha2_raw_282h"]
-temp_full_hem <- coefs_full["TS_Ha2_raw_282h"] + coefs_full["TS_Ha2_raw_282h:specieshem"]
-temp_full_rm <- coefs_full["TS_Ha2_raw_282h"] + coefs_full["TS_Ha2_raw_282h:speciesrm"]
+temp_full_bg <- coefs_full[ts_pred]
+temp_full_hem <- coefs_full[ts_pred] + coefs_full[paste0(ts_pred, ":specieshem")]
+temp_full_rm <- coefs_full[ts_pred] + coefs_full[paste0(ts_pred, ":speciesrm")]
 message("  N. sylvatica: ", round(temp_full_bg, 3))
 message("  T. canadensis: ", round(temp_full_hem, 3))
 message("  A. rubrum: ", round(temp_full_rm, 3))
 
 message("\nWater table effects (standardized):")
-wtd_full_bg <- coefs_full["bvs_wtd_cm_raw_132h"]
-wtd_full_hem <- coefs_full["bvs_wtd_cm_raw_132h"] + coefs_full["bvs_wtd_cm_raw_132h:specieshem"]
-wtd_full_rm <- coefs_full["bvs_wtd_cm_raw_132h"] + coefs_full["bvs_wtd_cm_raw_132h:speciesrm"]
+wtd_full_bg <- coefs_full[wtd_pred]
+wtd_full_hem <- coefs_full[wtd_pred] + coefs_full[paste0(wtd_pred, ":specieshem")]
+wtd_full_rm <- coefs_full[wtd_pred] + coefs_full[paste0(wtd_pred, ":speciesrm")]
 message("  N. sylvatica: ", round(wtd_full_bg, 3))
 message("  T. canadensis: ", round(wtd_full_hem, 3))
 message("  A. rubrum: ", round(wtd_full_rm, 3))
 
 message("\nTemp × WTD interaction (standardized):")
-int_full_bg <- coefs_full["TS_Ha2_raw_282h:bvs_wtd_cm_raw_132h"]
-int_full_hem <- coefs_full["TS_Ha2_raw_282h:bvs_wtd_cm_raw_132h"] + coefs_full["TS_Ha2_raw_282h:bvs_wtd_cm_raw_132h:specieshem"]
-int_full_rm <- coefs_full["TS_Ha2_raw_282h:bvs_wtd_cm_raw_132h"] + coefs_full["TS_Ha2_raw_282h:bvs_wtd_cm_raw_132h:speciesrm"]
+int_full_bg <- coefs_full[paste0(ts_pred, ":", wtd_pred)]
+int_full_hem <- coefs_full[paste0(ts_pred, ":", wtd_pred)] + coefs_full[paste0(ts_pred, ":", wtd_pred, ":specieshem")]
+int_full_rm <- coefs_full[paste0(ts_pred, ":", wtd_pred)] + coefs_full[paste0(ts_pred, ":", wtd_pred, ":speciesrm")]
 message("  N. sylvatica: ", round(int_full_bg, 3))
 message("  T. canadensis: ", round(int_full_hem, 3))
 message("  A. rubrum: ", round(int_full_rm, 3))
 
 message("\nLatent heat effects (standardized, full model only):")
-le_bg <- coefs_full["LE_Ha1_raw_123h"]
-le_hem <- coefs_full["LE_Ha1_raw_123h"] + coefs_full["specieshem:LE_Ha1_raw_123h"]
-le_rm <- coefs_full["LE_Ha1_raw_123h"] + coefs_full["speciesrm:LE_Ha1_raw_123h"]
+le_bg <- coefs_full[le1_pred]
+le_hem <- coefs_full[le1_pred] + coefs_full[paste0("specieshem:", le1_pred)]
+le_rm <- coefs_full[le1_pred] + coefs_full[paste0("speciesrm:", le1_pred)]
 message("  N. sylvatica: ", round(le_bg, 3))
 message("  T. canadensis: ", round(le_hem, 3))
 message("  A. rubrum: ", round(le_rm, 3))
 
 message("\nSoil water content effects (standardized, full model only):")
-swc_bg <- coefs_full["NEON_SWC_shallow_raw_129h"]
-swc_hem <- coefs_full["NEON_SWC_shallow_raw_129h"] + coefs_full["specieshem:NEON_SWC_shallow_raw_129h"]
-swc_rm <- coefs_full["NEON_SWC_shallow_raw_129h"] + coefs_full["speciesrm:NEON_SWC_shallow_raw_129h"]
+swc_bg <- coefs_full[swc_pred]
+swc_hem <- coefs_full[swc_pred] + coefs_full[paste0("specieshem:", swc_pred)]
+swc_rm <- coefs_full[swc_pred] + coefs_full[paste0("speciesrm:", swc_pred)]
 message("  N. sylvatica: ", round(swc_bg, 3))
 message("  T. canadensis: ", round(swc_hem, 3))
 message("  A. rubrum: ", round(swc_rm, 3))
@@ -1855,9 +1859,9 @@ message("BIC: ", round(BIC(m_swc_core), 1))
 
 message("\nSWC slopes by species (standardized):")
 coefs_swc <- fixef(m_swc_core)
-swc_bg <- coefs_swc["NEON_SWC_shallow_raw_129h"]
-swc_hem <- swc_bg + coefs_swc["NEON_SWC_shallow_raw_129h:specieshem"]
-swc_rm <- swc_bg + coefs_swc["NEON_SWC_shallow_raw_129h:speciesrm"]
+swc_bg <- coefs_swc[swc_pred]
+swc_hem <- swc_bg + coefs_swc[paste0(swc_pred, ":specieshem")]
+swc_rm <- swc_bg + coefs_swc[paste0(swc_pred, ":speciesrm")]
 message("  N. sylvatica: ", round(swc_bg, 3))
 message("  T. canadensis: ", round(swc_hem, 3))
 message("  A. rubrum: ", round(swc_rm, 3))
@@ -1876,9 +1880,9 @@ message("BIC: ", round(BIC(m_le1_core), 1))
 
 message("\nLE_Ha1 slopes by species (standardized):")
 coefs_le1 <- fixef(m_le1_core)
-le1_bg <- coefs_le1["LE_Ha1_raw_123h"]
-le1_hem <- le1_bg + coefs_le1["LE_Ha1_raw_123h:specieshem"]
-le1_rm <- le1_bg + coefs_le1["LE_Ha1_raw_123h:speciesrm"]
+le1_bg <- coefs_le1[le1_pred]
+le1_hem <- le1_bg + coefs_le1[paste0(le1_pred, ":specieshem")]
+le1_rm <- le1_bg + coefs_le1[paste0(le1_pred, ":speciesrm")]
 message("  N. sylvatica: ", round(le1_bg, 3))
 message("  T. canadensis: ", round(le1_hem, 3))
 message("  A. rubrum: ", round(le1_rm, 3))
@@ -1897,9 +1901,9 @@ message("BIC: ", round(BIC(m_le2_core), 1))
 
 message("\nLE_Ha2_anom slopes by species (standardized):")
 coefs_le2 <- fixef(m_le2_core)
-le2_bg <- coefs_le2["LE_Ha2_anom_9h"]
-le2_hem <- le2_bg + coefs_le2["LE_Ha2_anom_9h:specieshem"]
-le2_rm <- le2_bg + coefs_le2["LE_Ha2_anom_9h:speciesrm"]
+le2_bg <- coefs_le2[le2_pred]
+le2_hem <- le2_bg + coefs_le2[paste0(le2_pred, ":specieshem")]
+le2_rm <- le2_bg + coefs_le2[paste0(le2_pred, ":speciesrm")]
 message("  N. sylvatica: ", round(le2_bg, 3))
 message("  T. canadensis: ", round(le2_hem, 3))
 message("  A. rubrum: ", round(le2_rm, 3))
@@ -1908,48 +1912,48 @@ message("  A. rubrum: ", round(le2_rm, 3))
 message("\n--- 4. UNIVARIATE MODELS (checking effect directions) ---")
 
 # LE_Ha1 alone
-m_le_only <- lmer(CH4_flux_asinh ~ LE_Ha1_raw_123h * species + (1|Tree), 
+m_le_only <- lmer(as.formula(paste0("CH4_flux_asinh ~ ", le1_pred, " * species + (1|Tree)")), 
                   data = model_data_scaled, REML = FALSE)
 message("\nLE_Ha1 only (no other predictors):")
 le_only <- fixef(m_le_only)
-message("  N. sylvatica: ", round(le_only["LE_Ha1_raw_123h"], 3))
-message("  T. canadensis: ", round(le_only["LE_Ha1_raw_123h"] + le_only["specieshem:LE_Ha1_raw_123h"], 3))
-message("  A. rubrum: ", round(le_only["LE_Ha1_raw_123h"] + le_only["speciesrm:LE_Ha1_raw_123h"], 3))
+message("  N. sylvatica: ", round(le_only[le1_pred], 3))
+message("  T. canadensis: ", round(le_only[le1_pred] + le_only[paste0("specieshem:", le1_pred)], 3))
+message("  A. rubrum: ", round(le_only[le1_pred] + le_only[paste0("speciesrm:", le1_pred)], 3))
 message("  Compare to full model: N. sylvatica = ", round(le_bg, 3), 
-        " (direction ", ifelse(sign(le_only["LE_Ha1_raw_123h"]) == sign(le_bg), "same", "REVERSED"), ")")
+        " (direction ", ifelse(sign(le_only[le1_pred]) == sign(le_bg), "same", "REVERSED"), ")")
 
 # SWC alone
-m_swc_only <- lmer(CH4_flux_asinh ~ NEON_SWC_shallow_raw_129h * species + (1|Tree), 
+m_swc_only <- lmer(as.formula(paste0("CH4_flux_asinh ~ ", swc_pred, " * species + (1|Tree)")), 
                    data = model_data_scaled, REML = FALSE)
 message("\nSWC only (no other predictors):")
 swc_only <- fixef(m_swc_only)
-message("  N. sylvatica: ", round(swc_only["NEON_SWC_shallow_raw_129h"], 3))
-message("  T. canadensis: ", round(swc_only["NEON_SWC_shallow_raw_129h"] + swc_only["specieshem:NEON_SWC_shallow_raw_129h"], 3))
-message("  A. rubrum: ", round(swc_only["NEON_SWC_shallow_raw_129h"] + swc_only["speciesrm:NEON_SWC_shallow_raw_129h"], 3))
+message("  N. sylvatica: ", round(swc_only[swc_pred], 3))
+message("  T. canadensis: ", round(swc_only[swc_pred] + swc_only[paste0("specieshem:", swc_pred)], 3))
+message("  A. rubrum: ", round(swc_only[swc_pred] + swc_only[paste0("speciesrm:", swc_pred)], 3))
 message("  Compare to full model: N. sylvatica = ", round(swc_bg, 3),
-        " (direction ", ifelse(sign(swc_only["NEON_SWC_shallow_raw_129h"]) == sign(swc_bg), "same", "REVERSED"), ")")
+        " (direction ", ifelse(sign(swc_only[swc_pred]) == sign(swc_bg), "same", "REVERSED"), ")")
 
 # Temp alone (for reference)
-m_temp_only <- lmer(CH4_flux_asinh ~ TS_Ha2_raw_282h * species + (1|Tree), 
+m_temp_only <- lmer(as.formula(paste0("CH4_flux_asinh ~ ", ts_pred, " * species + (1|Tree)")), 
                     data = model_data_scaled, REML = FALSE)
 message("\nTemp only (no other predictors):")
 temp_only <- fixef(m_temp_only)
-message("  N. sylvatica: ", round(temp_only["TS_Ha2_raw_282h"], 3))
-message("  T. canadensis: ", round(temp_only["TS_Ha2_raw_282h"] + temp_only["TS_Ha2_raw_282h:specieshem"], 3))
-message("  A. rubrum: ", round(temp_only["TS_Ha2_raw_282h"] + temp_only["TS_Ha2_raw_282h:speciesrm"], 3))
+message("  N. sylvatica: ", round(temp_only[ts_pred], 3))
+message("  T. canadensis: ", round(temp_only[ts_pred] + temp_only[paste0(ts_pred, ":specieshem")], 3))
+message("  A. rubrum: ", round(temp_only[ts_pred] + temp_only[paste0(ts_pred, ":speciesrm")], 3))
 message("  Compare to full model: N. sylvatica = ", round(temp_full_bg, 3),
-        " (direction ", ifelse(sign(temp_only["TS_Ha2_raw_282h"]) == sign(temp_full_bg), "same", "REVERSED"), ")")
+        " (direction ", ifelse(sign(temp_only[ts_pred]) == sign(temp_full_bg), "same", "REVERSED"), ")")
 
 # WTD alone (for reference)
-m_wtd_only <- lmer(CH4_flux_asinh ~ bvs_wtd_cm_raw_132h * species + (1|Tree), 
+m_wtd_only <- lmer(as.formula(paste0("CH4_flux_asinh ~ ", wtd_pred, " * species + (1|Tree)")), 
                    data = model_data_scaled, REML = FALSE)
 message("\nWTD only (no other predictors):")
 wtd_only <- fixef(m_wtd_only)
-message("  N. sylvatica: ", round(wtd_only["bvs_wtd_cm_raw_132h"], 3))
-message("  T. canadensis: ", round(wtd_only["bvs_wtd_cm_raw_132h"] + wtd_only["bvs_wtd_cm_raw_132h:specieshem"], 3))
-message("  A. rubrum: ", round(wtd_only["bvs_wtd_cm_raw_132h"] + wtd_only["bvs_wtd_cm_raw_132h:speciesrm"], 3))
+message("  N. sylvatica: ", round(wtd_only[wtd_pred], 3))
+message("  T. canadensis: ", round(wtd_only[wtd_pred] + wtd_only[paste0(wtd_pred, ":specieshem")], 3))
+message("  A. rubrum: ", round(wtd_only[wtd_pred] + wtd_only[paste0(wtd_pred, ":speciesrm")], 3))
 message("  Compare to full model: N. sylvatica = ", round(wtd_full_bg, 3),
-        " (direction ", ifelse(sign(wtd_only["bvs_wtd_cm_raw_132h"]) == sign(wtd_full_bg), "same", "REVERSED"), ")")
+        " (direction ", ifelse(sign(wtd_only[wtd_pred]) == sign(wtd_full_bg), "same", "REVERSED"), ")")
 
 # 5. SUMMARY TABLE
 message("\n--- 5. SUMMARY: MODEL COMPARISON ---")

@@ -2,11 +2,11 @@
 # 07_filter_sensitivity_ridges.R
 #
 # CH4 flux distribution under quality filter criteria including
-# MDF-based thresholds (manufacturer, Wassmann, Christiansen),
+# MDF-based thresholds (datasheet, campaign sigma, per-closure sigma x3t),
 # empirical SNR (Allan deviation), SE-based SNR, and R^2 filters.
 #
-# Loads pre-computed quality flags from 09_quality_flags.R
-# (scripts/01_import/09_quality_flags.R must be run first).
+# Loads pre-computed quality flags from 10_quality_flags.R
+# (scripts/01_import/10_quality_flags.R must be run first).
 #
 # Two instruments:
 #   - 2025 LI-7810
@@ -30,12 +30,12 @@ PREC_CO2_7810  <- 3.5    # ppm, LI-7810
 
 # ============================================================
 # LOAD PRE-COMPUTED QUALITY FLAGS
-# (from scripts/01_import/09_quality_flags.R)
+# (from scripts/01_import/10_quality_flags.R)
 # ============================================================
 
 flagged_path <- file.path("data", "processed", "flux_with_quality_flags.csv")
 if (!file.exists(flagged_path)) {
-  stop("flux_with_quality_flags.csv not found. Run scripts/01_import/09_quality_flags.R first.")
+  stop("flux_with_quality_flags.csv not found. Run scripts/01_import/10_quality_flags.R first.")
 }
 
 df <- read.csv(flagged_path, stringsAsFactors = FALSE)
@@ -53,7 +53,7 @@ allan_df_7810 <- df %>%
   select(allan_sd_CO2, allan_sd_CH4)
 
 # NOTE: Parts 1-7 (Allan deviation, chamber geometry, field log parsing, MDF
-# computation) have been moved to scripts/01_import/09_quality_flags.R.
+# computation) have been moved to scripts/01_import/10_quality_flags.R.
 # The code below was formerly Part 8+.
 
 # DEAD CODE MARKER — everything between here and Part 8 is skipped
@@ -782,13 +782,13 @@ report_mdf <- function(flag_col, label) {
                   ifelse(is.na(pct), 0, pct)))
 }
 
-report_mdf("CH4_below_MDF_manuf", "Manufacturer MDF")
-report_mdf("CH4_below_MDF_wass90", "Wassmann 90%")
-report_mdf("CH4_below_MDF_wass95", "Wassmann 95%")
-report_mdf("CH4_below_MDF_wass99", "Wassmann 99%")
-report_mdf("CH4_below_MDF_chr90", "Christiansen 90%")
-report_mdf("CH4_below_MDF_chr95", "Christiansen 95%")
-report_mdf("CH4_below_MDF_chr99", "Christiansen 99%")
+report_mdf("CH4_below_MDF_manuf", "Datasheet MDF")
+report_mdf("CH4_below_MDF_wass90", "Campaign σ 90%")
+report_mdf("CH4_below_MDF_wass95", "Campaign σ 95%")
+report_mdf("CH4_below_MDF_wass99", "Campaign σ 99%")
+report_mdf("CH4_below_MDF_chr90", "Per-closure σ ×3t 90%")
+report_mdf("CH4_below_MDF_chr95", "Per-closure σ ×3t 95%")
+report_mdf("CH4_below_MDF_chr99", "Per-closure σ ×3t 99%")
 } # end if (FALSE) — dead code from old Parts 1-7
 
 # ============================================================
@@ -800,8 +800,8 @@ r2_sym <- "\u00B2"
 quality_filters <- list()
 quality_filters[["No filter"]] <- function(d) rep(FALSE, nrow(d))
 
-# Manufacturer MDF (instrument-specific)
-quality_filters[["Manufacturer MDF"]] <- function(d) {
+# Datasheet MDF (instrument precision / t * flux.term; goFlux form)
+quality_filters[["Datasheet MDF"]] <- function(d) {
   ifelse(!is.na(d$CH4_below_MDF_manuf), d$CH4_below_MDF_manuf, FALSE)
 }
 
@@ -824,25 +824,25 @@ quality_filters[["CH4 SNR (Allan) > 3"]] <- function(d) {
   ifelse(!is.na(d$CH4_snr_allan), d$CH4_snr_allan <= 3, FALSE)
 }
 
-# Wassmann MDF thresholds (instrument-specific global precision)
-quality_filters[["Wassmann 90%"]] <- function(d) {
+# Campaign-sigma MDF thresholds (record-wide MAD sigma per analyzer; Wassmann et al. 2018 z-form)
+quality_filters[["Campaign σ 90%"]] <- function(d) {
   ifelse(!is.na(d$CH4_below_MDF_wass90), d$CH4_below_MDF_wass90, FALSE)
 }
-quality_filters[["Wassmann 95%"]] <- function(d) {
+quality_filters[["Campaign σ 95%"]] <- function(d) {
   ifelse(!is.na(d$CH4_below_MDF_wass95), d$CH4_below_MDF_wass95, FALSE)
 }
-quality_filters[["Wassmann 99%"]] <- function(d) {
+quality_filters[["Campaign σ 99%"]] <- function(d) {
   ifelse(!is.na(d$CH4_below_MDF_wass99), d$CH4_below_MDF_wass99, FALSE)
 }
 
-# Christiansen MDF (requires per-measurement Allan deviation)
-quality_filters[["Christiansen 90%"]] <- function(d) {
+# Per-closure sigma x3t MDF (conservative comparison; NOT Christiansen et al. 2015, whose MDF is precision/t)
+quality_filters[["Per-closure σ ×3t 90%"]] <- function(d) {
   ifelse(!is.na(d$CH4_below_MDF_chr90), d$CH4_below_MDF_chr90, FALSE)
 }
-quality_filters[["Christiansen 95%"]] <- function(d) {
+quality_filters[["Per-closure σ ×3t 95%"]] <- function(d) {
   ifelse(!is.na(d$CH4_below_MDF_chr95), d$CH4_below_MDF_chr95, FALSE)
 }
-quality_filters[["Christiansen 99%"]] <- function(d) {
+quality_filters[["Per-closure σ ×3t 99%"]] <- function(d) {
   ifelse(!is.na(d$CH4_below_MDF_chr99), d$CH4_below_MDF_chr99, FALSE)
 }
 
@@ -1614,13 +1614,13 @@ message("\n=== Below-MDF treatment comparison ===")
 
 # Focus on MDF-based filters only (these have clear thresholds)
 mdf_filters <- list(
-  "Manufacturer MDF" = "CH4_below_MDF_manuf",
-  "Wassmann 90%"     = "CH4_below_MDF_wass90",
-  "Wassmann 95%"     = "CH4_below_MDF_wass95",
-  "Wassmann 99%"     = "CH4_below_MDF_wass99",
-  "Christiansen 90%" = "CH4_below_MDF_chr90",
-  "Christiansen 95%" = "CH4_below_MDF_chr95",
-  "Christiansen 99%" = "CH4_below_MDF_chr99"
+  "Datasheet MDF" = "CH4_below_MDF_manuf",
+  "Campaign σ 90%"     = "CH4_below_MDF_wass90",
+  "Campaign σ 95%"     = "CH4_below_MDF_wass95",
+  "Campaign σ 99%"     = "CH4_below_MDF_wass99",
+  "Per-closure σ ×3t 90%" = "CH4_below_MDF_chr90",
+  "Per-closure σ ×3t 95%" = "CH4_below_MDF_chr95",
+  "Per-closure σ ×3t 99%" = "CH4_below_MDF_chr99"
 )
 
 # --- Build long data frame with three treatments per filter ---
@@ -1671,9 +1671,9 @@ for (filt_name in names(mdf_filters)) {
 treat_df <- do.call(rbind, treat_rows)
 
 # Order filters from least to most stringent
-filter_order_mdf <- c("Manufacturer MDF",
-                       "Wassmann 90%", "Wassmann 95%", "Wassmann 99%",
-                       "Christiansen 90%", "Christiansen 95%", "Christiansen 99%")
+filter_order_mdf <- c("Datasheet MDF",
+                       "Campaign σ 90%", "Campaign σ 95%", "Campaign σ 99%",
+                       "Per-closure σ ×3t 90%", "Per-closure σ ×3t 95%", "Per-closure σ ×3t 99%")
 treat_df$filter <- factor(treat_df$filter, levels = filter_order_mdf)
 
 # Treatment ordering: unfiltered as baseline, then the two alternatives
