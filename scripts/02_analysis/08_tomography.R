@@ -283,7 +283,7 @@ create_species_panel <- function(data, species_label, bad_sonic_indices = c(),
   p_images <- p_images +
     annotate("text", x = -0.4, y = 2.6, label = "ERT", size = 5, fontface = "bold", hjust = 0.5) +
     annotate("text", x = -0.4, y = 1.55, label = "SoT", size = 5, fontface = "bold", hjust = 0.5) +
-    annotate("text", x = -0.4, y = 0.7, label = "Phase", size = 5, fontface = "bold", hjust = 0.5) +
+    annotate("text", x = -0.4, y = 0.7, label = "Class", size = 5, fontface = "bold", hjust = 0.5) +
     annotate("text", x = -0.4, y = 0.2, label = "CH[4]", size = 5, fontface = "bold",
              hjust = 0.5, parse = TRUE)
 

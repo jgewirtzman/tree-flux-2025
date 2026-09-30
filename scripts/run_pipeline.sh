@@ -4,6 +4,7 @@
 #   bash scripts/run_pipeline.sh            # full run
 #   SKIP_GOFLUX=1 bash scripts/run_pipeline.sh   # reuse the existing goFlux table
 cd "$(dirname "$0")/.."
+export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8   # non-ASCII plot labels (°C, ×) need a UTF-8 locale
 LOG=outputs/logs; mkdir -p "$LOG"; : > "$LOG/STATUS.txt"
 steps=()
 [ "${SKIP_GOFLUX:-0}" = "1" ] || steps+=(scripts/01_import/09_goflux_reprocess.R)
