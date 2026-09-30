@@ -771,7 +771,11 @@ if (length(high_vif_preds) > 0) {
   # of each correlated pair to remove
   # ════════════════════════════════════════════════════════════
   
-  VIF_DROP <- c("TS_Ha1_raw_285h", "s10t_raw_264h", le2_pred)  # EDIT THIS LIST
+  # Variables (not window-specific names) to drop; matched by prefix so the
+  # choice survives changes in the optimal windows when the flux data change.
+  VIF_DROP_VARS <- c("TS_Ha1_raw_", "s10t_raw_")  # EDIT THIS LIST
+  VIF_DROP <- c(refined_preds[Reduce(`|`, lapply(VIF_DROP_VARS, function(v) startsWith(refined_preds, v)))],
+                le2_pred)
   
   cat("\n→ Dropping (per VIF_DROP config):", paste(VIF_DROP, collapse = ", "), "\n")
   
@@ -1062,6 +1066,11 @@ cat(sprintf("%-35s %5.1f%% %8.1f %8.1f\n", "Final (with additions)",
 cat("─────────────────────────────────────────────────────\n")
 
 saveRDS(m_core_asinh, file.path(OUTPUT_DIR, "m_core_asinh.rds"))
+# Model data (for n, date range and the manuscript-numbers script)
+saveRDS(model_data_scaled, file.path(OUTPUT_DIR, "model_data_scaled.rds"))
+write_csv(tibble(n_obs = nrow(model_data_scaled), n_trees = n_distinct(model_data_scaled$Tree),
+                 first = min(model_data_scaled$datetime), last = max(model_data_scaled$datetime)),
+          file.path(OUTPUT_DIR, "model_data_info.csv"))
 
 # ============================================================
 # 13. SPECIES-SPECIFIC SLOPES

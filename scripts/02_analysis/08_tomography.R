@@ -176,37 +176,27 @@ message("\n  PC1 loadings (high PC1 = wetter/more anomalous):")
 pc1_load <- round(pca_fit$rotation[, 1], 3)
 for (nm in names(pc1_load)) message("    ", nm, ": ", pc1_load[nm])
 
-# --- Decay classification (CV-based) ---
-# SoT threshold: 1% structural damage
-# ERT threshold: species-normalized CV z-score = 0
-#   Higher CV = more moisture heterogeneity = more decay
+# --- Decay classification: taken from the companion tomography paper ---
+# scripts/01_import/11_tomography_classes.R reproduces that paper's classes
+# exactly: SoT structural loss > 1 % crossed with species-normalized ERT PC1
+# (8 metrics, PCA on the 57 trees with SoT) above the study-set mean.
+# The local PCA above (all 60 trees, |CMA|, |radial gradient|) is kept only
+# for the exploratory biplot.
 sot_threshold <- 1
-
-cv_spp_stats <- tomo_flux %>%
-  group_by(species_full) %>%
-  summarise(cv_mu = mean(ert_cv, na.rm = TRUE),
-            cv_sd = sd(ert_cv, na.rm = TRUE), .groups = "drop")
-
+tomo_classes <- read_csv("data/processed/tomography_classes.csv", show_col_types = FALSE) %>%
+  transmute(tree = as.numeric(tree), pc1_paper = ert_pc1, sot_structural_loss,
+            decay_phase = decay_class)
 tomo_flux <- tomo_flux %>%
-  left_join(cv_spp_stats, by = "species_full") %>%
-  mutate(
-    cv_z = (ert_cv - cv_mu) / cv_sd,
-    decay_phase = case_when(
-      sot_damaged <= sot_threshold & cv_z <= 0 ~ "I: Sound",
-      sot_damaged <= sot_threshold & cv_z >  0 ~ "II: Incipient",
-      sot_damaged >  sot_threshold & cv_z >  0 ~ "III: Active",
-      sot_damaged >  sot_threshold & cv_z <= 0 ~ "IV: Cavity"
-    ),
-    decay_phase_short = str_extract(decay_phase, "^[IV]+")
-  ) %>%
-  select(-cv_mu, -cv_sd)
+  left_join(tomo_classes, by = "tree") %>%
+  mutate(sot_damaged = sot_structural_loss,   # upstream SoT value (tree 433: 16 %)
+         decay_phase_short = str_extract(decay_phase, "^[IV]+"))
 
 message("\n  Decay phase distribution:")
 print(table(tomo_flux$decay_phase))
 
 # Merge PC1 and decay phase back into tomography for image panels
 tomography <- tomography %>%
-  left_join(tomo_flux %>% select(tree, pc1, decay_phase, decay_phase_short),
+  left_join(tomo_flux %>% select(tree, pc1, pc1_paper, decay_phase, decay_phase_short),
             by = "tree")
 
 # ============================================================
@@ -788,7 +778,7 @@ metric_info <- tribble(
   "ert_entropy",        "Shannon entropy",              "higher = more uniform",
   "ert_cma",            "CMA (signed)",                 "positive = wet center",
   "ert_radialgradiant", "Radial gradient (signed)",     "positive = drier edges",
-  "pc1",                "PC1 (species-normalized)",     "higher = wetter/more anomalous"
+  "pc1_paper",          "ERT PC1 (species-normalized; tomography paper)", "higher = wetter/more anomalous"
 )
 
 # --- Compute correlations for all groupings ---
@@ -1091,10 +1081,68 @@ print(flux_by_phase)
 message("\n--- ERT METRICS BY LOCATION (medians) ---")
 ert_loc <- tomo_flux %>%
   group_by(location) %>%
-  summarise(across(c(ert_mean, ert_median, ert_cv, ert_gini, ert_cma, pc1),
+  summarise(across(c(ert_mean, ert_median, ert_cv, ert_gini, ert_cma, pc1_paper),
                    ~ round(median(., na.rm = TRUE), 3)),
             .groups = "drop")
 print(ert_loc)
 
 message("\n", paste(rep("=", 60), collapse = ""))
+
+# ============================================================
+# SUPPLEMENTAL: All-observations ERT CV vs CH4 flux
+# (Individual flux measurements joined with tree-level ERT data)
+# ============================================================
+message("\nCreating all-observations ERT scatter plot...")
+
+flux_all <- read_csv("data/processed/flux_with_quality_flags.csv", show_col_types = FALSE) %>%
+  filter(!is.na(PLOT)) %>%
+  group_by(Tree) %>%
+  mutate(SPECIES = ifelse(is.na(SPECIES), first(na.omit(SPECIES)), SPECIES)) %>%
+  ungroup() %>%
+  mutate(
+    location = ifelse(PLOT == "BGS", "Wetland", "Upland"),
+    tree = Tree,
+    species_full = case_when(
+      SPECIES == "bg"  ~ "N. sylvatica",
+      SPECIES == "hem" ~ "T. canadensis",
+      SPECIES == "rm"  ~ "A. rubrum",
+      SPECIES == "ro"  ~ "Q. rubra"
+    )
+  )
+
+flux_with_ert <- flux_all %>%
+  inner_join(tomo_flux %>% select(tree, ert_cv, location, species_full),
+             by = c("tree", "location", "species_full"))
+
+for (site_name in c("Wetland", "Upland")) {
+  site_data <- flux_with_ert %>% filter(location == site_name)
+  ct <- cor.test(site_data$ert_cv, site_data$CH4_flux_nmolpm2ps)
+  pooled_label <- sprintf("r = %.2f, p %s",
+                          ct$estimate,
+                          ifelse(ct$p.value < 0.001, "< 0.001",
+                                 sprintf("= %.3f", ct$p.value)))
+
+  p_allobs <- ggplot(site_data, aes(x = ert_cv, y = CH4_flux_nmolpm2ps)) +
+    geom_point(aes(color = species_full), size = 1.2, alpha = 0.3) +
+    geom_smooth(method = "lm", se = TRUE, color = "black", linewidth = 0.9, alpha = 0.15) +
+    scale_color_manual(values = species_colors, name = "Species") +
+    annotate("text", x = Inf, y = Inf, label = pooled_label,
+             hjust = 1.1, vjust = 1.5, size = 4, color = "grey30") +
+    labs(
+      x = "ERT CV",
+      y = expression(CH[4]~flux~(nmol~m^{-2}~s^{-1})),
+      title = paste0(site_name, " — all observations")
+    ) +
+    theme_classic(base_size = 12) +
+    theme(plot.title = element_text(face = "bold", size = 13, hjust = 0.5),
+          legend.position = "bottom")
+
+  fname <- paste0("ert_cv_vs_flux_allobs_", tolower(site_name))
+  ggsave(file.path("outputs/figures/tomography", paste0(fname, ".png")),
+         p_allobs, width = 6, height = 5, dpi = 300)
+  ggsave(file.path("outputs/figures/tomography", paste0(fname, ".pdf")),
+         p_allobs, width = 6, height = 5)
+  message("  Saved: ", fname, ".png/pdf")
+}
+
 message("Done!")

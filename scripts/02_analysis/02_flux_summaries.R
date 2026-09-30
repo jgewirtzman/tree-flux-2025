@@ -185,9 +185,10 @@ strategy_colors <- c(
 # Main plot (faceted by species)
 # --------------------------------------------
 
-fig2_facet <- ggplot(tree_means, 
+fig2_facet <- ggplot(tree_means,
                      aes(x = location, y = mean_CH4, fill = strategy)) +
-  geom_boxplot(outlier.shape = NA, 
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", linewidth = 0.4) +
+  geom_boxplot(outlier.shape = NA,
                width = 0.6,
                linewidth = 0.4,
                color = "gray30") +
@@ -245,7 +246,8 @@ theme_inset <- theme_clean +
 inset_wetland <- tree_means %>%
   filter(location == "Wetland") %>%
   ggplot(aes(x = species_full, y = mean_CH4, fill = strategy)) +
-  geom_boxplot(outlier.shape = NA, 
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", linewidth = 0.3) +
+  geom_boxplot(outlier.shape = NA,
                width = 0.7,
                linewidth = 0.25,
                color = "gray30") +
@@ -263,7 +265,8 @@ inset_wetland <- tree_means %>%
 inset_upland <- tree_means %>%
   filter(location == "Upland") %>%
   ggplot(aes(x = species_full, y = mean_CH4, fill = strategy)) +
-  geom_boxplot(outlier.shape = NA, 
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", linewidth = 0.3) +
+  geom_boxplot(outlier.shape = NA,
                width = 0.7,
                linewidth = 0.25,
                color = "gray30") +
