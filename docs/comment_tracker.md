@@ -7,6 +7,15 @@ Working draft: `DRAFT_ Contrasting controls on tree methane emissions in upland 
 Status key: **plan** = resolved by the existing workplan; **code** = needs a new analysis or figure change;
 **text** = writing only; **done-local** = already coded but not yet committed.
 
+**Update 30 Sep 2026:** every item below has been addressed as tracked changes in
+`DRAFT_ Contrasting controls on tree methane emissions - v2 tracked 2026-09-30.docx`, with a threaded
+reply (author "Claude (for J. Gewirtzman)") on each co-author comment. Numbers come from
+`scripts/03_modeling/06_manuscript_numbers.R` (outputs/tables/manuscript/). Still open for Jon:
+precision estimator vs the guidelines paper; Gelman 2-SD scaling (kept 1 SD); citation details for the
+two in-prep companion papers; reference-list entries for Segers 1998 and Christensen et al. 2003 (and other
+pre-existing gaps: Terazawa, Dunfield, Jevon, Leung, Marra 2018 etc. should be checked); the SI panel
+combining tree trajectories with random effects (no current script); EDI vs HF archive.
+
 ## Resolved by the reprocessing / method-alignment workplan
 
 | # | Who | Comment | Resolution |
