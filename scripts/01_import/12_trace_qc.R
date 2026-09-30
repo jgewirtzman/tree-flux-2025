@@ -75,6 +75,13 @@ check <- function(d, id) {
   out$start_transient <- length(first) > 0 &&
     (any(abs(diff(ch4)[first] - median(diff(ch4))) > 10 * s_d(diff(ch4))) ||
      any(abs(dco2[first] - median(dco2)) > 10 * s_d(dco2)))
+  # CH4 declining from an elevated start: the chamber was not flushed to ambient (e.g. after the
+  # previous tree) and CH4 relaxes toward ambient -> spurious "uptake"
+  amb <- quantile(d$CH4dry_ppb, 0.05, na.rm = TRUE)
+  ch4_sl <- coef(lm(ch4 ~ tt))[2]
+  out$ch4_start_excess <- mean(ch4[tt <= 10]) - amb
+  out$elevated_decline <- is.finite(ch4_sl) && ch4_sl < 0 && out$ch4_start_excess > max(20 * s_ch4, 20) &&
+    (-ch4_sl * max(tt)) > 5 * s_ch4
   # CH4 step
   dch4 <- abs(diff(ch4)); rng <- diff(range(ch4))
   out$ch4_max_step <- max(dch4)
@@ -114,12 +121,19 @@ f <- g %>% select(closure_id, date, Tree, SPECIES, location, instrument, in_lega
     lm_hm_disagree = (sign(CH4_LM_flux) != sign(CH4_HM_flux) & abs(CH4_LM_flux) > coalesce(CH4_MDF, 0)) | coalesce(CH4_g_factor, 0) > 2,
     short_window = t_sec < 90, long_window = t_sec > 600,
     # the automatic rise detector proved unreliable on inspection; it is reported but not used
+    legacy_disagree = in_legacy_dataset & !is.na(CH4_flux_goflux) &
+      abs(CH4_flux_goflux - g$CH4_flux_legacy[match(closure_id, g$closure_id)]) >
+        pmax(0.5, 0.5 * abs(g$CH4_flux_legacy[match(closure_id, g$closure_id)])),
     window_problem = co2_not_rising | coalesce(co2_falling, FALSE) | coalesce(co2_drop_in_window, FALSE) |
+      coalesce(elevated_decline, FALSE) | coalesce(legacy_disagree, FALSE) |
       coalesce(flat_start, FALSE) | coalesce(overlap, FALSE),
     data_problem = coalesce(ch4_step, FALSE) | coalesce(gap, FALSE) | coalesce(qc_noisy, FALSE) |
       coalesce(start_transient, FALSE),
     reasons = trimws(paste(
       ifelse(co2_not_rising, "CO2 not rising (growing season);", ifelse(co2_not_rising_any, "CO2 flat (dormant);", "")), ifelse(coalesce(co2_drop_in_window, FALSE), "CO2 drops before window end;", ""),
+      ifelse(coalesce(co2_falling, FALSE), "CO2 falling throughout;", ""),
+      ifelse(coalesce(elevated_decline, FALSE), "CH4 declining from elevated start (not flushed);", ""),
+      ifelse(coalesce(legacy_disagree, FALSE), "differs from legacy flux by >50%;", ""),
       ifelse(coalesce(flat_start, FALSE), "flat start;", ""), ifelse(coalesce(rise_mismatch, FALSE), "auto-rise mismatch;", ""),
       ifelse(coalesce(overlap, FALSE), "overlaps another window;", ""), ifelse(coalesce(ch4_step, FALSE), "CH4 step;", ""),
       ifelse(coalesce(gap, FALSE), "data gap;", ""), ifelse(coalesce(start_transient, FALSE), "start transient;", ""), ifelse(coalesce(qc_noisy, FALSE), "noisy;", ""),
@@ -135,6 +149,7 @@ write.csv(f, file.path("outputs", "tables", "trace_qc_flags.csv"), row.names = F
 # (a CO2 rise is visible in the trace or context) and the flux is in the analysis set
 short <- f %>% filter(window_problem, in_legacy_dataset,
                       co2_drop_in_window %in% TRUE | flat_start %in% TRUE | overlap %in% TRUE | co2_falling %in% TRUE |
+                        elevated_decline %in% TRUE | legacy_disagree %in% TRUE |
                         (co2_not_rising & rise_found %in% TRUE)) %>%
   arrange(desc(priority), date)
 # days where most closures have window problems point to a clock/timing error for the whole day:
@@ -150,7 +165,7 @@ short <- short %>% mutate(on_suspect_day = paste(date, instrument) %in% paste(da
 write.csv(short, file.path("outputs", "tables", "trace_qc_clickpeak_shortlist.csv"), row.names = FALSE)
 
 summ <- f %>% summarise(closures = n(), in_analysis = sum(in_legacy_dataset),
-  across(c(co2_not_rising, co2_falling, co2_drop_in_window, flat_start, rise_mismatch, overlap, start_transient, ch4_step, gap, qc_noisy, qc_c0,
+  across(c(co2_not_rising, co2_falling, co2_drop_in_window, elevated_decline, legacy_disagree, flat_start, rise_mismatch, overlap, start_transient, ch4_step, gap, qc_noisy, qc_c0,
            lm_hm_disagree, short_window, window_problem, data_problem), ~ sum(.x %in% TRUE)))
 print(t(summ))
 message("Window problems among analysis-set closures: ", sum(f$window_problem & f$in_legacy_dataset),

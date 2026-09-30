@@ -49,7 +49,12 @@ g <- read.csv(file.path("data", "input", "HF_2023-2025_tree_flux_goflux.csv"),
 message("Closures: ", nrow(g), " (fitted: ", sum(g$fitted), "; in legacy dataset: ",
         sum(g$in_legacy_dataset), ")")
 
-df <- g %>% filter(in_legacy_dataset | INCLUDE_NEW_CLOSURES)
+# Optional exclusion list for sensitivity runs (GOFLUX_EXCLUDE = path to a CSV with closure_id)
+excl_ids <- character(0)
+if (nzchar(Sys.getenv("GOFLUX_EXCLUDE"))) excl_ids <- read.csv(Sys.getenv("GOFLUX_EXCLUDE"), stringsAsFactors = FALSE)$closure_id
+if ("manual_exclude" %in% names(g)) excl_ids <- union(excl_ids, g$closure_id[g$manual_exclude %in% TRUE])
+df <- g %>% filter(in_legacy_dataset | INCLUDE_NEW_CLOSURES) %>% filter(!closure_id %in% excl_ids)
+if (length(excl_ids)) message("Excluded closures (manual review / sensitivity list): ", length(excl_ids))
 message("Analysis rows: ", nrow(df), if (INCLUDE_NEW_CLOSURES) " (new closures included)" else
         " (legacy rows only; new closures excluded)")
 

@@ -167,6 +167,26 @@ fl3_std <- data.frame(
   fl_check = NA_character_, fl_notes = NA_character_, source = "summer2024",
   stringsAsFactors = FALSE)
 
+# Team's manual window review for 22 May - 17 Jul 2024 (Timing Updates.xlsx): hand-adjusted
+# start/end times and good/bad calls. These are the equivalent of click-peak windows and override
+# the summer_2024.csv times; "bad" closures were already left out of the published dataset.
+tu_path <- file.path("data", "raw", "upland_wetland", "May23_Sept24", "Timing Updates.xlsx")
+if (file.exists(tu_path)) {
+  tu <- as.data.frame(readxl::read_excel(tu_path, sheet = 1))
+  tu <- tu[!is.na(tu$`Unique ID`), ]
+  tu_start <- hms_of(tu$Updated_start); tu_end <- hms_of(tu$Updated_end)
+  k <- match(fl3_std$UniqueID_fl, tu$`Unique ID`)
+  has <- !is.na(k)
+  fl3_std$start_adjusted <- FALSE
+  fl3_std$start_adjusted[has] <- nz(tu_start[k[has]]) & tu_start[k[has]] != fl3_std$comp_start[has]
+  fl3_std$comp_start[has] <- ifelse(nz(tu_start[k[has]]), tu_start[k[has]], fl3_std$comp_start[has])
+  fl3_std$comp_end[has]   <- ifelse(nz(tu_end[k[has]]),   tu_end[k[has]],   fl3_std$comp_end[has])
+  fl3_std$fl_check[has]   <- tu$quality[k[has]]
+  fl3_std$fl_notes[has]   <- tu$Notes[k[has]]
+  message("Timing Updates.xlsx applied to ", sum(has), " summer-2024 closures (bad: ",
+          sum(tu$quality[k[has]] %in% "bad"), ")")
+}
+
 # Sep 2024 - Mar 2025 xlsx logs (the LGR was used until the LI-7810 arrived in Apr 2025;
 # the Jan-Mar 2025 files must NOT be skipped)
 xlsx_files <- list.files(xlsx_dir, pattern = "[.]xlsx$", full.names = TRUE)
@@ -189,6 +209,9 @@ message("xlsx field logs: ", length(xlsx_files), " files, ", nrow(fl4_std), " en
         paste(range(fl4_std$date_raw), collapse = " to "), ")")
 
 field_logs <- bind_rows(fl1_std, fl2_std, fl3_std, fl4_std)
+# hand-adjusted starts (Timing Updates.xlsx) already skip the transient: no extra deadband
+field_logs$start_adjusted <- field_logs$start_adjusted %in% TRUE
+field_logs$deadband_s <- ifelse(field_logs$start_adjusted, 0, DEADBAND_LGR)
 field_logs$machine <- gsub("LGR #", "LGR", field_logs$machine)
 field_logs$machine <- gsub("\\s+", "", field_logs$machine)
 field_logs$machine[!nz(field_logs$machine) | field_logs$machine == "NA"] <- "LGR1"
@@ -366,7 +389,18 @@ trim_at_opening <- function(seg) {
   }
   seg
 }
+# Manual review decisions (14_manual_windows.R): clicked windows replace the automatic ones
+manual <- if (file.exists(file.path("data", "input", "manual_windows.csv")))
+  read.csv(file.path("data", "input", "manual_windows.csv"), stringsAsFactors = FALSE) else
+  data.frame(closure_id = character(), decision = character(), start = character(), end = character())
+manual_click <- manual[manual$decision == "click", ]
+apply_manual <- function(uid, start, end) {
+  k <- match(uid, manual_click$closure_id)
+  if (is.na(k)) return(list(start = start, end = end, manual = FALSE))
+  list(start = as.POSIXct(manual_click$start[k], tz = TZ), end = as.POSIXct(manual_click$end[k], tz = TZ), manual = TRUE)
+}
 segment_trace <- function(day, start, end, uid) {
+  mw <- apply_manual(uid, start, end); start <- mw$start; end <- mw$end
   seg <- day[day$POSIX.time >= start - SHOULDER_S & day$POSIX.time <= end + SHOULDER_S, ]
   if (!nrow(seg)) return(NULL)
   seg$UniqueID <- uid
@@ -375,7 +409,7 @@ segment_trace <- function(day, start, end, uid) {
   seg$start.time <- start; seg$end.time <- end
   seg$Etime <- as.numeric(seg$POSIX.time - start, units = "secs")
   seg$obs.length <- as.numeric(end - start, units = "secs")
-  trim_at_opening(seg)
+  if (mw$manual) seg else trim_at_opening(seg)
 }
 
 # Clock check: the field logs record the LGR's own clock, so no shift is applied. A
@@ -410,7 +444,7 @@ for (k in seq_len(nrow(day_keys))) {
   day_sigma[[length(day_sigma) + 1]] <- sigma_day(day, day_keys$trace_machine[k], day_keys$date[k])
   rows <- which(field_logs$date == day_keys$date[k] & field_logs$trace_machine == day_keys$trace_machine[k])
   for (i in rows) {
-    seg <- segment_trace(day, field_logs$comp_start_posix[i] + DEADBAND_LGR, field_logs$comp_end_posix[i],
+    seg <- segment_trace(day, field_logs$comp_start_posix[i] + field_logs$deadband_s[i], field_logs$comp_end_posix[i],
                          field_logs$closure_id[i])
     if (is.null(seg)) next
     seg$instrument <- day_keys$trace_machine[k]
@@ -504,9 +538,10 @@ message("\n=== Part 6: closure table and geometry ===")
 closures <- bind_rows(
   field_logs %>% transmute(closure_id, legacy_row, date, tree, instrument = trace_machine, clock_offset_s,
                            machine_logged = machine,
-                           window_src = sprintf("field log start/end + %d s deadband", DEADBAND_LGR),
+                           window_src = ifelse(start_adjusted, "field log, start hand-adjusted by team (Timing Updates.xlsx)",
+                                               sprintf("field log start/end + %d s deadband", DEADBAND_LGR)),
                            closure_start = comp_start_posix,
-                           window_start = comp_start_posix + DEADBAND_LGR, window_end = comp_end_posix,
+                           window_start = comp_start_posix + deadband_s, window_end = comp_end_posix,
                            real_start = real_start_posix, fl_source = source, fl_check, fl_notes,
                            UniqueID_fl),
   runs %>% transmute(closure_id, legacy_row, date, tree, instrument = "LI-7810", clock_offset_s = 0,
@@ -517,6 +552,10 @@ closures <- bind_rows(
                      fl_notes = ifelse(redo, "redo remark (…R)", NA_character_), UniqueID_fl = REMARK)
 )
 closures$has_trace <- closures$closure_id %in% c(names(lgr_segments), names(li_segments))
+closures$manual_window <- closures$closure_id %in% manual_click$closure_id
+closures$manual_exclude <- closures$closure_id %in% manual$closure_id[manual$decision == "exclude"]
+if (nrow(manual)) message("Manual decisions applied: ", sum(closures$manual_window), " clicked windows, ",
+                          sum(closures$manual_exclude), " exclusions")
 closures$end_trim_s <- unlist(window_trims)[closures$closure_id]
 closures$end_trim_s[is.na(closures$end_trim_s)] <- 0
 closures$window_end <- closures$window_end - closures$end_trim_s

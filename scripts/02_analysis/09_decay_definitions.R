@@ -74,3 +74,40 @@ write.csv(sp_res, "outputs/tables/decay_definition_by_species.csv", row.names = 
 options(width = 200)
 print(as.data.frame(res %>% mutate(across(where(is.numeric), ~ signif(.x, 2)))))
 print(as.data.frame(sp_res %>% mutate(across(where(is.numeric), ~ signif(.x, 2)))))
+
+# ------------------------------------------------------------
+# SI table: correlation of tree-mean CH4 flux with four wood-condition metrics
+#   SoT structural loss  % of the SoT cross-section in non-brown (low-velocity) classes (PiCUS Q74)
+#   ERT mean             mean resistivity of the ERT cross-section (Ohm m; lower = wetter)
+#   ERT CV               coefficient of variation of resistivity (heterogeneity of moisture)
+#   ERT index (PC1)      first principal component of eight ERT metrics, each z-scored within
+#                        species (tomography paper; higher = wetter, more heterogeneous)
+# rows: each species x site (10 trees), each site pooled (30 trees), and the species-adjusted
+# mixed-model test on all measurements (p only)
+# ------------------------------------------------------------
+metrics <- c(sot_loss_pct = "SoT structural loss (%)", ert_mean = "ERT mean (Ohm m)", ert_cv = "ERT CV", ert_pc1 = "ERT index (PC1)")
+trees$sot_loss_pct <- trees$sot_structural_loss
+fmt <- function(r, p) ifelse(is.na(r), "–", sprintf("%.2f (%s)%s", r, ifelse(p < 0.001, "<0.001", sprintf("%.3f", p)),
+                                                      ifelse(p < 0.05, "*", "")))
+grp <- list()
+for (s in c("Wetland", "Upland")) {
+  for (spp in c("bg", "rm", "hem", "ro")) {
+    d <- trees %>% filter(site == s, SPECIES == spp); if (nrow(d) < 6) next
+    grp[[length(grp) + 1]] <- c(group = sprintf("%s — %s", s, c(bg = "N. sylvatica", rm = "A. rubrum", hem = "T. canadensis", ro = "Q. rubra")[[spp]]),
+      n = nrow(d), sapply(names(metrics), function(m) { x <- d[[m]]; ok <- !is.na(x); ct <- cor.test(x[ok], d$flux[ok]); fmt(ct$estimate, ct$p.value) }))
+  }
+  d <- trees %>% filter(site == s)
+  grp[[length(grp) + 1]] <- c(group = sprintf("%s — all trees pooled", s), n = nrow(d),
+    sapply(names(metrics), function(m) { x <- d[[m]]; ok <- !is.na(x); ct <- cor.test(x[ok], d$flux[ok]); fmt(ct$estimate, ct$p.value) }))
+  # species-adjusted mixed model on all measurements (p of the metric term)
+  pv <- sapply(names(metrics), function(m) {
+    o <- fx %>% filter(site == s) %>% mutate(tree = as.character(Tree)) %>% inner_join(d %>% select(tree, x = all_of(m)), by = "tree") %>% filter(!is.na(x))
+    o$x <- as.numeric(scale(o$x)); mm <- lmer(y ~ x + SPECIES + (1 | Tree), data = o, REML = FALSE)
+    b <- fixef(mm)[["x"]]; p <- anova(update(mm, . ~ . - x), mm)$`Pr(>Chisq)`[2]
+    sprintf("β = %.2f (%s)%s", b, ifelse(p < 0.001, "<0.001", sprintf("%.3f", p)), ifelse(p < 0.05, "*", "")) })
+  grp[[length(grp) + 1]] <- c(group = sprintf("%s — species-adjusted, all measurements", s), n = sum(fx$site == s), pv)
+}
+si <- as.data.frame(do.call(rbind, grp), stringsAsFactors = FALSE)
+names(si) <- c("Group", "n", unname(metrics))
+write.csv(si, "outputs/tables/SI_decay_metric_correlations.csv", row.names = FALSE)
+print(si)

@@ -493,26 +493,26 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
     er <- map(data$ert_path, read_image_as_raster)
     so <- map(seq_len(n), function(i) if (is.na(data$decay_phase[i])) NULL else read_image_as_raster(data$sonic_path[i]))
     g <- ggplot() + coord_fixed(ratio = 1, xlim = c(0, n), ylim = c(-0.05, 3.55), clip = "off") +
-      theme_void() + theme(plot.margin = margin(0, 4, 0, 34),
-                           plot.title = element_text(hjust = 0.5, size = 13, face = "italic", margin = margin(b = 2))) +
+      theme_void() + theme(plot.margin = margin(0, 4, 0, 40),
+                           plot.title = element_text(hjust = 0.5, size = 15, face = "italic", margin = margin(b = 2))) +
       ggtitle(title) +
       annotate("segment", x = 0, xend = n, y = 3.32, yend = 3.32,
                arrow = arrow(length = unit(0.07, "inches")), linewidth = 0.35, colour = "grey30") +
       annotate("text", x = n / 2, y = 3.47, label = "ERT moisture-anomaly index (species-normalized PC1)",
-               size = 3, colour = "grey20") +
+               size = 3.8, colour = "grey20") +
       annotate("text", x = -0.15, y = c(2.6, 1.55, 0.72), label = c("ERT", "SoT", "Class"),
-               size = 4, fontface = "bold", hjust = 1) +
-      annotate("text", x = -0.15, y = 0.2, label = "CH[4]", parse = TRUE, size = 4, fontface = "bold", hjust = 1)
+               size = 5, fontface = "bold", hjust = 1) +
+      annotate("text", x = -0.15, y = 0.2, label = "CH[4]", parse = TRUE, size = 5, fontface = "bold", hjust = 1)
     for (i in seq_len(n)) {
       g <- g + annotation_raster(er[[i]], xmin = i - 0.97, xmax = i - 0.03, ymin = 2.12, ymax = 3.08)
       if (!is.null(so[[i]])) g <- g + annotation_raster(so[[i]], xmin = i - 0.97, xmax = i - 0.03, ymin = 1.07, ymax = 2.03)
       else g <- g + annotate("text", x = i - 0.5, y = 1.55, label = "no scan", size = 2.6, colour = "grey50")
       cl <- data$decay_phase_short[i]
-      if (!is.na(cl)) g <- g + annotate("text", x = i - 0.5, y = 0.72, label = cl, size = 4.2, fontface = "bold", colour = class_cols[cl])
+      if (!is.na(cl)) g <- g + annotate("text", x = i - 0.5, y = 0.72, label = cl, size = 5.5, fontface = "bold", colour = class_cols[cl])
       fn <- data$flux_norm[i]; fc <- flux_pal[round(fn * 100) + 1]
       g <- g + annotate("rect", xmin = i - 0.98, xmax = i - 0.02, ymin = 0.02, ymax = 0.38, fill = fc, colour = NA) +
         annotate("text", x = i - 0.5, y = 0.2, label = formatC(data$CH4_mean[i], format = "fg", digits = 2),
-                 size = 3.1, colour = ifelse(fn > 0.55, "white", "black"))
+                 size = 4.2, colour = ifelse(fn > 0.55, "white", "black"))
     }
     g
   }
@@ -523,50 +523,62 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
     d2 <- data %>% mutate(cls = ifelse(is.na(decay_phase_short), "no SoT", decay_phase_short))
     ggplot(d2, aes(pc1_paper, CH4_mean)) +
       geom_vline(xintercept = thr, linetype = "dotted", colour = "grey55", linewidth = 0.4) +
-      geom_smooth(method = "lm", formula = y ~ x, colour = sp_col, fill = sp_col, alpha = 0.15, linewidth = 0.8) +
-      geom_point(aes(fill = cls), shape = 21, size = 2.8, colour = "grey20", stroke = 0.3) +
+      { if (ct$p.value < 0.05) geom_smooth(method = "lm", formula = y ~ x, colour = sp_col, fill = sp_col, alpha = 0.15, linewidth = 0.8) } +
+      geom_point(aes(fill = cls), shape = 21, size = 3.2, colour = "grey20", stroke = 0.3) +
       scale_fill_manual(values = c(class_cols, "no SoT" = "white"), name = "Class", drop = TRUE) +
       labs(x = "ERT index (PC1)", y = expression(Mean~CH[4]~flux~(nmol~m^{-2}~s^{-1})), subtitle = lab) +
-      theme_classic(base_size = 10) +
-      theme(aspect.ratio = 0.9, legend.position = "none", plot.margin = margin(0, 6, 0, 4),
-            plot.subtitle = element_text(size = 8.5, colour = "grey20", lineheight = 1.05))
+      theme_classic(base_size = 12) +
+      theme(aspect.ratio = 1, legend.position = "none", plot.margin = margin(4, 8, 4, 4),
+            plot.title = element_text(face = "italic", hjust = 0.5, size = 12),
+            plot.subtitle = element_text(size = 9.5, colour = "grey20", lineheight = 1.05, hjust = 0.5))
   }
   thr <- read_csv("data/processed/tomography_classes.csv", show_col_types = FALSE)$ert_pc1_threshold[1]
   ny2 <- prepare_species_data(nyssa_trees, "Nyssa sylvatica", sort_metric = "pc1_paper")
   oa2 <- prepare_species_data(oak_trees, "Quercus rubra", sort_metric = "pc1_paper")
   tg <- theme(plot.tag = element_text(size = 14, face = "bold"))
   pa <- strip_panel(ny2, "Nyssa sylvatica (wetland)", species_colors[["N. sylvatica"]]) + labs(tag = "a") + tg
-  pb <- class_scatter(ny2, species_colors[["N. sylvatica"]], thr) + labs(tag = "b") + tg
+  pb <- class_scatter(ny2, species_colors[["N. sylvatica"]], thr) + labs(tag = "b", title = "N. sylvatica") + tg
   pc <- strip_panel(oa2, "Quercus rubra (upland)", species_colors[["Q. rubra"]]) + labs(tag = "c") + tg
-  pd <- class_scatter(oa2, species_colors[["Q. rubra"]], thr) + labs(tag = "d") + tg
+  pd <- class_scatter(oa2, species_colors[["Q. rubra"]], thr) + labs(tag = "d", title = "Q. rubra") + tg
 
-  # within-species correlations, all groups, three definitions (Fisher-z 95 % CI)
-  defs <- c(pc1_paper = "ERT index (PC1)", ert_cv = "ERT CV", sot_damaged = "SoT structural loss")
-  fr <- tomo_flux %>% mutate(group = paste0(species_full, " (", location, ")")) %>%
-    select(group, species_full, location, CH4_mean, all_of(names(defs))) %>%
-    pivot_longer(all_of(names(defs)), names_to = "def", values_to = "x") %>%
-    filter(!is.na(x)) %>% group_by(group, species_full, location, def) %>%
-    summarise(n = n(), r = cor(x, CH4_mean), .groups = "drop") %>%
-    mutate(z = atanh(r), se = 1 / sqrt(n - 3), lo = tanh(z - 1.96 * se), hi = tanh(z + 1.96 * se),
-           def = factor(defs[def], levels = rev(defs)),
-           group = factor(group, levels = rev(c("N. sylvatica (Wetland)", "A. rubrum (Wetland)", "T. canadensis (Wetland)",
-                                                "Q. rubra (Upland)", "A. rubrum (Upland)", "T. canadensis (Upland)"))))
-  write_csv(fr, file.path("outputs", "tables", "decay_within_species_correlations.csv"))
-  pe <- ggplot(fr, aes(r, group, colour = def)) +
-    geom_vline(xintercept = 0, colour = "grey60", linewidth = 0.4) +
-    geom_errorbar(aes(xmin = lo, xmax = hi), width = 0, orientation = "y", linewidth = 0.6, position = position_dodge(width = 0.6)) +
-    geom_point(size = 2.2, position = position_dodge(width = 0.6)) +
-    scale_colour_manual(values = c("ERT index (PC1)" = "#1B4F72", "ERT CV" = "#5DADE2", "SoT structural loss" = "#B9770E"),
-                        breaks = unname(defs), name = NULL) +
-    scale_x_continuous(limits = c(-1, 1), breaks = seq(-1, 1, 0.5)) +
-    labs(x = "Correlation with tree-mean CH4 flux (r, 95% CI; 10 trees per group)", y = NULL, tag = "e") +
-    theme_classic(base_size = 10) + tg +
-    theme(legend.position = "top", axis.text.y = element_text(face = "italic"),
-          plot.margin = margin(4, 8, 4, 4))
-  p_fig5 <- (pa + pb + plot_layout(widths = c(3.1, 1))) / (pc + pd + plot_layout(widths = c(3.1, 1))) / pe +
-    plot_layout(heights = c(1, 1, 1.15))
-  ggsave(file.path(OUTPUT_DIR, "tomography_specialists.png"), p_fig5, width = 11, height = 9.2, dpi = 300, bg = "white")
-  ggsave(file.path(OUTPUT_DIR, "tomography_specialists.pdf"), p_fig5, width = 11, height = 9.2, bg = "white")
+  # site-level scatters (all trees), species coloured; each species' r and p in the legend;
+  # a line only where that species' correlation is significant; pooled r and the
+  # species-adjusted p (09_decay_definitions.R) in the subtitle
+  dd <- if (file.exists("outputs/tables/decay_definition_comparison.csv"))
+    read_csv("outputs/tables/decay_definition_comparison.csv", show_col_types = FALSE) else NULL
+  site_pc1 <- function(site_name, tag) {
+    sd0 <- tomo_flux %>% filter(location == site_name, !is.na(pc1_paper))
+    st <- sd0 %>% group_by(species_full) %>%
+      summarise(r = cor(pc1_paper, CH4_mean), p = cor.test(pc1_paper, CH4_mean)$p.value, .groups = "drop") %>%
+      mutate(lab = sprintf("%s  r = %.2f, p = %s%s", species_full, r, ifelse(p < 0.001, "<0.001", sprintf("%.3f", p)),
+                           ifelse(p < 0.05, " *", "")))
+    labs_v <- setNames(st$lab, st$species_full)
+    ct <- cor.test(sd0$pc1_paper, sd0$CH4_mean)
+    adj <- if (!is.null(dd)) dd$mixed_lrt_p[dd$site == site_name & dd$definition == "ert_pc1"] else NA
+    sub <- sprintf("All trees pooled: r = %.2f (p = %.2f)\nspecies-adjusted, all measurements: p = %.2f",
+                   ct$estimate, ct$p.value, adj)
+    sig <- sd0 %>% filter(species_full %in% st$species_full[st$p < 0.05])
+    g <- ggplot(sd0, aes(pc1_paper, CH4_mean, colour = species_full, shape = species_full)) +
+      geom_vline(xintercept = thr, linetype = "dotted", colour = "grey60", linewidth = 0.4)
+    if (nrow(sig)) g <- g + geom_smooth(data = sig, method = "lm", formula = y ~ x, se = TRUE, alpha = 0.12, linewidth = 0.8,
+                                        aes(fill = species_full), show.legend = FALSE)
+    g + geom_point(size = 2.6, alpha = 0.9) +
+      scale_colour_manual(values = species_colors, labels = labs_v, name = NULL) +
+      scale_fill_manual(values = species_colors, guide = "none") +
+      scale_shape_manual(values = spp_shapes, labels = labs_v, name = NULL) +
+      labs(x = "ERT index (PC1)",
+           y = expression(Mean~CH[4]~flux~(nmol~m^{-2}~s^{-1})), title = site_name, subtitle = sub, tag = tag) +
+      theme_classic(base_size = 12) + tg +
+      theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 12),
+            plot.subtitle = element_text(size = 8.5, colour = "grey30", hjust = 0.5, lineheight = 1.05),
+            legend.position = "bottom", legend.direction = "vertical", legend.text = element_text(size = 9),
+            legend.key.size = unit(0.35, "cm"), aspect.ratio = 1, plot.margin = margin(4, 8, 4, 4))
+  }
+  pe <- site_pc1("Wetland", "e"); pf <- site_pc1("Upland", "f")
+  pc <- pc + labs(tag = "c"); pd <- pd + labs(tag = "d")
+  p_fig5 <- pa / pc / (pb + pd + pe + pf + plot_layout(nrow = 1)) + plot_layout(heights = c(1, 1, 1.25))
+  ggsave(file.path(OUTPUT_DIR, "tomography_specialists.png"), p_fig5, width = 15, height = 13.5, dpi = 300, bg = "white")
+  ggsave(file.path(OUTPUT_DIR, "tomography_specialists.pdf"), p_fig5, width = 15, height = 13.5, bg = "white")
   message("  Saved: tomography_specialists.png/pdf (Figure 5, PC1 ordering + definition forest plot)")
 
   # --- SI figure: ERT mean throughout (re-sort images + scatter by mean) ---
