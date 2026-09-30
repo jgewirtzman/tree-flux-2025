@@ -489,3 +489,44 @@ tree_effects %>%
     .groups = "drop"
   ) %>%
   print()
+# ============================================================
+# SI FIGURE: tree trajectories (A) + tree random effects with 95% intervals (B)
+# (replaces the untracked SI panel in the v1 manuscript)
+# ============================================================
+suppressPackageStartupMessages({ library(patchwork); library(lme4) })
+grp_levels <- c("A. rubrum|Upland", "T. canadensis|Upland", "Q. rubra|Upland",
+                "A. rubrum|Wetland", "T. canadensis|Wetland", "N. sylvatica|Wetland")
+sp_lab <- c(rm = "A. rubrum", hem = "T. canadensis", ro = "Q. rubra", bg = "N. sylvatica")
+traj <- fluxes %>% mutate(sp = sp_lab[SPECIES], grp = factor(paste(sp, location, sep = "|"), levels = grp_levels),
+                          date = as.Date(date)) %>%
+  group_by(grp) %>% mutate(rel_mean = { m <- ave(CH4_flux_nmolpm2ps, Tree); r <- rank(m, ties.method = "average"); (r - min(r)) / max(1, max(r) - min(r)) }) %>%
+  ungroup()
+asinh_tr <- scales::trans_new("asinh", function(x) asinh(x), function(x) sinh(x))
+pA <- ggplot(traj, aes(date, CH4_flux_nmolpm2ps, group = Tree, colour = rel_mean)) +
+  geom_hline(yintercept = 0, colour = "grey75", linewidth = 0.3) +
+  geom_line(linewidth = 0.45, alpha = 0.9) +
+  scale_colour_viridis_c(name = "Relative tree mean\n(within group)") +
+  scale_y_continuous(trans = asinh_tr) +
+  facet_wrap(~ grp, scales = "free_y", nrow = 2,
+             labeller = as_labeller(function(x) sub("\\|", "\n", x))) +
+  labs(x = NULL, y = expression(CH[4]~flux~(nmol~m^{-2}~s^{-1}*","~asinh~scale)), tag = "A") +
+  theme_classic(base_size = 10) + theme(strip.background = element_blank(), strip.text = element_text(face = "italic"))
+blup <- traj %>% group_by(grp) %>% group_modify(~ {
+  m <- lmer(CH4_flux_nmolpm2ps ~ 1 + (1 | Tree), data = .x)
+  re <- ranef(m, condVar = TRUE)$Tree; pv <- attr(re, "postVar")
+  tibble(Tree = rownames(re), effect = re[, 1], se = sqrt(pv[1, 1, ]))
+}) %>% ungroup() %>% mutate(lo = effect - 1.96 * se, hi = effect + 1.96 * se, excl0 = lo > 0 | hi < 0,
+                            grp_lab = sub("\\|", " - ", grp)) %>%
+  group_by(grp) %>% mutate(Tree = reorder(Tree, effect)) %>% ungroup()
+pB <- ggplot(blup, aes(effect, Tree)) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_errorbar(aes(xmin = lo, xmax = hi), width = 0, orientation = "y", colour = "grey55") +
+  geom_point(aes(colour = excl0), size = 1.8) +
+  scale_colour_manual(values = c(`FALSE` = "grey40", `TRUE` = "#B03A2E"), guide = "none") +
+  facet_wrap(~ factor(grp_lab, levels = sub("\\|", " - ", grp_levels)), scales = "free", nrow = 2) +
+  labs(x = expression(Tree~random~effect~(deviation~from~group~mean*","~nmol~m^{-2}~s^{-1})), y = "Tree", tag = "B") +
+  theme_classic(base_size = 9) + theme(strip.background = element_blank(), axis.text.y = element_text(size = 6))
+fig_tb <- pA / pB + plot_layout(heights = c(1, 1.1))
+ggsave(file.path(OUTPUT_DIR, "fig_trajectories_blups.png"), fig_tb, width = 11, height = 10, dpi = 300, bg = "white")
+ggsave(file.path(OUTPUT_DIR, "fig_trajectories_blups.pdf"), fig_tb, width = 11, height = 10, bg = "white")
+message("  Saved: fig_trajectories_blups.png/pdf")

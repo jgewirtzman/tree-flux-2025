@@ -71,8 +71,11 @@ AREA_CM2      <- SURFAREA_M2 * 1e4    # goFlux wants cm2
 #   LI-7810 : 0.028 L (Tree_Flux_Processing_MLutz.Rmd, VOLUME_CM3 + 28)
 EXTRA_VOL_LGR_L  <- 0.200
 EXTRA_VOL_7810_L <- 0.028
-SHOULDER_S    <- 30                   # s of trace kept outside the window (flag = 0), for plots/QC
+SHOULDER_S    <- 120                  # s of trace kept outside the window (flag = 0), for plots/QC context
 DEADBAND_7810 <- 20                   # s dropped after the LI-7810 REMARK starts (team convention)
+DEADBAND_LGR  <- 20                   # s dropped after the field-log start (chamber closure) for the UGGA:
+                                      # same deadband for both analyzers; removes the placement transient
+                                      # (scripts/01_import/13_deadband_sensitivity.R: 0-45 s tested)
 MIN_REMARK_S  <- 90                   # LI-7810 remarks shorter than this are aborted starts
 MIN_WINDOW_S  <- 30                   # windows shorter than this are not fitted
 PREC_LGR      <- c(CO2 = 0.35, CH4 = 0.9, H2O = 100)   # datasheet 1-s precision, GLA131 (ppm, ppb, ppm)
@@ -337,6 +340,32 @@ for (i in seq_len(nrow(field_logs))) {
 message("Field-log closures with an LGR file that day: ", sum(!is.na(field_logs$trace_machine)),
         " / ", nrow(field_logs))
 
+# End the window at chamber removal: the first abrupt CO2 drop from the running maximum
+# (> max(10 ppm, 20 % of the rise so far) within 10 s). The LI-7810 remark often continues
+# after the chamber is lifted; the same rule is applied to the UGGA field-log windows.
+window_trims <- list()
+trim_at_opening <- function(seg) {
+  # opening = abrupt fall of the smoothed CO2 (7-point running median) by more than
+  # max(10 ppm, 8 sigma, 25 % of the rise) within 10 s, after >= 60 s, that never recovers
+  w <- which(seg$flag == 1 & is.finite(seg$CO2dry_ppm)); if (length(w) < 70) return(seg)
+  co2 <- seg$CO2dry_ppm[w]; tt <- as.numeric(seg$POSIX.time[w] - seg$POSIX.time[w[1]], units = "secs")
+  sm <- runmed(co2, 7, endrule = "median"); sd_d <- mad(diff(co2), constant = 1.4826) / sqrt(2)
+  base <- median(sm[tt <= 10]); thr <- max(10, 8 * sd_d, 0.25 * max(max(sm) - base, 0))
+  for (i in which(tt >= 60)) {
+    j <- which(tt > tt[i] & tt <= tt[i] + 10); if (!length(j)) next
+    if (sm[i] - min(sm[j]) > thr) {
+      rest <- which(tt > tt[i] + 10)
+      if (!length(rest) || max(sm[rest]) < sm[i] - thr / 2) {
+        new_end <- seg$POSIX.time[w[max(which(tt <= tt[i] - 2))]]
+        window_trims[[seg$UniqueID[1]]] <<- as.numeric(max(seg$POSIX.time[w]) - new_end, units = "secs")
+        seg$flag <- as.numeric(seg$flag == 1 & seg$POSIX.time <= new_end)
+        seg$end.time <- new_end; seg$obs.length <- as.numeric(new_end - seg$start.time[1], units = "secs")
+        return(seg)
+      }
+    }
+  }
+  seg
+}
 segment_trace <- function(day, start, end, uid) {
   seg <- day[day$POSIX.time >= start - SHOULDER_S & day$POSIX.time <= end + SHOULDER_S, ]
   if (!nrow(seg)) return(NULL)
@@ -346,7 +375,7 @@ segment_trace <- function(day, start, end, uid) {
   seg$start.time <- start; seg$end.time <- end
   seg$Etime <- as.numeric(seg$POSIX.time - start, units = "secs")
   seg$obs.length <- as.numeric(end - start, units = "secs")
-  seg
+  trim_at_opening(seg)
 }
 
 # Clock check: the field logs record the LGR's own clock, so no shift is applied. A
@@ -356,15 +385,32 @@ segment_trace <- function(day, start, end, uid) {
 # left to the fluxqc/goFlux CO2 screens (co2_tracer), which flag them for review.
 field_logs$clock_offset_s <- 0
 lgr_segments <- list(); lgr_meta <- list()
+
+# Analyzer precision per analyzer x field day, from the WHOLE day record (not just the closures):
+# MAD of first differences / sqrt(2) per constant-interval run (fluxqc::precision_mad_runs); the
+# dominant run is used. This follows the filtering paper (sigma once per analyzer x campaign) and
+# absorbs drift, analyzer swaps and logging-interval changes.
+day_sigma <- list()
+sigma_day <- function(x, instrument, date) {
+  one <- function(v) {
+    r <- suppressWarnings(fluxqc::precision_mad_runs(x[[v]], x$POSIX.time))
+    r <- r[which.max(r$n), ]
+    c(sigma = r$sigma, dt = r$dt_s, runs = nrow(suppressWarnings(fluxqc::precision_mad_runs(x[[v]], x$POSIX.time))))
+  }
+  a <- one("CH4dry_ppb"); b <- one("CO2dry_ppm")
+  data.frame(instrument = instrument, date = as.Date(date), n_rows = nrow(x),
+             CH4_sigma_day = a[["sigma"]], CO2_sigma_day = b[["sigma"]], dt_day = a[["dt"]], n_interval_runs = a[["runs"]])
+}
 field_logs$closure_id <- sprintf("LGR_%s_%s_%s", format(field_logs$date, "%Y%m%d"), field_logs$tree,
                                  gsub(":", "", field_logs$comp_start))
 day_keys <- unique(field_logs[!is.na(field_logs$trace_machine), c("date", "trace_machine")])
 for (k in seq_len(nrow(day_keys))) {
   day <- load_lgr_day(day_keys$date[k], day_keys$trace_machine[k])
   if (is.null(day)) next
+  day_sigma[[length(day_sigma) + 1]] <- sigma_day(day, day_keys$trace_machine[k], day_keys$date[k])
   rows <- which(field_logs$date == day_keys$date[k] & field_logs$trace_machine == day_keys$trace_machine[k])
   for (i in rows) {
-    seg <- segment_trace(day, field_logs$comp_start_posix[i], field_logs$comp_end_posix[i],
+    seg <- segment_trace(day, field_logs$comp_start_posix[i] + DEADBAND_LGR, field_logs$comp_end_posix[i],
                          field_logs$closure_id[i])
     if (is.null(seg)) next
     seg$instrument <- day_keys$trace_machine[k]
@@ -395,6 +441,11 @@ li_raw$REMARK <- trimws(as.character(li_raw$REMARK))
 li_raw$REMARK[is.na(li_raw$REMARK)] <- ""
 
 li_raw$instrument <- "LI-7810"
+li_raw$day <- as.Date(li_raw$POSIX.time, tz = TZ)
+for (dd in split(li_raw, li_raw$day)) {
+  dd <- dd[is.finite(dd$CH4dry_ppb) & is.finite(dd$CO2dry_ppm), ]
+  if (nrow(dd) > 100) day_sigma[[length(day_sigma) + 1]] <- sigma_day(dd, "LI-7810", dd$day[1])
+}
 
 # Remark runs: consecutive rows with the same non-empty REMARK and no gap > 5 s
 r <- li_raw$REMARK; nzr <- nz(r)
@@ -452,18 +503,27 @@ message("\n=== Part 6: closure table and geometry ===")
 
 closures <- bind_rows(
   field_logs %>% transmute(closure_id, legacy_row, date, tree, instrument = trace_machine, clock_offset_s,
-                           machine_logged = machine, window_src = "field log (comp start/end)",
-                           window_start = comp_start_posix, window_end = comp_end_posix,
+                           machine_logged = machine,
+                           window_src = sprintf("field log start/end + %d s deadband", DEADBAND_LGR),
+                           closure_start = comp_start_posix,
+                           window_start = comp_start_posix + DEADBAND_LGR, window_end = comp_end_posix,
                            real_start = real_start_posix, fl_source = source, fl_check, fl_notes,
                            UniqueID_fl),
   runs %>% transmute(closure_id, legacy_row, date, tree, instrument = "LI-7810", clock_offset_s = 0,
-                     machine_logged = "LI-7810",
+                     machine_logged = "LI-7810", closure_start = start,
                      window_src = sprintf("LI-7810 remark + %d s deadband", DEADBAND_7810),
                      window_start = win_start, window_end = win_end, real_start = start,
                      fl_source = "LI-7810 REMARK", fl_check = NA_character_,
                      fl_notes = ifelse(redo, "redo remark (…R)", NA_character_), UniqueID_fl = REMARK)
 )
 closures$has_trace <- closures$closure_id %in% c(names(lgr_segments), names(li_segments))
+closures$end_trim_s <- unlist(window_trims)[closures$closure_id]
+closures$end_trim_s[is.na(closures$end_trim_s)] <- 0
+closures$window_end <- closures$window_end - closures$end_trim_s
+message("Windows ended early at a detected chamber opening: ", sum(closures$end_trim_s > 0),
+        " (", paste(names(table(closures$instrument[closures$end_trim_s > 0])),
+                    table(closures$instrument[closures$end_trim_s > 0]), sep = "=", collapse = ", "),
+        "); median trim ", median(closures$end_trim_s[closures$end_trim_s > 0]), " s")
 # the legacy Tree column is curated (typos fixed); prefer it where a legacy row is matched
 lt <- legacy$Tree[match(closures$legacy_row, legacy$legacy_row)]
 closures$tree_logged <- closures$tree
@@ -588,8 +648,7 @@ gf_ch4 <- res_ch4$fluxes %>% transmute(
   CH4_C0 = C0, CH4_Ct = Ct, CH4_MAE_LM = LM.MAE, CH4_MAE_HM = HM.MAE,
   CH4_quality_check = quality.check, CH4_LM_diagnose = LM.diagnose, CH4_HM_diagnose = HM.diagnose,
   nb_obs = nb.obs, flux_term = flux.term,
-  CH4_sigma_mad = sigma_emp, CH4_MDF = MDF_emp, CH4_below_MDF = below_MDF_emp,
-  CH4_det_class = det_class_emp, CH4_MDF_method = MDF_emp_method,
+  CH4_sigma_mad_record = sigma_emp, CH4_MDF_record = MDF_emp,
   CH4_sigma_allan = sigma_allan, CH4_sigma_datasheet = sigma_datasheet, CH4_sigma_rolling = sigma_rolling,
   CH4_MDF_wass90 = MDF_wassmann_mad_90, CH4_MDF_wass95 = MDF_wassmann_mad_95, CH4_MDF_wass99 = MDF_wassmann_mad_99,
   CH4_MDF_chr90 = MDF_christiansen_allan_90, CH4_MDF_chr95 = MDF_christiansen_allan_95,
@@ -602,9 +661,16 @@ gf_co2 <- res_co2$fluxes %>% transmute(
   CO2_flux_goflux = best.flux, CO2_model = model, CO2_LM_flux = LM.flux, CO2_HM_flux = HM.flux,
   CO2_SE_goflux = pick_se(res_co2$fluxes), CO2_LM_r2 = LM.r2, CO2_LM_p = LM.p.val, CO2_g_factor = g.fact,
   CO2_C0 = C0, CO2_quality_check = quality.check,
-  CO2_sigma_mad = sigma_emp, CO2_sigma_allan = sigma_allan, CO2_MDF = MDF_emp, CO2_below_MDF = below_MDF_emp)
+  CO2_sigma_mad_record = sigma_emp, CO2_sigma_allan = sigma_allan, CO2_MDF_record = MDF_emp)
 
+day_sigma <- do.call(rbind, day_sigma)
+write.csv(day_sigma, file.path(TAB_DIR, "goflux_precision_by_analyzer_day.csv"), row.names = FALSE)
+message("Per-day precision (median CH4 ppb): ",
+        paste(tapply(round(day_sigma$CH4_sigma_day, 3), day_sigma$instrument, median), collapse = " / "),
+        " for ", paste(names(table(day_sigma$instrument)), collapse = " / "),
+        "; days with >1 logging interval: ", sum(day_sigma$n_interval_runs > 1))
 out <- closures %>%
+  left_join(day_sigma %>% select(instrument, date, CH4_sigma_day, CO2_sigma_day), by = c("instrument", "date")) %>%
   left_join(cs %>% transmute(closure_id = UniqueID, t_sec = t, dt_s = dt), by = "closure_id") %>%
   left_join(gf_ch4, by = "closure_id") %>%
   left_join(gf_co2, by = "closure_id") %>%
@@ -621,6 +687,19 @@ out <- closures %>%
     legacy_nmol = nmol, legacy_vol_system = vol_system, legacy_REMARK_LENGTH = REMARK_LENGTH),
     by = "legacy_row") %>%
   mutate(
+    # reference detection limit: 1.96 x per-day analyzer sigma / closure seconds x flux term
+    CH4_sigma_mad = coalesce(CH4_sigma_day, CH4_sigma_mad_record),
+    CO2_sigma_mad = coalesce(CO2_sigma_day, CO2_sigma_mad_record),
+    CH4_MDF = abs(qnorm(0.975) * CH4_sigma_mad / t_sec * flux_term),
+    CO2_MDF = abs(qnorm(0.975) * CO2_sigma_mad / t_sec * flux_term),
+    CH4_below_MDF = ifelse(is.na(CH4_MDF), NA, abs(CH4_flux_goflux) < CH4_MDF),
+    CO2_below_MDF = ifelse(is.na(CO2_MDF), NA, abs(CO2_flux_goflux) < CO2_MDF),
+    CH4_det_class = ifelse(is.na(CH4_MDF), NA_character_, ifelse(CH4_flux_goflux > CH4_MDF, "emission",
+                           ifelse(CH4_flux_goflux < -CH4_MDF, "uptake", "below detection"))),
+    CH4_MDF_method = ifelse(is.na(CH4_MDF), NA_character_, "1.96 x MAD sigma (analyzer x day) / t x flux term"),
+    CH4_MDF_wass90 = abs(qnorm(0.95) * CH4_sigma_mad / t_sec * flux_term),
+    CH4_MDF_wass95 = CH4_MDF,
+    CH4_MDF_wass99 = abs(qnorm(0.995) * CH4_sigma_mad / t_sec * flux_term),
     year = coalesce(year, as.integer(format(date, "%Y"))),
     jday = coalesce(jday, as.integer(format(date, "%j"))),
     in_legacy_dataset = !is.na(legacy_row),
@@ -658,7 +737,7 @@ write.csv(out_csv, OUT_CSV, row.names = FALSE, na = "NA")
 saveRDS(list(traces = manID, closures = closures), OUT_TRACES)
 writeLines(fluxqc:::to_json(list(CH4 = res_ch4$settings, CO2 = res_co2$settings,
                                  constants = list(SURFAREA_M2 = SURFAREA_M2, EXTRA_VOL_LGR_L = EXTRA_VOL_LGR_L, EXTRA_VOL_7810_L = EXTRA_VOL_7810_L,
-                                                  SHOULDER_S = SHOULDER_S, DEADBAND_7810 = DEADBAND_7810,
+                                                  SHOULDER_S = SHOULDER_S, DEADBAND_7810 = DEADBAND_7810, DEADBAND_LGR = DEADBAND_LGR,
                                                   MIN_REMARK_S = MIN_REMARK_S, TZ = TZ))), OUT_SETTINGS)
 message("Wrote ", OUT_CSV, ": ", nrow(out), " rows (fitted: ", sum(out$fitted),
         "; legacy rows: ", sum(out$in_legacy_dataset), "; new closures: ", sum(!out$in_legacy_dataset), ")")

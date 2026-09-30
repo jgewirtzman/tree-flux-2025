@@ -122,3 +122,33 @@ Variance partitioning and detection
 Methods text that no longer matches: fluxes are no longer "linear rate of change" only; the QC
 paragraph (CO2 R² < 0.8 exclusion, SNR < 2, CH4 < −1 exclusion, "817 measurements") describes the
 legacy pipeline; the measurement period runs to October 2025 with two analyzers.
+
+## Update 30 Sep 2026: window rules, per-day precision, trace QC, decay definitions
+
+Changes after inspecting every CO₂/CH₄ trace (`scripts/01_import/12_trace_qc.R`; plots in
+`outputs/figures/trace_qc/`):
+
+- **Deadband.** The UGGA field-log windows started at chamber closure and included the placement
+  transient (e.g. a ~100 ppb CH₄ jump in the first 15 s). Both analyzers now discard the first 20 s
+  after closure (the LI-7810 already did). `13_deadband_sensitivity.R` refits every closure at 0–45 s:
+  medians change ≤ 6 %, the N. sylvatica mean 6.81 → 6.63 (20 s) → 6.46 (30 s); conclusions unchanged.
+- **Window end at chamber removal.** The LI-7810 remark often continued after the chamber was lifted
+  (CO₂/CH₄ crash to ambient inside the window; e.g. tree 380 on 8 May 2025 fitted −0.15 with CH₄ clearly
+  rising). Windows now end at an abrupt, sustained CO₂ fall (7-point running median; > max(10 ppm,
+  8σ, 25 % of the rise) within 10 s; never recovers). 52 closures trimmed (41 UGGA, 11 LI-7810).
+  A first, naive detector over-trimmed 181 closures and was replaced after visual checks.
+- **Precision per analyzer × day** from the full day record (fluxqc::precision_mad_runs), matching the
+  filtering paper; UGGA 2.9–6.9 ppb CH₄ across days (median 3.8), LI-7810 0.11–0.26 ppb.
+- **Review list.** 40 analysis-set closures (21 above MDF) in
+  `outputs/tables/trace_qc_clickpeak_shortlist.csv` / `traces_clickpeak_shortlist.pdf`; one suspect day
+  (2024-05-24, 22 of 30 closures with window problems; team's "Timing Updates.xlsx" flags that period)
+  that needs a single clock correction rather than clicking.
+- **Decay definitions** (`scripts/02_analysis/09_decay_definitions.R`): the within-species relationships
+  in the two site specialists hold across ERT definitions and in rank tests (N. sylvatica r ≈ −0.67 to
+  −0.69; Q. rubra r = 0.71 index, 0.85 CV); SoT structural loss is unrelated in every group; pooled
+  site-level correlations do not survive species adjustment (mixed models on all measurements). Text and
+  Figure 5 were reframed to the within-species result.
+- Optimal driver windows returned to the preprint values (282 h / 132 h). Final headline numbers:
+  wetland 2.23 ± 0.30 vs upland 0.06 ± 0.01 (~40-fold); N. sylvatica 6.50 ± 1.85; core wetland model
+  R² 66.1 %, ICC 0.48; upland models 9.2 % / 7.7 %; variance shares wetland 27.8/6.5/65.7, upland
+  1.4/8.1/90.4. Full list: `outputs/tables/manuscript/manuscript_numbers.txt`.
