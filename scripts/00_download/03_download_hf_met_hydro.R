@@ -25,10 +25,31 @@ library(plantecophys)
 OUTPUT_PATH <- "data/processed/wtd_met.csv"
 dir.create(dirname(OUTPUT_PATH), recursive = TRUE, showWarnings = FALSE)
 
-# Harvard Forest LTER Data Archive URLs
-# These are stable PASTA endpoints for the datasets
-FISHER_MET_URL <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hfr/1/34/0b439e8fea983c9e20bb2bfaf91931e6"
-HYDRO_URL      <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hfr/70/36/2983b2adba6675e805d144a05087924d"
+# Harvard Forest LTER Data Archive (EDI/PASTA). The table used from each package is
+# identified by its entity name in the revision originally used (HF001 rev 34, HF070
+# rev 36), and the same table is taken from the NEWEST revision of the package.
+PASTA <- "https://pasta.lternet.edu/package"
+pasta_get <- function(path) readLines(url(paste0(PASTA, path)), warn = FALSE)
+newest_entity_url <- function(id, ref_rev, ref_entity) {
+  tryCatch({
+    rev  <- pasta_get(sprintf("/eml/knb-lter-hfr/%d?filter=newest", id))[1]
+    name <- pasta_get(sprintf("/name/eml/knb-lter-hfr/%d/%d/%s", id, ref_rev, ref_entity))[1]
+    ents <- pasta_get(sprintf("/data/eml/knb-lter-hfr/%d/%s", id, rev))
+    hit  <- ents[vapply(basename(ents), function(e)
+      identical(pasta_get(sprintf("/name/eml/knb-lter-hfr/%d/%s/%s", id, rev, e))[1], name), logical(1))]
+    if (!length(hit)) stop("table '", name, "' not found in revision ", rev)
+    message(sprintf("  HF%03d: newest revision %s, table %s", id, rev, name))
+    attr(hit[1], "revision") <- rev
+    hit[1]
+  }, error = function(e) {
+    message(sprintf("  HF%03d: could not resolve newest revision (%s); using revision %d", id, conditionMessage(e), ref_rev))
+    sprintf("%s/data/eml/knb-lter-hfr/%d/%d/%s", PASTA, id, ref_rev, ref_entity)
+  })
+}
+FISHER_MET_URL <- newest_entity_url(1,  34, "0b439e8fea983c9e20bb2bfaf91931e6")
+HYDRO_URL      <- newest_entity_url(70, 36, "2983b2adba6675e805d144a05087924d")
+writeLines(c(paste("HF001", FISHER_MET_URL), paste("HF070", HYDRO_URL), paste("downloaded", Sys.time())),
+           "data/processed/wtd_met_sources.txt")
 
 # ============================================================
 # STEP 1: Download Fisher Met Station (HF001)
