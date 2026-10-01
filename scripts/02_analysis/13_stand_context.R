@@ -59,7 +59,12 @@ write.csv(tab, "outputs/tables/stand_context.csv", row.names = FALSE)
 write.csv(totals, "outputs/tables/stand_totals.csv", row.names = FALSE)
 # dominant species (all species) for the site description
 top <- function(sh, k = 5) { sh <- sort(sh, decreasing = TRUE)[1:k]; paste(sprintf("%s %d%%", names(sh), round(100 * sh)), collapse = ", ") }
-writeLines(c(sprintf("Wetland live BA %.1f m2/ha (%d plots); all plots: %s; plots within 75 m of study trees (%d): %s",
+cov_w <- sum(share_bgs[c("acerru", "tsugca", "nysssy")]); cov_wn <- sum(share_bgs_near[c("acerru", "tsugca", "nysssy")])
+cov_u <- sum(share_ems[c("acerru", "tsugca", "querru")])
+totals$study_species_pct_ba <- round(100 * c(cov_w, cov_u)); totals$study_species_pct_ba_near_trees <- c(round(100 * cov_wn), NA)
+write.csv(totals, "outputs/tables/stand_totals.csv", row.names = FALSE)
+writeLines(c(sprintf("Study species share of live BA: wetland %.0f%% (near study trees %.0f%%), upland %.0f%%", 100 * cov_w, 100 * cov_wn, 100 * cov_u),
+             sprintf("Wetland live BA %.1f m2/ha (%d plots); all plots: %s; plots within 75 m of study trees (%d): %s",
                      totals$live_basal_area_m2_ha[1], n_plots, top(share_bgs), length(near), top(share_bgs_near)),
              sprintf("Upland live BA %.1f m2/ha (ForestGEO 35 ha): %s", totals$live_basal_area_m2_ha[2], top(share_ems))),
            "outputs/tables/stand_composition.txt")
