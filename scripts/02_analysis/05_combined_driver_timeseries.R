@@ -11,7 +11,7 @@
 # Run AFTER: timeseries.R (which creates the corrected flux file)
 #
 # Outputs:
-#   - combined_flux_drivers.png/pdf
+#   - combined_flux_drivers_05.png/pdf
 # ============================================================
 
 suppressPackageStartupMessages({
@@ -224,10 +224,10 @@ print(p_combined)
 # SAVE
 # ============================================================
 
-ggsave(file.path(OUTPUT_DIR, "combined_flux_drivers.png"),
+ggsave(file.path(OUTPUT_DIR, "combined_flux_drivers_05.png"),
        p_combined, width = 12, height = 8, dpi = 300)
-ggsave(file.path(OUTPUT_DIR, "combined_flux_drivers.pdf"),
+ggsave(file.path(OUTPUT_DIR, "combined_flux_drivers_05.pdf"),
        p_combined, width = 12, height = 8)
 
-message("\nSaved: combined_flux_drivers.png/pdf")
+message("\nSaved: combined_flux_drivers_05.png/pdf")
 message("Done!")

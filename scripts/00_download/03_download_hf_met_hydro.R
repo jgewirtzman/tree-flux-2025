@@ -226,7 +226,7 @@ met_hourly <- fishermet %>%
       paste0(date, " ", str_pad(hour, pad = "0", side = "left", width = 2), ":00:00"),
       tz = "UTC"
     ),
-    VPD_kPa = RHtoVPD(RH = RH, TdegC = tair_C, Pa = p_kPa * 1000)
+    VPD_kPa = RHtoVPD(RH = RH, TdegC = tair_C, Pa = p_kPa)   # plantecophys expects Pa in kPa
   )
 
 message("  Fisher Met hourly rows: ", nrow(met_hourly))

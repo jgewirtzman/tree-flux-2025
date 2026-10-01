@@ -205,3 +205,13 @@ Changes after inspecting every CO₂/CH₄ trace (`scripts/01_import/12_trace_qc
   the original fluxes at r = 0.995) and LI-7810 TG10-01861 (2025). Units, dry correction, windows, clock,
   daily precision/MDF and volume are handled per analyzer; no side-by-side period, so an analyzer offset is
   confounded with 2025.
+
+## 1 Oct 2026, SI and figures
+- The whole SI is generated: `scripts/05_manuscript/01_build_si.R` → `outputs/manuscript/Supporting_Information.docx`
+  (13 tables, 9 figures) and `si_items.csv`; runs last in `run_pipeline.sh`.
+- New figures: `02_analysis/11_site_map.R` (site map from tree GPS, DEM, swamp outline, towers),
+  `02_analysis/12_driver_timeseries_si.R` (daily drivers, replacing a static image). `05_combined_driver_timeseries.R`
+  now writes `combined_flux_drivers_05.png` (it was overwritten by `04_interaction_plots.R`).
+- VPD fix: `00_download/03_download_hf_met_hydro.R` passed pressure in Pa to `plantecophys::RHtoVPD`, which expects kPa;
+  VPD was ~4× too high. Screening correlations unchanged (r 0.14 at the wetland).
+- `06_manuscript_numbers.R` now gives Satterthwaite tests (refitting with lmerTest when conversion fails).

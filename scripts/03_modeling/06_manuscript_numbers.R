@@ -177,7 +177,8 @@ species_slopes <- function(m) {
   bind_rows(out)
 }
 # p-values: Satterthwaite t-tests (lmerTest); falls back to normal approximation
-as_lt <- function(m) tryCatch(lmerTest::as_lmerModLmerTest(m), error = function(e) NULL)
+as_lt <- function(m) tryCatch(lmerTest::as_lmerModLmerTest(m), error = function(e)
+  tryCatch(suppressMessages(lmerTest::lmer(formula(m), data = m@frame, REML = isREML(m))), error = function(e2) NULL))
 coef_table <- function(m) {
   mt <- as_lt(m)
   if (!is.null(mt)) { s <- summary(mt)$coefficients
