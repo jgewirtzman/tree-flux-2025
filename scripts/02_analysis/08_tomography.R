@@ -493,26 +493,26 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
     er <- map(data$ert_path, read_image_as_raster)
     so <- map(seq_len(n), function(i) if (is.na(data$decay_phase[i])) NULL else read_image_as_raster(data$sonic_path[i]))
     g <- ggplot() + coord_fixed(ratio = 1, xlim = c(0, n), ylim = c(-0.05, 3.55), clip = "off") +
-      theme_void() + theme(plot.margin = margin(0, 4, 0, 40),
-                           plot.title = element_text(hjust = 0.5, size = 15, face = "italic", margin = margin(b = 2))) +
+      theme_void() + theme(plot.margin = margin(0, 4, 0, 34),
+                           plot.title = element_text(hjust = 0.5, size = 13, face = "italic", margin = margin(b = 2))) +
       ggtitle(title) +
       annotate("segment", x = 0, xend = n, y = 3.32, yend = 3.32,
                arrow = arrow(length = unit(0.07, "inches")), linewidth = 0.35, colour = "grey30") +
       annotate("text", x = n / 2, y = 3.47, label = "ERT moisture-anomaly index (species-normalized PC1)",
-               size = 3.8, colour = "grey20") +
+               size = 3, colour = "grey20") +
       annotate("text", x = -0.15, y = c(2.6, 1.55, 0.72), label = c("ERT", "SoT", "Class"),
-               size = 5, fontface = "bold", hjust = 1) +
-      annotate("text", x = -0.15, y = 0.2, label = "CH[4]", parse = TRUE, size = 5, fontface = "bold", hjust = 1)
+               size = 4, fontface = "bold", hjust = 1) +
+      annotate("text", x = -0.15, y = 0.2, label = "CH[4]", parse = TRUE, size = 4, fontface = "bold", hjust = 1)
     for (i in seq_len(n)) {
       g <- g + annotation_raster(er[[i]], xmin = i - 0.97, xmax = i - 0.03, ymin = 2.12, ymax = 3.08)
       if (!is.null(so[[i]])) g <- g + annotation_raster(so[[i]], xmin = i - 0.97, xmax = i - 0.03, ymin = 1.07, ymax = 2.03)
       else g <- g + annotate("text", x = i - 0.5, y = 1.55, label = "no scan", size = 2.6, colour = "grey50")
       cl <- data$decay_phase_short[i]
-      if (!is.na(cl)) g <- g + annotate("text", x = i - 0.5, y = 0.72, label = cl, size = 5.5, fontface = "bold", colour = class_cols[cl])
+      if (!is.na(cl)) g <- g + annotate("text", x = i - 0.5, y = 0.72, label = cl, size = 4.2, fontface = "bold", colour = class_cols[cl])
       fn <- data$flux_norm[i]; fc <- flux_pal[round(fn * 100) + 1]
       g <- g + annotate("rect", xmin = i - 0.98, xmax = i - 0.02, ymin = 0.02, ymax = 0.38, fill = fc, colour = NA) +
         annotate("text", x = i - 0.5, y = 0.2, label = formatC(data$CH4_mean[i], format = "fg", digits = 2),
-                 size = 4.2, colour = ifelse(fn > 0.55, "white", "black"))
+                 size = 3.1, colour = ifelse(fn > 0.55, "white", "black"))
     }
     g
   }
@@ -575,10 +575,10 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
             legend.key.size = unit(0.35, "cm"), aspect.ratio = 1, plot.margin = margin(4, 8, 4, 4))
   }
   pe <- site_pc1("Wetland", "e"); pf <- site_pc1("Upland", "f")
-  pc <- pc + labs(tag = "c"); pd <- pd + labs(tag = "d")
-  p_fig5 <- pa / pc / (pb + pd + pe + pf + plot_layout(nrow = 1)) + plot_layout(heights = c(1, 1, 1.25))
-  ggsave(file.path(OUTPUT_DIR, "tomography_specialists.png"), p_fig5, width = 15, height = 13.5, dpi = 300, bg = "white")
-  ggsave(file.path(OUTPUT_DIR, "tomography_specialists.pdf"), p_fig5, width = 15, height = 13.5, bg = "white")
+  p_fig5 <- (pa + pb + plot_layout(widths = c(3.1, 1))) / (pc + pd + plot_layout(widths = c(3.1, 1))) /
+    (pe + pf) + plot_layout(heights = c(1, 1, 1.35))
+  ggsave(file.path(OUTPUT_DIR, "tomography_specialists.png"), p_fig5, width = 11, height = 11.5, dpi = 300, bg = "white")
+  ggsave(file.path(OUTPUT_DIR, "tomography_specialists.pdf"), p_fig5, width = 11, height = 11.5, bg = "white")
   message("  Saved: tomography_specialists.png/pdf (Figure 5, PC1 ordering + definition forest plot)")
 
   # --- SI figure: ERT mean throughout (re-sort images + scatter by mean) ---
