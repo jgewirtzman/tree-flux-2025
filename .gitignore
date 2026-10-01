@@ -61,5 +61,4 @@ DRAFT_*
 
 # EDI data package (one-time build/upload, not needed in repo)
 data/edi/
-scripts/7_publish/
 manuscript_work/

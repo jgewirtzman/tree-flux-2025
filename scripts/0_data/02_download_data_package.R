@@ -41,6 +41,7 @@ place <- list(
   "tomography_results_compiled.csv" = file.path(PKG, "tomography"),
   "ERT_application_results.csv" = file.path(PKG, "tomography"),
   "Tree_ID_info.csv" = file.path(PKG, "tomography"),
+  "BGS_editable.geojson" = file.path(PKG, "gps"), "EMS_trees_editable.geojson" = file.path(PKG, "gps"),
   "BGS_VRP_2025.csv" = file.path(PKG, "stand"), "Black_Gum_Swamp.kmz" = file.path(PKG, "stand"),
   "stem_ch4_flux.csv" = file.path(PKG, "published_final"),
   "stem_ch4_flux_dictionary.csv" = file.path(PKG, "published_final"),

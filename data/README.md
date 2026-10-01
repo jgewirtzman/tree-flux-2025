@@ -9,7 +9,7 @@ Nothing in `data/` is tracked by git. Four folders, in the order data flow throu
 | `interim/` | intermediate files | stages 1–2 |
 | `final/` | compiled datasets read by every analysis | stages 1–3 |
 
-`_old/` holds the pre-October-2026 folders (`raw/`, `input/`, `processed/`) until the new layout has been checked; it can then be deleted. `edi/` holds EML templates and the assembled package (`scripts/7_publish/`).
+`edi/` holds EML templates and the assembled package (`scripts/7_publish/`).
 
 ## `package/` — primary data (published)
 
@@ -23,6 +23,7 @@ Nothing in `data/` is tracked by git. Four folders, in the order data flow throu
 | `previous_processing/HF_2023-2025_tree_flux_v1.csv` | the earlier processed dataset (1,640 measurements). Used for the curated tree tags, the met at each measurement and the fluxes of measurements without an archived 1-Hz record (October 2025, one day in May 2024, six closures in September 2023) |
 | `qc_decisions/manual_windows.csv` | windows set or excluded after inspecting the concentration record (`scripts/2_flux/04_review_windows.R`) |
 | `tomography/` | `tomography_results_compiled.csv` (ERT and sonic metrics), `ERT_application_results.csv` and `Tree_ID_info.csv` (companion tomography study, Thompson et al. 2026), `images/` (ERT and sonic cross-sections) |
+| `gps/` | original GPS survey exports of the study trees (Avenza; BGS 2025-04-17, EMS 2026-01-16); `trees.csv` positions come from these |
 | `stand/` | `BGS_VRP_2025.csv` (June 2025 prism survey of the swamp, BAF 10 ft²/acre, 40 plots), `Black_Gum_Swamp.kmz` (swamp outline) |
 
 ## `external/` — public data

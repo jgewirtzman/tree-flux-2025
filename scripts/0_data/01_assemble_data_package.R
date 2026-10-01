@@ -1,5 +1,9 @@
 # ============================================================
-# 01_assemble_data_package.R  (authors only; run once)
+# 01_assemble_data_package.R  (authors only; run once, Oct 2026)
+#
+# data/package/ built by this script is now the master copy of the primary data. The
+# in-repo sources below (data/_old/) were byte-identical copies of the lab folders and were
+# deleted after the build; to rebuild, point FL_SRC / LI_SRC / IN_SRC at the lab originals.
 #
 # Gathers the study's own primary data from the lab's working folders into
 # data/package/, the folder that is published as the data package and the only
@@ -17,7 +21,7 @@
 #   data/raw/upland_wetland/                             field logs, chamber volumes
 #   data/input/                                          earlier processed dataset, tomography,
 #                                                        microtopography, manual window decisions,
-#                                                        GPS survey, prism survey, swamp outline
+#                                                        GPS survey (geojson), prism survey, swamp outline
 #   Tomography/Tree-Tomography/data/                     ERT application results, tree ID key
 #
 # Set the two lab folders with environment variables if they live elsewhere:
@@ -80,10 +84,14 @@ message("Tomography images: ", n_img)
 cp(file.path(IN_SRC, "spatial", "BGS_VRP_2025.csv"), file.path(PKG, "stand", "BGS_VRP_2025.csv"))
 cp(file.path(IN_SRC, "spatial", "Black_Gum_Swamp.kmz"), file.path(PKG, "stand", "Black_Gum_Swamp.kmz"))
 
+# ---- GPS survey of the study trees (Avenza exports, as recorded) -------------------
+for (f in c("BGS_editable.geojson", "EMS_trees_editable.geojson"))
+  cp(file.path(IN_SRC, "spatial", f), file.path(PKG, "gps", f))
+
 # ---- trees.csv: one row per study tree ----------------------------------------
 gps <- bind_rows(
-  st_read(file.path(IN_SRC, "spatial", "BGS_editable.geojson"), quiet = TRUE) %>% mutate(plot = "BGS", site = "Wetland"),
-  st_read(file.path(IN_SRC, "spatial", "EMS_trees_editable.geojson"), quiet = TRUE) %>% mutate(plot = "EMS", site = "Upland")) %>%
+  st_read(file.path(PKG, "gps", "BGS_editable.geojson"), quiet = TRUE) %>% mutate(plot = "BGS", site = "Wetland"),
+  st_read(file.path(PKG, "gps", "EMS_trees_editable.geojson"), quiet = TRUE) %>% mutate(plot = "EMS", site = "Upland")) %>%
   st_zm() %>% st_transform(4326)
 xy <- st_coordinates(gps)
 gps <- st_drop_geometry(gps) %>% transmute(Tree = as.integer(Name), plot, site, gps_species = tolower(species),
