@@ -26,7 +26,7 @@ cat("═════════════════════════
 
 # Extract key metrics
 get_model_stats <- function(m, name) {
-  r2 <- var(predict(m, re.form = NA)) / var(m@frame[[1]])
+  r2 <- as.numeric(performance::r2_nakagawa(m, tolerance = 1e-10)$R2_marginal)
   tibble(
     model = name,
     R2 = round(r2 * 100, 1),

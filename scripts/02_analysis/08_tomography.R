@@ -485,6 +485,7 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
   # Figure 5: trees ordered by ERT CV (moisture heterogeneity; the bioRxiv v1 metric and the
   # most robust one, see 10_decay_robustness.R); decay classes from the tomography paper.
   # ------------------------------------------------------------------
+  SIG_P <- 0.1   # Figure 5: fit lines and * where p < 0.1 (stated in the caption)
   class_cols <- c("I" = "#4E79A7", "II" = "#E0B83C", "III" = "#D4873F", "IV" = "#B03A2E")
   flux_pal <- colorRampPalette(c("#F4F4F4", "#9ECAE1", "#2171B5", "#08306B"))(101)
 
@@ -522,7 +523,7 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
     lab <- sprintf("r = %.2f (p = %.3f)\nrho = %.2f (p = %.3f)", ct$estimate, ct$p.value, rs$estimate, rs$p.value)
     d2 <- data %>% mutate(cls = ifelse(is.na(decay_phase_short), "no SoT", decay_phase_short))
     ggplot(d2, aes(ert_cv, CH4_mean)) +
-      { if (ct$p.value < 0.05) geom_smooth(method = "lm", formula = y ~ x, colour = sp_col, fill = sp_col, alpha = 0.15, linewidth = 0.8) } +
+      { if (ct$p.value < SIG_P) geom_smooth(method = "lm", formula = y ~ x, colour = sp_col, fill = sp_col, alpha = 0.15, linewidth = 0.8) } +
       geom_point(aes(fill = cls), shape = 21, size = 3.2, colour = "grey20", stroke = 0.3) +
       scale_fill_manual(values = c(class_cols, "no SoT" = "white"), name = "Class", drop = TRUE) +
       labs(x = "ERT CV", y = expression(Mean~CH[4]~flux~(nmol~m^{-2}~s^{-1})), subtitle = lab) +
@@ -550,14 +551,14 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
     st <- sd0 %>% group_by(species_full) %>%
       summarise(r = cor(ert_cv, CH4_mean), p = cor.test(ert_cv, CH4_mean)$p.value, .groups = "drop") %>%
       mutate(lab = sprintf("%s  r = %.2f, p = %s%s", species_full, r, ifelse(p < 0.001, "<0.001", sprintf("%.3f", p)),
-                           ifelse(p < 0.05, " *", "")))
+                           ifelse(p < SIG_P, " *", "")))
     labs_v <- setNames(st$lab, st$species_full)
     ct <- cor.test(sd0$ert_cv, sd0$CH4_mean)
     adj <- if (!is.null(dd)) dd$mixed_lrt_p[dd$site == site_name & dd$definition == "ert_cv"] else NA
     fp <- function(x) ifelse(x < 0.01, "< 0.01", sprintf("= %.2f", x))
     sub <- sprintf("All trees pooled: r = %.2f (p %s)\nspecies-adjusted, all measurements: p %s",
                    ct$estimate, fp(ct$p.value), fp(adj))
-    sig <- sd0 %>% filter(species_full %in% st$species_full[st$p < 0.05])
+    sig <- sd0 %>% filter(species_full %in% st$species_full[st$p < SIG_P])
     g <- ggplot(sd0, aes(ert_cv, CH4_mean, colour = species_full, shape = species_full))
     if (nrow(sig)) g <- g + geom_smooth(data = sig, method = "lm", formula = y ~ x, se = TRUE, alpha = 0.12, linewidth = 0.8,
                                         aes(fill = species_full), show.legend = FALSE)

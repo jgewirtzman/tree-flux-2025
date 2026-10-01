@@ -31,6 +31,7 @@ suppressPackageStartupMessages({
   library(dplyr)
   library(tidyr)
   library(fluxqc)
+  library(lubridate)
 })
 
 # Closures with a raw trace but no row in the legacy (published) dataset are
@@ -156,6 +157,38 @@ print(as.data.frame(df %>% group_by(inst_label) %>%
             median_MDF = signif(median(CH4_MDF_wass95, na.rm = TRUE), 3), .groups = "drop")))
 message("Flux source: ", paste(names(table(df$flux_source)), table(df$flux_source), sep = " = ", collapse = ", "))
 message("t source:    ", paste(names(table(df$t_src)), table(df$t_src), sep = " = ", collapse = ", "))
+
+# ------------------------------------------------------------
+# Sampling time for joining environmental drivers
+#   datetime_posx (= real_start) is the field-log real time, local wall clock (EDT in
+#   summer), stored with a "Z" label. Exceptions:
+#     - 146 closures (2024-03-06, Oct-Nov 2024) carry 00:00 because no real time was
+#       logged; use the analyzer-clock closure start minus that analyzer's clock offset
+#       (median real - analyzer difference over the nearest dated closures, +-60 d)
+#     - 2 closures on 2023-06-29 were logged as 02:xx instead of 14:xx (AM/PM)
+#   sample_time_local: America/New_York wall clock
+#   sample_hour_est:   hour on the EST clock (UTC-5, no DST) used by every met series in
+#                      aligned_hourly_dataset.csv; stored as "YYYY-MM-DD HH:00:00"
+# ------------------------------------------------------------
+wall <- as.POSIXct(sub("Z$", "", sub("T", " ", df$datetime_posx)), tz = "UTC")
+clo  <- as.POSIXct(df$closure_start, tz = "UTC")
+hh   <- as.numeric(format(wall, "%H")) + as.numeric(format(wall, "%M")) / 60
+no_time <- !is.na(wall) & format(wall, "%H:%M:%S") == "00:00:00"
+ampm    <- !is.na(wall) & !no_time & hh < 6
+offs <- as.numeric(difftime(wall, clo, units = "mins"))
+ok_off <- !no_time & !ampm & !is.na(offs) & abs(offs) < 180
+fix_t <- wall
+fix_t[ampm] <- wall[ampm] + 12 * 3600
+for (i in which(no_time & !is.na(clo))) {
+  same <- which(ok_off & df$inst_label == df$inst_label[i] &
+                  abs(as.numeric(difftime(clo, clo[i], units = "days"))) <= 60)
+  fix_t[i] <- clo[i] + 60 * (if (length(same)) median(offs[same]) else 0)
+}
+df$sample_time_src <- ifelse(no_time, "analyzer clock - offset", ifelse(ampm, "field log (+12 h, AM/PM)", "field log real time"))
+df$sample_time_local <- format(fix_t, "%Y-%m-%d %H:%M:%S")
+loc <- force_tz(fix_t, "America/New_York")
+df$sample_hour_est <- format(floor_date(with_tz(loc, "EST"), "hour"), "%Y-%m-%d %H:00:00")
+message("\nSampling time source: ", paste(names(table(df$sample_time_src)), table(df$sample_time_src), sep = " = ", collapse = ", "))
 
 output_path <- file.path("data", "processed", "flux_with_quality_flags.csv")
 dir.create(dirname(output_path), showWarnings = FALSE, recursive = TRUE)

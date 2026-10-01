@@ -200,8 +200,11 @@ if (file.exists(PATHS$wtd_met)) {
 
 # NEON SWC (from script 06a)
 if (file.exists(PATHS$neon_swc)) {
+  # NEON timestamps are true UTC; every other series here (AmeriFlux TIMESTAMP_START,
+  # Fisher met, hydro) is local standard time (EST, UTC-5) stored with a "UTC" label.
+  # Shift NEON to the same EST clock so all variables share one time base.
   neon_swc <- read_csv(PATHS$neon_swc, show_col_types = FALSE) %>%
-    mutate(datetime = as.POSIXct(datetime, tz = "UTC"))
+    mutate(datetime = force_tz(with_tz(as.POSIXct(datetime, tz = "UTC"), "EST"), "UTC"))
   message("Loaded NEON SWC: ", nrow(neon_swc), " rows, ", ncol(neon_swc) - 1, " variables")
 } else {
   message("WARNING: neon_swc_hourly.csv not found - run 06a_process_neon_swc.R first")

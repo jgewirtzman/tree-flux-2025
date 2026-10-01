@@ -84,8 +84,12 @@ flux_data <- read_csv(PATHS$flux, show_col_types = FALSE)
 # Build the same features as in the model scripts
 library(RcppRoll)
 
+# Rolling windows need at least half of their hours observed; otherwise NA
+# (a mean over a mostly empty window is not the window it claims to be)
+MIN_WINDOW_COMPLETE <- 0.5
+.win_ok <- function(x, n) RcppRoll::roll_sum(as.numeric(!is.na(x)), n = n, align = "right", fill = NA) >= MIN_WINDOW_COMPLETE * n
 roll_mean <- function(x, n) {
-  RcppRoll::roll_mean(x, n = n, align = "right", fill = NA, na.rm = TRUE)
+  m <- RcppRoll::roll_mean(x, n = n, align = "right", fill = NA, na.rm = TRUE); m[!.win_ok(x, n) %in% TRUE] <- NA; m
 }
 
 met <- aligned_data %>% arrange(datetime)
@@ -131,7 +135,7 @@ if (!wtd_pred_ems %in% names(met) && !is.na(wtd_window_ems) && wtd_var_ems %in% 
 # Process flux data
 flux_processed <- flux_data %>%
   mutate(
-    datetime = round_date(as.POSIXct(datetime_posx, tz = "EST"), "hour"),
+    datetime = as.POSIXct(format(as.POSIXct(sample_hour_est, tz = "UTC"), "%Y-%m-%d %H:%M:%S"), tz = "UTC"),  # EST hour of sampling (10_quality_flags.R)
     site = location,
     Tree = as.factor(Tree),
     species = as.factor(SPECIES),
@@ -544,8 +548,8 @@ cat("                    SUMMARY\n")
 cat("══════════════════════════════════════════════════════════════\n\n")
 
 # Model R² values
-r2_bgs <- var(predict(m_bgs, re.form = NA)) / var(m_bgs@frame[[1]])
-r2_ems <- var(predict(m_ems, re.form = NA)) / var(m_ems@frame[[1]])
+r2_bgs <- as.numeric(performance::r2_nakagawa(m_bgs, tolerance = 1e-10)$R2_marginal)
+r2_ems <- as.numeric(performance::r2_nakagawa(m_ems, tolerance = 1e-10)$R2_marginal)
 
 cat("Model fit:\n")
 cat(sprintf("  Wetland (BGS): R² = %.1f%%\n", r2_bgs * 100))

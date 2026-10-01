@@ -39,7 +39,7 @@ SITE_FILTER <- "Upland"  # Changed from "Wetland" to "Upland"
 CORR_THRESHOLD <- 0.7
 
 # Forward selection settings
-N_RANDOM_RUNS <- 100
+N_RANDOM_RUNS <- 1   # greedy forward selection is deterministic; candidate order does not matter
 MAX_PREDICTORS <- 6
 
 # Core drivers (forced into model) - based on theory
@@ -142,12 +142,16 @@ gc()
 # HELPER FUNCTIONS
 # ============================================================
 
+# Rolling windows need at least half of their hours observed; otherwise NA
+# (a mean over a mostly empty window is not the window it claims to be)
+MIN_WINDOW_COMPLETE <- 0.5
+.win_ok <- function(x, n) RcppRoll::roll_sum(as.numeric(!is.na(x)), n = n, align = "right", fill = NA) >= MIN_WINDOW_COMPLETE * n
 roll_mean <- function(x, n) {
-  RcppRoll::roll_mean(x, n = n, align = "right", fill = NA, na.rm = TRUE)
+  m <- RcppRoll::roll_mean(x, n = n, align = "right", fill = NA, na.rm = TRUE); m[!.win_ok(x, n) %in% TRUE] <- NA; m
 }
 
 roll_sum <- function(x, n) {
-  RcppRoll::roll_sum(x, n = n, align = "right", fill = NA, na.rm = TRUE)
+  m <- RcppRoll::roll_sum(x, n = n, align = "right", fill = NA, na.rm = TRUE); m[!.win_ok(x, n) %in% TRUE] <- NA; m
 }
 
 make_anomaly <- function(df, var, time_col = "datetime") {
@@ -389,7 +393,7 @@ stem_flux_raw <- read_csv(PATHS$flux, show_col_types = FALSE)
 
 stem_flux <- stem_flux_raw %>%
   mutate(
-    datetime = round_date(as.POSIXct(datetime_posx, tz = "EST"), "hour"),
+    datetime = as.POSIXct(format(as.POSIXct(sample_hour_est, tz = "UTC"), "%Y-%m-%d %H:%M:%S"), tz = "UTC"),  # EST hour of sampling (10_quality_flags.R)
     site = location,  # Already has "Wetland"/"Upland"
     Tree = as.factor(Tree),
     species = as.factor(SPECIES),
@@ -640,6 +644,8 @@ cat("Candidate predictors:", length(candidate_names), "\n\n")
 model_data_unscaled <- model_data
 
 # Total variance for R²
+# Selection uses the same response scale as the final model: asinh(flux in nmol m-2 s-1)
+model_data_scaled <- model_data_scaled %>% mutate(CH4_flux_umol = CH4_flux, CH4_flux = asinh(CH4_flux * 1000), date = factor(as.Date(datetime)))
 var_total <- var(model_data_scaled$CH4_flux)
 
 # ============================================================
@@ -670,7 +676,7 @@ for (run in 1:N_RANDOM_RUNS) {
     for (pred in remaining) {
       current_preds <- c(selected, pred)
       formula_str <- paste("CH4_flux ~", paste(current_preds, collapse = " + "),
-                           "+ species + (1|Tree)")
+                           "+ species + (1|Tree) + (1|date)")
       
       tryCatch({
         fit <- lmer(as.formula(formula_str), data = model_data_scaled, REML = FALSE)
@@ -746,19 +752,19 @@ message("       7. BASE MODEL COMPARISON                   ")
 message("══════════════════════════════════════════════════")
 
 # Species only
-m_species <- lmer(CH4_flux ~ species + (1|Tree), 
+m_species <- lmer(CH4_flux ~ species + (1|Tree) + (1|date), 
                   data = model_data_scaled, REML = FALSE)
 r2_species <- var(predict(m_species, re.form = NA)) / var_total
 
 # Core only
-core_formula <- paste("CH4_flux ~", paste(core_names, collapse = " + "), "+ species + (1|Tree)")
+core_formula <- paste("CH4_flux ~", paste(core_names, collapse = " + "), "+ species + (1|Tree) + (1|date)")
 m_core <- lmer(as.formula(core_formula), data = model_data_scaled, REML = FALSE)
 r2_core <- var(predict(m_core, re.form = NA)) / var_total
 
 # Core + consensus
 if (nrow(strong_consensus) > 0) {
   strong_preds <- c(core_names, strong_consensus$predictor)
-  strong_formula <- paste("CH4_flux ~", paste(strong_preds, collapse = " + "), "+ species + (1|Tree)")
+  strong_formula <- paste("CH4_flux ~", paste(strong_preds, collapse = " + "), "+ species + (1|Tree) + (1|date)")
   m_strong <- lmer(as.formula(strong_formula), data = model_data_scaled, REML = FALSE)
   r2_strong <- var(predict(m_strong, re.form = NA)) / var_total
 } else {
@@ -883,7 +889,7 @@ if (length(high_vif_preds) > 0) {
   
   # Refit model
   m_strong <- lmer(as.formula(paste("CH4_flux ~", paste(refined_preds, collapse = " + "), 
-                                    "+ species + (1|Tree)")), 
+                                    "+ species + (1|Tree) + (1|date)")), 
                    data = model_data_scaled, REML = FALSE)
   
   # Show final VIF
@@ -918,7 +924,7 @@ message("       9. CORE INTERACTION MODEL                  ")
 message("══════════════════════════════════════════════════")
 
 # Model 1: Core 3-way interaction only
-formula_core <- paste0("CH4_flux ~ ", ts_pred, " * ", swc_pred, " * species + (1|Tree)")
+formula_core <- paste0("CH4_flux ~ ", ts_pred, " * ", swc_pred, " * species + (1|Tree) + (1|date)")
 m_core_int <- lmer(as.formula(formula_core), data = model_data_scaled, REML = FALSE)
 r2_core_int <- var(predict(m_core_int, re.form = NA)) / var_total
 
@@ -949,7 +955,7 @@ if (length(additional_preds) > 0) {
   for (pred in additional_preds) {
     # Without species interaction
     formula_add <- paste0("CH4_flux ~ ", ts_pred, " * ", swc_pred, " * species + ", 
-                          pred, " + (1|Tree)")
+                          pred, " + (1|Tree) + (1|date)")
     
     tryCatch({
       m_add <- lmer(as.formula(formula_add), data = model_data_scaled, REML = FALSE)
@@ -967,7 +973,7 @@ if (length(additional_preds) > 0) {
     
     # With species interaction
     formula_add_sp <- paste0("CH4_flux ~ ", ts_pred, " * ", swc_pred, " * species + ", 
-                             pred, " * species + (1|Tree)")
+                             pred, " * species + (1|Tree) + (1|date)")
     
     tryCatch({
       m_add_sp <- lmer(as.formula(formula_add_sp), data = model_data_scaled, REML = FALSE)
@@ -1072,7 +1078,7 @@ if (nrow(sig_additions) > 0) {
   if (length(added_terms) > 0) {
     # Build extended formula
     formula_extended <- paste0("CH4_flux ~ ", ts_pred, " * ", swc_pred, " * species + ",
-                               paste(added_terms, collapse = " + "), " + (1|Tree)")
+                               paste(added_terms, collapse = " + "), " + (1|Tree) + (1|date)")
     
     cat("Testing extended model:\n")
     cat("  ", formula_extended, "\n\n")
@@ -1120,8 +1126,26 @@ message("       12. FINAL MODEL (ASINH TRANSFORM)          ")
 message("══════════════════════════════════════════════════")
 
 # Create asinh-transformed response
-model_data_scaled <- model_data_scaled %>%
-  mutate(CH4_flux_asinh = asinh(CH4_flux * 1000))
+# Refit on every observation that has the final model's own predictors (the selection
+# data above drop rows missing ANY candidate predictor, which discards usable rows).
+# Predictors are re-standardized on this data; sampling date enters as a random effect
+# because trees measured on the same day share conditions not captured by the drivers.
+final_preds <- setdiff(all.vars(as.formula(best_formula)), c("CH4_flux", "species", "Tree", "date"))
+# (all candidate columns are kept for the comparison models further down; rows are
+#  filtered on the final model's predictors only)
+model_data <- stem_flux %>%
+  left_join(features, by = "datetime") %>%
+  drop_na(CH4_flux, all_of(final_preds))
+model_data_unscaled <- model_data
+zs <- function(x) (x - mean(x, na.rm = TRUE)) / sd(x, na.rm = TRUE)
+model_data_scaled <- model_data %>%
+  mutate(across(any_of(unique(c(final_preds, all_pred_names))), zs),
+         CH4_flux_umol = CH4_flux, CH4_flux_asinh = asinh(CH4_flux * 1000), CH4_flux = CH4_flux_asinh,
+         date = factor(as.Date(datetime)))
+cat("Final-model data:", nrow(model_data_scaled), "observations,", n_distinct(model_data_scaled$Tree), "trees,",
+    as.character(min(as.Date(model_data_scaled$datetime))), "to", as.character(max(as.Date(model_data_scaled$datetime))), "\n")
+# Nakagawa marginal R2: fixed-effect variance / (fixed + random + residual)
+r2_marg <- function(m) as.numeric(performance::r2_nakagawa(m, tolerance = 1e-10)$R2_marginal)
 
 var_total_asinh <- var(model_data_scaled$CH4_flux_asinh)
 
@@ -1133,7 +1157,7 @@ cat(" ", formula_final, "\n\n")
 
 m_final <- lmer(as.formula(formula_final), data = model_data_scaled, REML = FALSE)
 
-r2_final <- var(predict(m_final, re.form = NA)) / var_total_asinh
+r2_final <- r2_marg(m_final)
 
 cat("Final model (asinh-transformed):\n")
 cat("  R²:", round(r2_final * 100, 1), "%\n")
@@ -1152,7 +1176,7 @@ saveRDS(m_final, file.path(OUTPUT_DIR, "m_final.rds"))
 # Also fit and save the core-only asinh model for comparison
 formula_core_asinh <- gsub("CH4_flux ~", "CH4_flux_asinh ~", formula_core)
 m_core_asinh <- lmer(as.formula(formula_core_asinh), data = model_data_scaled, REML = FALSE)
-r2_core_asinh <- var(predict(m_core_asinh, re.form = NA)) / var_total_asinh
+r2_core_asinh <- r2_marg(m_core_asinh)
 
 cat("\n\nModel comparison (asinh-transformed):\n")
 cat("─────────────────────────────────────────────────────\n")

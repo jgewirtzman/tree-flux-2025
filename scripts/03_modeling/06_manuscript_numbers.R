@@ -155,6 +155,7 @@ for (i in seq_len(nrow(info))) with(info[i, ], say(sprintf("%s: %d obs from %d t
 # species-specific slope of each continuous term = base coefficient + species interaction,
 # SE from the fixed-effect covariance matrix
 species_slopes <- function(m) {
+  mt <- as_lt(m)
   b <- fixef(m); V <- as.matrix(vcov(m)); nm <- names(b)
   comp <- strsplit(nm, ":", fixed = TRUE)
   is_sp <- function(x) grepl("^species", x)
@@ -169,14 +170,20 @@ species_slopes <- function(m) {
       if (length(j)) w[j] <- 1
     }
     est <- sum(w * b); s_e <- sqrt(as.numeric(t(w) %*% V %*% w))
-    out[[length(out) + 1]] <- tibble(term = nm[k], species = s, estimate = est, se = s_e,
-                                     z = est / s_e, p = 2 * pnorm(-abs(est / s_e)))
+    df <- if (!is.null(mt)) lmerTest::contest1D(mt, w)$df else Inf
+    out[[length(out) + 1]] <- tibble(term = nm[k], species = s, estimate = est, se = s_e, df = df,
+                                     t = est / s_e, p = 2 * pt(-abs(est / s_e), df))
   }
   bind_rows(out)
 }
+# p-values: Satterthwaite t-tests (lmerTest); falls back to normal approximation
+as_lt <- function(m) tryCatch(lmerTest::as_lmerModLmerTest(m), error = function(e) NULL)
 coef_table <- function(m) {
+  mt <- as_lt(m)
+  if (!is.null(mt)) { s <- summary(mt)$coefficients
+    return(tibble(term = rownames(s), estimate = s[, 1], se = s[, 2], df = s[, "df"], t = s[, "t value"], p = s[, "Pr(>|t|)"])) }
   s <- summary(m)$coefficients
-  tibble(term = rownames(s), estimate = s[, 1], se = s[, 2], t = s[, 3], p = 2 * pnorm(-abs(s[, 3])))
+  tibble(term = rownames(s), estimate = s[, 1], se = s[, 2], df = Inf, t = s[, 3], p = 2 * pnorm(-abs(s[, 3])))
 }
 sp_names <- c(bg = "N. sylvatica", hem = "T. canadensis", rm = "A. rubrum", ro = "Q. rubra")
 for (k in names(models)) {
@@ -187,10 +194,13 @@ for (k in names(models)) {
   write_csv(sl, file.path(OUT, paste0("species_slopes_", k, ".csv")))
   vv <- vif(m); vt <- tibble(term = rownames(vv), GVIF = vv[, "GVIF"], df = vv[, "Df"], GVIF_adj = vv[, "GVIF^(1/(2*Df))"])
   write_csv(vt, file.path(OUT, paste0("vif_", k, ".csv")))
-  r2 <- var(predict(m, re.form = NA)) / var(model.response(model.frame(m)))
+  r2 <- as.numeric(performance::r2_nakagawa(m, tolerance = 1e-10)$R2_marginal)
   vc <- as.data.frame(VarCorr(m)); icc <- vc$vcov[vc$grp == "Tree"] / sum(vc$vcov)
-  say(sprintf("\n=== %s: R2 (marginal, fixed effects / total) = %.1f%%, AIC = %.1f, BIC = %.1f, k = %d, ICC = %.3f, n = %d ===",
+  icc_date <- if (any(vc$grp == "date")) vc$vcov[vc$grp == "date"] / sum(vc$vcov) else NA
+  say(sprintf("\n=== %s: R2 (Nakagawa marginal) = %.1f%%, AIC = %.1f, BIC = %.1f, k = %d, ICC = %.3f, n = %d ===",
               k, 100 * r2, AIC(m), BIC(m), length(fixef(m)), icc, nobs(m)))
+  say(sprintf("  residual variance shares: tree %.1f%%, sampling date %.1f%%, residual %.1f%%", 100 * icc, 100 * icc_date,
+              100 * vc$vcov[vc$grp == "Residual"] / sum(vc$vcov)))
   say(sprintf("  max GVIF = %.1f (%s); max GVIF^(1/(2Df)) = %.2f", max(vt$GVIF), vt$term[which.max(vt$GVIF)], max(vt$GVIF_adj)))
   for (i in seq_len(nrow(sl))) with(sl[i, ], say(sprintf("  %-45s %-14s %7.3f ± %.3f (p = %.2g)", term, species, estimate, se, p)))
 }
@@ -223,6 +233,9 @@ cvs <- read_csv(file.path("data", "input", "tomography_results_compiled.csv"), s
   mutate(tree = as.character(tree)) %>% inner_join(tc %>% mutate(tree = as.character(tree)), by = "tree")
 for (s in c("Wetland", "Upland")) say(sprintf("ERT CV %s: %.3f ± %.3f (n = %d)", s,
   mean(cvs$ert_cv[cvs$site == s]), sd(cvs$ert_cv[cvs$site == s]), sum(cvs$site == s)))
+
+mc <- file.path("outputs", "tables", "model_checks", "model_checks_summary.txt")
+if (file.exists(mc)) { say("\n=== MODEL CHECKS (07_model_checks.R) ==="); for (l in readLines(mc)) say(l) }
 
 writeLines(txt, file.path(OUT, "manuscript_numbers.txt"))
 message("\nWrote ", file.path(OUT, "manuscript_numbers.txt"))

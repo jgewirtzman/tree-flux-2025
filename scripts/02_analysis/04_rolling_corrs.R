@@ -102,9 +102,11 @@ calc_rolling_means <- function(data, vars, window_hours) {
   
   for (var in vars) {
     if (!var %in% names(data)) next
-    result[[paste0(var, "_roll")]] <- RcppRoll::roll_mean(
-      data[[var]], n = window_hours, align = "right", fill = NA, na.rm = TRUE
-    )
+    m <- RcppRoll::roll_mean(data[[var]], n = window_hours, align = "right", fill = NA, na.rm = TRUE)
+    # require at least half of the window's hours to be observed
+    ok <- RcppRoll::roll_sum(as.numeric(!is.na(data[[var]])), n = window_hours, align = "right", fill = NA) >= 0.5 * window_hours
+    m[!ok %in% TRUE] <- NA
+    result[[paste0(var, "_roll")]] <- m
   }
   result
 }
@@ -217,17 +219,20 @@ stem_flux_raw <- read_csv(PATHS$stem_flux, show_col_types = FALSE)
 
 stem_flux <- stem_flux_raw %>%
   mutate(
-    datetime = round_date(
-      force_tz(as.POSIXct(datetime_posx), tzone = "EST"), 
-      "hour"
-    ),
+    datetime = as.POSIXct(format(as.POSIXct(sample_hour_est, tz = "UTC"), "%Y-%m-%d %H:%M:%S"), tz = "UTC"),  # EST hour of sampling (10_quality_flags.R)
     date = as.Date(datetime),
     ID = Tree,
     site = factor(ifelse(PLOT == "BGS", "Wetland", "Upland"), levels = c("Wetland", "Upland")),
     CH4_flux = CH4_flux_nmolpm2ps
   ) %>%
   filter(date >= DATE_MIN, date <= DATE_MAX) %>%
-  dplyr::select(datetime, date, ID, site, species = SPECIES, CH4_flux)
+  dplyr::select(datetime, date, ID, site, species = SPECIES, CH4_flux) %>%
+  # Screening response: asinh(flux), the scale of the mixed models, centered on each
+  # tree's mean. The correlation then measures how flux tracks a driver over time
+  # within trees (the variation the models' drivers explain), not differences
+  # among trees or species, and is not dominated by a few very large fluxes.
+  mutate(CH4_flux = asinh(CH4_flux)) %>%
+  group_by(ID) %>% mutate(CH4_flux = CH4_flux - mean(CH4_flux, na.rm = TRUE)) %>% ungroup()
 
 message("  Stem flux: ", nrow(stem_flux), " observations")
 
