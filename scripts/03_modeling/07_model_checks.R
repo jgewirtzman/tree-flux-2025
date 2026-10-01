@@ -214,21 +214,27 @@ dw <- fits$wetland$d; mw <- fits$wetland$m; pw <- preds_of(mw)
 tsw <- pw[grepl("^TS_", pw)][1]; wtw <- pw[grepl("wtd", pw)][1]
 pick <- function(pat) names(dw)[grepl(pat, names(dw))][1]
 swc <- pick("^NEON_SWC_shallow_raw_"); le1 <- pick("^LE_Ha1_raw_")
-ext_terms <- c(swc, pick("^FC_Ha1_anom_"), pick("^gcc_raw_"), pick("^tair_C_raw_"))
-ext_terms <- ext_terms[!is.na(ext_terms)]
+# extended model = the additions 01_bgs_model.R tested and combined (significant, dAIC < -2;
+# species interaction kept where it had the lower AIC), read from its output
+at <- read_csv("outputs/models/bgs_final/predictor_addition_tests.csv", show_col_types = FALSE) %>%
+  filter(significant, delta_aic < -2) %>% group_by(predictor) %>% slice_min(aic, n = 1, with_ties = FALSE) %>% ungroup()
+ext_terms <- ifelse(at$type == "with species interaction", paste0(at$predictor, " * species"), at$predictor)
+ext_vars <- at$predictor
+if (!length(ext_terms)) { ext_terms <- "1"; ext_vars <- character() }
 alt <- list(
   `Core: temperature x water table x species` = formula(mw),
   `Alternative: temperature x soil water content x species` = as.formula(sprintf("CH4_flux_asinh ~ %s * %s * species + (1|Tree) + (1|date)", tsw, swc)),
   `Alternative: latent heat x water table x species` = as.formula(sprintf("CH4_flux_asinh ~ %s * %s * species + (1|Tree) + (1|date)", le1, wtw)),
   `Season (day-of-year harmonics) x water table x species` = as.formula(sprintf("CH4_flux_asinh ~ (s1 + c1) * %s * species + (1|Tree) + (1|date)", wtw)),
-  `Extended: core + selected additions x species` = update(formula(mw), as.formula(paste(". ~ . +", paste(paste0(ext_terms, " * species"), collapse = " + ")))))
+  `Extended: core + selected additions` = update(formula(mw), as.formula(paste(". ~ . +", paste(ext_terms, collapse = " + ")))))
 doyw <- as.numeric(format(as.Date(dw$datetime), "%j")); dw$s1 <- sin(2 * pi * doyw / 365.25); dw$c1 <- cos(2 * pi * doyw / 365.25)
-need <- unique(c(tsw, wtw, swc, le1, ext_terms))
+need <- unique(c(tsw, wtw, swc, le1, ext_vars))
 dc <- droplevels(dw[complete.cases(dw[, need]), ])
 cmp <- bind_rows(lapply(names(alt), function(nm) { mm <- refit(mw, dc, alt[[nm]])
   tibble(model = nm, n = nobs(mm), k_fixed = length(fixef(mm)), R2_marginal = r2n(mm)[["marg"]], AIC = AIC(mm), BIC = BIC(mm)) })) %>%
   mutate(dAIC = AIC - AIC[1], dBIC = BIC - BIC[1])
 write_csv(cmp, file.path(OUT, "wetland_model_comparison_common_rows.csv"))
+say("Extended-model additions: ", paste(ext_terms, collapse = ", "))
 say(sprintf("\nWetland model comparison on the %d observations all models can use (%s to %s):", nrow(dc),
             min(as.Date(dc$datetime)), max(as.Date(dc$datetime))))
 for (i in seq_len(nrow(cmp))) say(sprintf("  %-58s R2m %.1f%%  AIC %.1f (d %+.1f)  BIC %.1f (d %+.1f)  k = %d",
@@ -246,7 +252,7 @@ sp_slopes <- function(mm, terms) {
     ct <- lmerTest::contest1D(mm, w)
     tibble(term = tt, species = sp, estimate = ct$Estimate, se = ct$`Std. Error`, df = ct$df, p = ct$`Pr(>|t|)`) }))))
 }
-m_ext <- refit(mw, dc, alt[["Extended: core + selected additions x species"]])
+m_ext <- refit(mw, dc, alt[["Extended: core + selected additions"]])
 m_cc  <- refit(mw, dc, alt[["Core: temperature x water table x species"]])
 sl <- bind_rows(sp_slopes(m_cc, c(tsw, wtw, paste0(tsw, ":", wtw))) %>% mutate(model = "core (shared rows)"),
                 sp_slopes(m_ext, c(tsw, wtw, paste0(tsw, ":", wtw))) %>% mutate(model = "extended (shared rows)"))

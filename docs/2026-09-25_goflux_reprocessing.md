@@ -179,3 +179,21 @@ Changes after inspecting every CO₂/CH₄ trace (`scripts/01_import/12_trace_qc
   no out-of-sample skill. Window permutation p: wetland TS < 0.002, WTD 0.018; upland TS 0.004;
   upland moisture n.s.
 - Draft rebuilt: `DRAFT_ ... - v2 tracked 2026-10-01.docx` (168 tracked edits, 31 replies, 8 new comments).
+
+## 1 Oct 2026, second update: driver data releases and analyzer volume
+
+- **Driver data:** AmeriFlux US-Ha1 28-5 (to Apr 2026) and US-Ha2 17-5 (to May 2026); HF001 and HF070
+  15-min tables to Sep 2026 (`data/raw/hf_archive/`); NEON HARV soil moisture, soil temperature, IR canopy
+  temperature, throughfall, soil heat flux, wind and the eddy-covariance bundle, RELEASE-2026 to Jun 2025 and
+  provisional to Dec 2025 (`data/raw/NEON_2026/`, release per month in `release_log.csv`). The xHA variables
+  are rebuilt from NEON products (`01_import/07b_neon_xha.R`; QC-filtered fluxes; six-height profile means);
+  agreement with AmeriFlux xHA over 2023–24 is r ≥ 0.98 except the CO2 profile composite (0.67) and wind (unused).
+  `06_preprocess_soil_moisture.R` and `07b_neon_xha.R` run outside `run_pipeline.sh` (rerun only when NEON
+  downloads change). `stackByTable` can delete the files it unpacks, so both stack a temporary copy.
+- **Analyzer volume** 0.028 L for both analyzers (see item 4): MGGA fluxes and MDFs × 0.715.
+- **Headline numbers:** wetland 1.67 ± 0.22 vs upland 0.04 ± 0.01 nmol m-2 s-1 (37-fold); N. sylvatica 4.87;
+  wetland core model n = 912 to Oct 2025, R2m 57.6 % (species 31.3 %), leave-one-date-out R2 0.71;
+  temperature explains flux beyond its seasonal cycle (chi2 = 22.0, p < 0.001); upland models 5.6–5.8 %.
+- The LGR is the Microportable GGA (GLA131; raw files `micro_*.txt`), not the UGGA. Data column values still
+  read "LGR/UGGA" because ch4-data-filtering imports them.
+- Draft: `DRAFT_ ... - v2 tracked 2026-10-01b.docx` (170 tracked edits); EDI package rebuilt.
