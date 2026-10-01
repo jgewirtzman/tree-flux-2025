@@ -19,7 +19,7 @@ stage2=(2_flux/01_closure_table.R 2_flux/02_fit_fluxes.R 2_flux/03_trace_qc.R 2_
 stage3=(3_trees/01_tomography_classes.R 3_trees/02_stand_context.R)
 stage4=(4_analysis/01_data_summary.R 4_analysis/02_flux_timeseries.R 4_analysis/03_flux_by_species.R 4_analysis/04_repeatability.R
         4_analysis/05_window_screening.R 4_analysis/06_tomography_flux.R 4_analysis/07_decay_definitions.R 4_analysis/08_site_map.R
-        4_analysis/09_driver_timeseries.R)
+        4_analysis/09_driver_timeseries.R 4_analysis/10_decay_binned.R)
 stage5=(5_models/01_wetland_model.R 5_models/02_upland_model_A.R 5_models/03_upland_model_B.R 5_models/04_interaction_plots.R
         5_models/05_compare_upland_models.R 5_models/06_model_checks.R 5_models/07_manuscript_numbers.R)
 stage6=(6_manuscript/01_build_si.R)

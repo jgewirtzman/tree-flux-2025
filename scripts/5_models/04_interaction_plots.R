@@ -575,7 +575,7 @@ message("\nDone!")
 # 
 # Combined timeseries of CH4 stem flux with key environmental drivers:
 # - Water table depth (BVS)
-# - Soil temperature (Fisher s10t)
+# - Soil temperature (Hemlock tower TS_Ha2, the series used by the wetland model)
 #
 # Shaded regions indicate periods when both drivers are elevated
 # (7-day rolling z-score > 0.5 for both).
@@ -663,14 +663,14 @@ env_daily <- aligned_data %>%
   group_by(date) %>%
   summarize(
     bvs_wtd_cm = mean(bvs_wtd_cm, na.rm = TRUE),
-    s10t = mean(s10t, na.rm = TRUE),
+    ts_ha2 = mean(TS_Ha2, na.rm = TRUE),
     .groups = "drop"
   ) %>%
   arrange(date) %>%
   # Convert to z-scores
   mutate(
     wtd_z = (bvs_wtd_cm - mean(bvs_wtd_cm, na.rm = TRUE)) / sd(bvs_wtd_cm, na.rm = TRUE),
-    ts_z = (s10t - mean(s10t, na.rm = TRUE)) / sd(s10t, na.rm = TRUE)
+    ts_z = (ts_ha2 - mean(ts_ha2, na.rm = TRUE)) / sd(ts_ha2, na.rm = TRUE)
   ) %>%
   # 7-day antecedent rolling mean of z-scores
   mutate(
@@ -766,11 +766,11 @@ p_wtd <- ggplot(env_daily, aes(x = date, y = bvs_wtd_cm)) +
   )
 
 # Panel 3: Soil temperature (colored by z-score)
-p_ts <- ggplot(env_daily, aes(x = date, y = s10t)) +
+p_ts <- ggplot(env_daily, aes(x = date, y = ts_ha2)) +
   geom_rect(data = shading_regions,
             aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf),
             inherit.aes = FALSE, fill = "gray80", alpha = 0.5) +
-  geom_segment(aes(xend = lead(date), yend = lead(s10t), color = ts_z), 
+  geom_segment(aes(xend = lead(date), yend = lead(ts_ha2), color = ts_z), 
                linewidth = 0.8) +
   scale_color_gradientn(colors = c("#2166AC", "gray80", "#B2182B"),
                         values = scales::rescale(c(min(env_daily$ts_z, na.rm = TRUE), 
@@ -780,7 +780,7 @@ p_ts <- ggplot(env_daily, aes(x = date, y = s10t)) +
   scale_x_date(limits = c(DATE_MIN, DATE_MAX),
                date_breaks = "3 months", date_labels = "%b %Y") +
   labs(x = "Date",
-       y = "Soil temp\n(°C)") +
+       y = "Soil temp\nHa2 (°C)") +
   theme_classic(base_size = 12) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1)
