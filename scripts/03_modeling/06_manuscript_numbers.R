@@ -235,6 +235,23 @@ cvs <- read_csv(file.path("data", "input", "tomography_results_compiled.csv"), s
 for (s in c("Wetland", "Upland")) say(sprintf("ERT CV %s: %.3f ± %.3f (n = %d)", s,
   mean(cvs$ert_cv[cvs$site == s]), sd(cvs$ert_cv[cvs$site == s]), sum(cvs$site == s)))
 
+# ------------------------------------------------------------
+# 2025 drought (natural experiment): wetland water table and flux, August 2024 vs 2025
+# ------------------------------------------------------------
+say("\n=== 2025 DROUGHT ===")
+al <- read.csv(file.path("data", "processed", "aligned_hourly_dataset.csv")) %>% mutate(dt = substr(datetime, 1, 13))
+dr <- read.csv(file.path("data", "processed", "flux_with_quality_flags.csv")) %>% filter(location == "Wetland") %>%
+  mutate(dt = substr(sub(" ", "T", sample_hour_est), 1, 13), yr = substr(date, 1, 4), m = as.integer(substr(date, 6, 7))) %>%
+  left_join(al %>% select(dt, bvs_wtd_cm, bgs_wtd_cm), by = "dt")
+dd <- dr %>% filter(m %in% c(8, 10), yr %in% c("2024", "2025")) %>% group_by(yr, m) %>%
+  summarise(n = n(), wt_bvs = mean(bvs_wtd_cm, na.rm = TRUE), wt_bgs = mean(bgs_wtd_cm, na.rm = TRUE),
+            flux = mean(CH4_flux_nmolpm2ps), flux_bg = mean(CH4_flux_nmolpm2ps[SPECIES == "bg"]), .groups = "drop")
+write_csv(dd, file.path(OUT, "drought_2025.csv"))
+for (i in seq_len(nrow(dd))) with(dd[i, ], say(sprintf("%s-%02d: n = %d; water table BVS %.0f cm, BGS %.0f cm; wetland mean %.2f, N. sylvatica %.2f nmol m-2 s-1",
+                                                       yr, m, n, wt_bvs, wt_bgs, flux, flux_bg)))
+up25 <- read.csv(file.path("data", "processed", "flux_with_quality_flags.csv")) %>% filter(location == "Upland", substr(date, 1, 4) == "2025") %>% pull(date) %>% unique() %>% sort()
+say("Upland sampling dates 2025: ", paste(up25, collapse = ", "))
+
 mc <- file.path("outputs", "tables", "model_checks", "model_checks_summary.txt")
 if (file.exists(mc)) { say("\n=== MODEL CHECKS (07_model_checks.R) ==="); for (l in readLines(mc)) say(l) }
 

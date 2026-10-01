@@ -215,3 +215,9 @@ Changes after inspecting every CO₂/CH₄ trace (`scripts/01_import/12_trace_qc
 - VPD fix: `00_download/03_download_hf_met_hydro.R` passed pressure in Pa to `plantecophys::RHtoVPD`, which expects kPa;
   VPD was ~4× too high. Screening correlations unchanged (r 0.14 at the wetland).
 - `06_manuscript_numbers.R` now gives Satterthwaite tests (refitting with lmerTest when conversion fails).
+- 1 Oct (later): main Table 1 generated (`02_analysis/13_stand_context.R` → `01_build_si.R` → `outputs/manuscript/table1.csv`,
+  inserted as a tracked table); Table 2 merged into SI Table S1 (decay key with counts); SI Texts S1 (flux processing and QC)
+  and S2 (model diagnostics) from `scripts/05_manuscript/si_methods.md`; SI items cited by key ({T:...}/{F:...}/{X:...})
+  and resolved from `si_items.csv`. Old in-draft SI section deleted as tracked changes. Stand context: swamp prism survey
+  BAF 10 ft2/acre (2.30 m2/ha per tally), 40 systematic points covering the swamp, live BA 32.3 m2/ha; black gum 16 %
+  (21 % within 75 m of the study trees). Target journal: JGR Biogeosciences.

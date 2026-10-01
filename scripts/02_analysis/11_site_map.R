@@ -45,6 +45,8 @@ swamp <- st_read(list.files(kdir, pattern = "\\.kml$", full.names = TRUE)[1], qu
 swamp_poly <- tryCatch(st_cast(st_polygonize(swamp), "POLYGON"), error = function(e) NULL)
 
 tracts <- st_read(file.path(S, "tracts.shp"), quiet = TRUE) %>% st_transform(CRS_MA)
+vrp <- read.csv(file.path(S, "BGS_VRP_2025.csv")) %>% distinct(plot, lat, long) %>%
+  st_as_sf(coords = c("long", "lat"), crs = 4326) %>% st_transform(CRS_MA)   # 2025 prism-survey points
 dem <- rast(file.path(S, "elevation_ned"))
 crs(dem) <- paste0("EPSG:", CRS_MA)
 
@@ -74,6 +76,7 @@ pb <- ggplot() +
   geom_sf(data = cont, colour = "grey45", linewidth = 0.15, alpha = 0.6) +
   { if (!is.null(swamp_poly)) geom_sf(data = swamp_poly, fill = "#2A7F7A", alpha = 0.25, colour = NA) } +
   geom_sf(data = swamp, colour = "#1F5E5A", linewidth = 0.5) +
+  geom_sf(data = vrp, shape = 3, size = 0.9, stroke = 0.4, colour = "grey20") +
   geom_sf(data = trees, aes(fill = site), shape = 21, colour = "white", stroke = 0.2, size = 1.8) +
   geom_sf(data = towers, shape = 24, fill = "black", colour = "white", size = 2.6) +
   geom_sf_text(data = towers, aes(label = sub(" \\(", "\n(", name)), size = 2.3, nudge_y = c(-80, 85, -95), nudge_x = c(150, 0, -40), lineheight = 0.9) +
