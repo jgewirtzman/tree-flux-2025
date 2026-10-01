@@ -83,3 +83,5 @@ Jenkins 2008; soils sentence now Allen 1995 and Davidson et al. 1998); trajector
 - Its caption and the repeatability Results now describe how much within-tree variation is shared across trees on the same date. This share comes from adding a sampling-date random effect: *N. sylvatica* 74%, wetland *A. rubrum* 36%, wetland *T. canadensis* 7%, upland species 2–8%. Source: `outputs/tables/synchrony_by_group.csv`, written by `02_analysis/03_repeatability.R`.
 - Figure S3 is now the tree random effects only. The trajectory panel was dropped because it duplicated Figure 3.
 - JGR-B Key Points and Plain Language Summary added to the draft.
+- All repeatability statistics are now on the asinh scale, the same scale as the models, the variance partitioning and the synchrony shares. This covers the ICC, its LRT, the period Spearman correlations, the Figure 3 z-scores and the Figure S3 tree effects.
+- Resulting values: ICC 0–0.28 (mean 0.11), with *N. sylvatica* 0.28 and wetland *A. rubrum* 0.20; ρ 0.32–0.90.

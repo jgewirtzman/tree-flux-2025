@@ -57,7 +57,8 @@ fluxes <- read_csv(PATHS$flux, show_col_types = FALSE) %>%
       SPECIES == "ro"  ~ "Quercus rubra",
       TRUE ~ SPECIES
     ),
-    facet_label = paste(location, "-", species_full)
+    facet_label = paste(location, "-", species_full),
+    flux_asinh = asinh(CH4_flux_nmolpm2ps)   # all repeatability statistics use the model scale
   )
 
 message("  Loaded ", nrow(fluxes), " observations")
@@ -75,7 +76,7 @@ icc_by_group <- fluxes %>%
   group_by(SPECIES, location) %>%
   summarise(
     icc = {
-      mod <- lmer(CH4_flux_nmolpm2ps ~ 1 + (1 | Tree), data = cur_data())
+      mod <- lmer(flux_asinh ~ 1 + (1 | Tree), data = cur_data())
       var_tree <- as.numeric(VarCorr(mod)$Tree)
       var_resid <- sigma(mod)^2
       var_tree / (var_tree + var_resid)
@@ -100,8 +101,8 @@ lrt_by_group <- fluxes %>%
   group_by(SPECIES, location) %>%
   reframe(
     chisq = {
-      mod_tree <- lmer(CH4_flux_nmolpm2ps ~ 1 + (1 | Tree), data = cur_data(), REML = FALSE)
-      mod_null <- lm(CH4_flux_nmolpm2ps ~ 1, data = cur_data())
+      mod_tree <- lmer(flux_asinh ~ 1 + (1 | Tree), data = cur_data(), REML = FALSE)
+      mod_null <- lm(flux_asinh ~ 1, data = cur_data())
       as.numeric(2 * (logLik(mod_tree) - logLik(mod_null)))
     },
     p_value = pchisq(chisq, df = 1, lower.tail = FALSE)
@@ -121,7 +122,7 @@ tree_by_period <- fluxes %>%
   filter(!is.na(facet_label)) %>%
   mutate(period = ifelse(date < as.Date("2024-06-01"), "early", "late")) %>%
   group_by(Tree, SPECIES, location, period) %>%
-  summarise(mean_CH4 = mean(CH4_flux_nmolpm2ps, na.rm = TRUE), .groups = "drop") %>%
+  summarise(mean_CH4 = mean(flux_asinh, na.rm = TRUE), .groups = "drop") %>%
   pivot_wider(names_from = period, values_from = mean_CH4) %>%
   filter(!is.na(early), !is.na(late))
 
@@ -227,7 +228,7 @@ message("  Saved: fig_period_cor.png/pdf")
 # FIGURE 2: Tree Random Effects (BLUPs) - for SI
 # ============================================================
 
-model <- lmer(CH4_flux_nmolpm2ps ~ SPECIES + location + (1 | Tree), data = fluxes)
+model <- lmer(flux_asinh ~ SPECIES + location + (1 | Tree), data = fluxes)
 
 tree_effects <- ranef(model)$Tree %>%
   as.data.frame() %>%
@@ -272,9 +273,9 @@ fluxes_zscore <- fluxes %>%
   ) %>%
   group_by(year, location, SPECIES) %>%
   mutate(
-    group_mean = mean(CH4_flux_nmolpm2ps, na.rm = TRUE),
-    group_sd   = sd(CH4_flux_nmolpm2ps, na.rm = TRUE),
-    z_score    = (CH4_flux_nmolpm2ps - group_mean) / group_sd
+    group_mean = mean(flux_asinh, na.rm = TRUE),
+    group_sd   = sd(flux_asinh, na.rm = TRUE),
+    z_score    = (flux_asinh - group_mean) / group_sd
   ) %>%
   ungroup() %>%
   mutate(
@@ -523,7 +524,7 @@ traj <- fluxes %>% mutate(sp = sp_lab[SPECIES], grp = factor(paste(sp, location,
   group_by(grp) %>% mutate(rel_mean = { m <- ave(CH4_flux_nmolpm2ps, Tree); r <- rank(m, ties.method = "average"); (r - min(r)) / max(1, max(r) - min(r)) }) %>%
   ungroup()
 blup <- traj %>% group_by(grp) %>% group_modify(~ {
-  m <- lmer(CH4_flux_nmolpm2ps ~ 1 + (1 | Tree), data = .x)
+  m <- lmer(flux_asinh ~ 1 + (1 | Tree), data = .x)
   re <- ranef(m, condVar = TRUE)$Tree; pv <- attr(re, "postVar")
   tibble(Tree = rownames(re), effect = re[, 1], se = sqrt(pv[1, 1, ]))
 }) %>% ungroup() %>% mutate(lo = effect - 1.96 * se, hi = effect + 1.96 * se, excl0 = lo > 0 | hi < 0,
@@ -535,7 +536,7 @@ pB <- ggplot(blup, aes(effect, Tree)) +
   geom_point(aes(colour = excl0), size = 1.8) +
   scale_colour_manual(values = c(`FALSE` = "grey40", `TRUE` = "#B03A2E"), guide = "none") +
   facet_wrap(~ factor(grp_lab, levels = sub("\\|", " - ", grp_levels)), scales = "free", nrow = 2) +
-  labs(x = expression(Tree~random~effect~(deviation~from~group~mean*","~nmol~m^{-2}~s^{-1})), y = "Tree", tag = "B") +
+  labs(x = expression(Tree~random~effect~(deviation~from~group~mean*","~asinh~CH[4]~flux)), y = "Tree", tag = "B") +
   theme_classic(base_size = 9) + theme(strip.background = element_blank(), axis.text.y = element_text(size = 6))
 pB <- pB + labs(tag = NULL)
 ggsave(file.path(OUTPUT_DIR, "fig_tree_effects.png"), pB, width = 11, height = 5.5, dpi = 300, bg = "white")
