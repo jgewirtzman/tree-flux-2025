@@ -32,7 +32,7 @@ for (dp in c(dp1, "DP4.00200.001")) {
   args <- list(dpID = dp, site = "HARV", startdate = START, enddate = END, package = "basic",
                release = "current", include.provisional = TRUE, check.size = FALSE, savepath = d)
   if (!is.na(TOKEN)) args$token <- TOKEN
-  if (dp != "DP4.00200.001") args$timeIndex <- 30
+  if (!dp %in% c("DP4.00200.001", "DP1.00046.001")) args$timeIndex <- 30   # throughfall: no timeIndex in neonUtilities 3.0
   tryCatch(do.call(zipsByProduct, args), error = function(e) message("  FAILED ", dp, ": ", conditionMessage(e)))
 }
 

@@ -30,7 +30,9 @@ message("Downloading NEON soil water content data...")
 LOCAL_SWC <- "data/raw/NEON_2026/DP1.00094.001"
 fts <- list.files(LOCAL_SWC, pattern = "^filesToStack", full.names = TRUE)
 if (length(fts)) {
-  swc <- stackByTable(fts[1], savepath = "envt")
+  tmp <- file.path(tempdir(), "stack_swc"); unlink(tmp, recursive = TRUE); dir.create(tmp)
+  file.copy(fts[1], tmp, recursive = TRUE)   # stackByTable can remove the files it unpacks
+  swc <- stackByTable(file.path(tmp, basename(fts[1])), savepath = "envt")
 } else {
   swc <- loadByProduct(dpID = "DP1.00094.001", site = "HARV", startdate = "2022-01", enddate = NA,
                        timeIndex = 30, package = "basic", include.provisional = TRUE, check.size = FALSE)

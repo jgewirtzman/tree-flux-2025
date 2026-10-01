@@ -25,7 +25,10 @@ NEON <- "data/raw/NEON_2026"
 stack_dp <- function(dp) {
   f <- list.files(file.path(NEON, dp), pattern = "^filesToStack", full.names = TRUE)
   if (!length(f)) { message("  missing ", dp); return(NULL) }
-  suppressMessages(stackByTable(f[1], savepath = "envt"))
+  # stack a temporary copy: stackByTable can remove the files it unpacks
+  tmp <- file.path(tempdir(), paste0("stack_", dp)); unlink(tmp, recursive = TRUE); dir.create(tmp)
+  file.copy(f[1], tmp, recursive = TRUE)
+  suppressMessages(stackByTable(file.path(tmp, basename(f[1])), savepath = "envt"))
 }
 to_est_hour <- function(t) floor_date(force_tz(with_tz(as.POSIXct(t, tz = "UTC"), "EST"), "UTC"), "hour")
 rel_log <- list()
@@ -47,7 +50,7 @@ if (!is.null(irbt)) { t <- pick(irbt, "IRBT_30"); log_release("DP1.00005.001", t
   out$T_CANOPY_xHA <- hourly(tow, "bioTempMean") %>% rename(T_CANOPY_xHA = v) }
 thr <- stack_dp("DP1.00046.001")
 if (!is.null(thr)) { t <- pick(thr, "THRPRE_30|30min|30_min"); log_release("DP1.00046.001", t)
-  vcol <- grep("TFPrecipBulk|secPrecipBulk|PrecipBulk", names(t), value = TRUE)[1]
+  vcol <- grep("^(TF)?precipBulk$", names(t), value = TRUE, ignore.case = TRUE)[1]
   out$THROUGHFALL_xHA <- hourly(t, vcol) %>% rename(THROUGHFALL_xHA = v) }
 shf <- stack_dp("DP1.00040.001")
 if (!is.null(shf)) { t <- pick(shf, "SHF_30"); log_release("DP1.00040.001", t)
@@ -62,25 +65,54 @@ if (!is.null(wnd)) { t <- pick(wnd, "2DWSD_30|twoDWSD_30"); log_release("DP1.000
 
 # ---- eddy-covariance bundle ----
 ec_dir <- list.files(file.path(NEON, "DP4.00200.001"), pattern = "^filesToStack", full.names = TRUE)
+if (!length(ec_dir)) {
+  # fall back to the bundle already in the repo (data/raw/NEON_eddy-flux: one folder per month,
+  # RELEASE-2025 through 2024-06 and PROVISIONAL after); link its H5 files into one folder
+  old <- list.files("data/raw/NEON_eddy-flux", pattern = "\\.h5$", recursive = TRUE, full.names = TRUE)
+  old <- old[grepl("\\.(2023|2024|2025)-\\d{2}\\.basic", old)]
+  if (length(old)) {
+    ec_dir <- file.path(tempdir(), "ec_h5"); dir.create(ec_dir, showWarnings = FALSE)
+    for (f in old) file.symlink(normalizePath(f), file.path(ec_dir, basename(f)))
+    message("  eddy-covariance bundle: using ", length(old), " monthly files from data/raw/NEON_eddy-flux")
+    attr(ec_dir, "src") <- dirname(old)
+  }
+}
 if (length(ec_dir)) {
-  f4 <- suppressMessages(stackEddy(ec_dir[1], level = "dp04"))$HARV
+  # stackEddy reads 36 monthly HDF5 files; cache the extracted tables so reruns are fast
+  CACHE <- "data/processed/neon_ec_extract.rds"
+  if (file.exists(CACHE)) { ce <- readRDS(CACHE); f4 <- ce$f4; g1 <- ce$g1 } else {
+    f4 <- suppressMessages(stackEddy(ec_dir[1], level = "dp04"))$HARV
+    # only the two profile concentrations used here (reading every dp01 variable takes hours)
+    g1 <- suppressMessages(stackEddy(ec_dir[1], level = "dp01", avg = 30, var = c("rtioMoleDryCo2", "rtioMoleDryCh4")))$HARV
+    saveRDS(list(f4 = f4, g1 = g1), CACHE)
+  }
   f4$datetime <- to_est_hour(f4$timeBgn)
-  out$EC <- f4 %>% group_by(datetime) %>%
-    summarise(FC_xHA = mean(data.fluxCo2.turb.flux, na.rm = TRUE), SC_xHA = mean(data.fluxCo2.stor.flux, na.rm = TRUE),
-              USTAR_xHA = mean(data.fluxMome.turb.veloFric, na.rm = TRUE), .groups = "drop") %>%
+  # NEON final quality flags applied, as in the AmeriFlux release (unfiltered turbulent
+  # CO2 flux agrees with AmeriFlux FC at r = 0.67; filtered at r = 0.999)
+  out$EC <- f4 %>% mutate(fc = ifelse(qfqm.fluxCo2.turb.qfFinl == 0, data.fluxCo2.turb.flux, NA),
+                          sc = ifelse(qfqm.fluxCo2.stor.qfFinl == 0, data.fluxCo2.stor.flux, NA),
+                          us = ifelse(qfqm.fluxMome.turb.qfFinl == 0, data.fluxMome.turb.veloFric, NA)) %>%
+    group_by(datetime) %>%
+    summarise(FC_xHA = mean(fc, na.rm = TRUE), SC_xHA = mean(sc, na.rm = TRUE), USTAR_xHA = mean(us, na.rm = TRUE), .groups = "drop") %>%
     mutate(across(-datetime, ~ ifelse(is.nan(.x), NA, .x)))
-  g1 <- suppressMessages(stackEddy(ec_dir[1], level = "dp01", avg = 30))$HARV
   g1$datetime <- to_est_hour(g1$timeBgn)
+  # tower profile heights only (the table also holds calibration-gas rows: co2Arch, co2High, ...)
+  g1 <- g1 %>% filter(verticalPosition %in% sprintf("%03d", seq(10, 60, 10)))
   co2c <- grep("^data\\.co2Stor\\.rtioMoleDryCo2\\.mean$", names(g1), value = TRUE)
   ch4c <- grep("^data\\.ch4Conc\\.rtioMoleDryCh4\\.mean$", names(g1), value = TRUE)
+  # profile mean over the six heights, required to have at least five heights in the hour
+  # (AmeriFlux numbers profile levels from the top; NEON 010 = AmeriFlux level 6, r = 0.998)
+  g1 <- g1 %>% group_by(datetime) %>%
+    filter(if (length(co2c)) sum(!is.na(.data[[co2c]])) >= 5 else TRUE) %>% ungroup()
   gas <- g1 %>% group_by(datetime) %>%
     summarise(CO2_MR_xHA = if (length(co2c)) mean(.data[[co2c]], na.rm = TRUE) else NA_real_,
               CH4_MR_xHA = if (length(ch4c)) mean(.data[[ch4c]], na.rm = TRUE) * (if (length(ch4c) && median(g1[[ch4c]], na.rm = TRUE) < 10) 1000 else 1) else NA_real_,
               .groups = "drop") %>% mutate(across(-datetime, ~ ifelse(is.nan(.x), NA, .x)))
   out$GAS <- gas
   rel_log[["DP4.00200.001"]] <- data.frame(product = "DP4.00200.001",
-    month = sub(".*\\.(\\d{4}-\\d{2})\\..*", "\\1", list.files(ec_dir[1], pattern = "\\.h5$")),
-    release = ifelse(grepl("PROVISIONAL", list.files(ec_dir[1], pattern = "\\.h5$")), "PROVISIONAL", "RELEASE")) %>% distinct()
+    month = sub(".*\\.(\\d{4}-\\d{2})\\..*", "\\1", if (is.null(attr(ec_dir, "src"))) list.files(ec_dir[1], pattern = "\\.h5$") else basename(attr(ec_dir, "src"))),
+    release = { src <- if (is.null(attr(ec_dir, "src"))) list.files(ec_dir[1], pattern = "\\.h5$") else basename(attr(ec_dir, "src"))
+                ifelse(grepl("PROVISIONAL", src), "PROVISIONAL", sub(".*\\.(RELEASE-\\d{4}).*", "\\1", src)) }) %>% distinct()
 }
 
 xha <- Reduce(function(a, b) full_join(a, b, by = "datetime"), out) %>% arrange(datetime)
