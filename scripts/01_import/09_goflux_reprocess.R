@@ -63,13 +63,14 @@ stopifnot(packageVersion("fluxqc") >= "0.2.3")
 TZ            <- "America/New_York"   # wall clock of both analyzers and the field logs
 SURFAREA_M2   <- pi * 0.0508^2        # m2, collar inner radius 5.08 cm (all collars)
 AREA_CM2      <- SURFAREA_M2 * 1e4    # goFlux wants cm2
-# Analyzer loop volume added to the measured collar volume (tree_volumes.csv already holds
-# collar + cap + 28.9 cm3 of tubing). Same conventions as the legacy pipelines, so that the
-# legacy-vs-goFlux comparison isolates the fit method:
-#   LGR/UGGA: 0.200 L (Matthes_Lab .../diurnal_flux_processing.R, lgr_volume <- .2; confirmed by
-#             the implied legacy volume, collar + 0.18-0.20 L, on every tree)
-#   LI-7810 : 0.028 L (Tree_Flux_Processing_MLutz.Rmd, VOLUME_CM3 + 28)
-EXTRA_VOL_LGR_L  <- 0.200
+# Analyzer internal volume added to the measured collar volume (tree_volumes.csv already holds
+# collar + cap + 28.9 cm3 of tubing). One value for both analyzers (user decision, 30 Sep 2026,
+# shared with ch4-data-filtering; see its WORKLOG_2026-09.md "Resolved 2026-09-30 - analyzer
+# volume"): 0.028 L, the LI-COR LI-7810 total sample volume; goFlux lists 25 cm3 for the LGR
+# microportable GLA131 cavity, within 10 %.
+# The legacy LGR pipeline (Matthes_Lab .../diurnal_flux_processing.R) used lgr_volume <- .2 with
+# no documented source, so 2023-24 legacy fluxes are ~1/0.70 of the goFlux values by volume alone.
+EXTRA_VOL_LGR_L  <- 0.028
 EXTRA_VOL_7810_L <- 0.028
 SHOULDER_S    <- 120                  # s of trace kept outside the window (flag = 0), for plots/QC context
 DEADBAND_7810 <- 20                   # s dropped after the LI-7810 REMARK starts (team convention)

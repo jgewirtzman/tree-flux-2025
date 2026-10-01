@@ -22,10 +22,12 @@ scripts run on the goFlux-reprocessed dataset (legacy rows only, n = 1,640).
 3. **SE fix.** Legacy 2023-24 `CH4_SE` = SE_slope × mol in ppm with no /area; corrected ×1000/area
    (`CH4_SE_legacy`). goFlux LM SE / corrected legacy SE = 0.99 (LGR), i.e. the correction is right.
    For HM fits goFlux's SE is ~4× the LM SE; `CH4_SE` carries the SE of the selected model.
-4. **Chamber volume.** Collar volume (`tree_volumes.csv`) + analyzer loop: 0.200 L LGR/UGGA
-   (`Matthes_Lab/.../diurnal_flux_processing.R`, confirmed by the implied legacy volume on every
-   tree), 0.028 L LI-7810. With these, legacy / goFlux LM flux on the same window = 1.01 (median;
-   the 1 % is goFlux's dry-air (1 − H2O) term).
+4. **Chamber volume.** Collar volume (`tree_volumes.csv`, which includes cap and 28.9 cm³ of
+   tubing) + 0.028 L analyzer internal volume for both analyzers (user decision 30 Sep 2026, shared
+   with ch4-data-filtering). Until 1 Oct 2026 this repo used 0.200 L for the LGR, copied from
+   `Matthes_Lab/.../diurnal_flux_processing.R` (`lgr_volume <- .2`, no documented source), which made
+   legacy / goFlux LM flux on the same window = 1.01. With 0.028 L the LGR fluxes, MDFs and flux
+   terms scale by ~0.70 and the legacy comparison for 2023–24 shows that constant volume factor.
 5. `06_filtering_snr.R` no longer multiplies `CH4_SE` by 1000; `01_bgs_model.R` and
    `03_ems_model_B.R` no longer hard-code the 282 h / 132 h windows (they moved to 285 h / 135 h).
 6. EDI: `01_build_edi_package.R` now publishes the goFlux table first (attribute templates from
