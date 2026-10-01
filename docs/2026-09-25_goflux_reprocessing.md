@@ -152,3 +152,28 @@ Changes after inspecting every CO₂/CH₄ trace (`scripts/01_import/12_trace_qc
   wetland 2.23 ± 0.30 vs upland 0.06 ± 0.01 (~40-fold); N. sylvatica 6.50 ± 1.85; core wetland model
   R² 66.1 %, ICC 0.48; upland models 9.2 % / 7.7 %; variance shares wetland 27.8/6.5/65.7, upland
   1.4/8.1/90.4. Full list: `outputs/tables/manuscript/manuscript_numbers.txt`.
+
+## 1 Oct 2026 update: manual review, decay metric, driver models
+
+- **Manual review applied.** 55 shortlisted closures reviewed by hand (`data/input/manual_windows.csv`):
+  50 kept, 2 refitted over a clicked window, 3 excluded (initial concentration spike). Analysis n = 1,637.
+- **Decay metric.** ERT CV is the primary within-species metric (Figure 5 strips and scatters).
+  Tomography-paper classes stay as strip labels. Q. rubra: r = 0.79 with CV (robust; LOO 0.67–0.85);
+  r = 0.54 with the species-normalized PC1, which depends on tree 175. Legacy fluxes give the same
+  correlations (`10_decay_robustness.R`), so the earlier r = 0.71 under PC1 came from runs that ignored the
+  team's corrected start times. Figure 5 fit lines and stars at p < 0.1.
+- **Time base.** Flux times were joined to drivers 5 h apart in the screening vs the models; NEON SWC was
+  in UTC while every other series is EST; 146 fluxes had a 00:00 placeholder time and 3 an AM/PM slip.
+  `10_quality_flags.R` now writes `sample_hour_est` (EST hour of sampling; analyzer clock minus its offset
+  where no real time was logged), used by every join; `08_align.R` shifts NEON to EST.
+- **Screening.** Within-tree asinh flux (deviation from tree mean); rolling means need ≥ 50 % of hours;
+  date-block permutation null of max |r| over all windows (`07_model_checks.R`).
+- **Models.** Selection on the asinh scale (was raw flux), deterministic greedy selection (the 100 random
+  orders were identical), sampling date as a random effect throughout, final models refitted on every
+  row with their own predictors, Nakagawa marginal R², Satterthwaite tests.
+- **New headline numbers.** Wetland core: TS_Ha2 69 h × water table 114 h × species, n = 619,
+  R²m 63.0 % (species alone 33.6 %), leave-one-date-out R² 0.77 (species 0.44); temperature is 96 %
+  seasonal, and season × WTD fits as well on shared rows. Upland A/B: 7.8 % / 7.1 % (species 3.7 / 3.5 %),
+  no out-of-sample skill. Window permutation p: wetland TS < 0.002, WTD 0.018; upland TS 0.004;
+  upland moisture n.s.
+- Draft rebuilt: `DRAFT_ ... - v2 tracked 2026-10-01.docx` (168 tracked edits, 31 replies, 8 new comments).

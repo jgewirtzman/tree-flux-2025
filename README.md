@@ -40,7 +40,9 @@ tree-flux-2025/
 │   │   ├── 02_ems_model_A.R          # Upland instantaneous drivers
 │   │   ├── 03_ems_model_B.R          # Upland BGS-style drivers
 │   │   ├── 04_interaction_plots.R
-│   │   └── 05_compare_models.R
+│   │   ├── 05_compare_models.R
+│   │   ├── 06_manuscript_numbers.R   # Every number quoted in the draft
+│   │   └── 07_model_checks.R         # Species-only R², date effect, out-of-sample, season, permutation
 │   └── helpers/             # Shared utilities
 │       └── find_ameriflux.R          # Version-agnostic AmeriFlux path lookup
 ├── data/                    # All data gitignored (see data/README.md)

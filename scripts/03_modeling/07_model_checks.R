@@ -207,4 +207,51 @@ for (k in names(MODELS)) {
   }
 }
 write_csv(bind_rows(perm_rows) %>% distinct(variable, best_window_h, .keep_all = TRUE), file.path(OUT, "window_permutation.csv"))
+# ---- 8. wetland: core vs alternative and extended models on shared observations ----
+# (the alternatives use drivers with different data coverage, e.g. tower latent heat ends
+#  in Dec 2024, so they are compared on the observations every model can use)
+dw <- fits$wetland$d; mw <- fits$wetland$m; pw <- preds_of(mw)
+tsw <- pw[grepl("^TS_", pw)][1]; wtw <- pw[grepl("wtd", pw)][1]
+pick <- function(pat) names(dw)[grepl(pat, names(dw))][1]
+swc <- pick("^NEON_SWC_shallow_raw_"); le1 <- pick("^LE_Ha1_raw_")
+ext_terms <- c(swc, pick("^FC_Ha1_anom_"), pick("^gcc_raw_"), pick("^tair_C_raw_"))
+ext_terms <- ext_terms[!is.na(ext_terms)]
+alt <- list(
+  `Core: temperature x water table x species` = formula(mw),
+  `Alternative: temperature x soil water content x species` = as.formula(sprintf("CH4_flux_asinh ~ %s * %s * species + (1|Tree) + (1|date)", tsw, swc)),
+  `Alternative: latent heat x water table x species` = as.formula(sprintf("CH4_flux_asinh ~ %s * %s * species + (1|Tree) + (1|date)", le1, wtw)),
+  `Season (day-of-year harmonics) x water table x species` = as.formula(sprintf("CH4_flux_asinh ~ (s1 + c1) * %s * species + (1|Tree) + (1|date)", wtw)),
+  `Extended: core + selected additions x species` = update(formula(mw), as.formula(paste(". ~ . +", paste(paste0(ext_terms, " * species"), collapse = " + ")))))
+doyw <- as.numeric(format(as.Date(dw$datetime), "%j")); dw$s1 <- sin(2 * pi * doyw / 365.25); dw$c1 <- cos(2 * pi * doyw / 365.25)
+need <- unique(c(tsw, wtw, swc, le1, ext_terms))
+dc <- droplevels(dw[complete.cases(dw[, need]), ])
+cmp <- bind_rows(lapply(names(alt), function(nm) { mm <- refit(mw, dc, alt[[nm]])
+  tibble(model = nm, n = nobs(mm), k_fixed = length(fixef(mm)), R2_marginal = r2n(mm)[["marg"]], AIC = AIC(mm), BIC = BIC(mm)) })) %>%
+  mutate(dAIC = AIC - AIC[1], dBIC = BIC - BIC[1])
+write_csv(cmp, file.path(OUT, "wetland_model_comparison_common_rows.csv"))
+say(sprintf("\nWetland model comparison on the %d observations all models can use (%s to %s):", nrow(dc),
+            min(as.Date(dc$datetime)), max(as.Date(dc$datetime))))
+for (i in seq_len(nrow(cmp))) say(sprintf("  %-58s R2m %.1f%%  AIC %.1f (d %+.1f)  BIC %.1f (d %+.1f)  k = %d",
+                                          cmp$model[i], 100 * cmp$R2_marginal[i], cmp$AIC[i], cmp$dAIC[i], cmp$BIC[i], cmp$dBIC[i], cmp$k_fixed[i]))
+
+# species-specific slopes (reference coefficient + species interaction; Satterthwaite df)
+sp_slopes <- function(mm, terms) {
+  b <- fixef(mm); nm <- names(b); ref <- levels(mm@frame$species)[1]
+  bind_rows(lapply(terms, function(tt) bind_rows(lapply(levels(mm@frame$species), function(sp) {
+    w <- setNames(rep(0, length(b)), nm); w[tt] <- 1
+    if (sp != ref) { ii <- paste0(tt, ":species", sp); alt_ii <- paste0("species", sp, ":", tt)
+      if (ii %in% nm) w[ii] <- 1 else if (alt_ii %in% nm) w[alt_ii] <- 1
+      # three-way terms are written temp:wtd:speciesX
+    }
+    ct <- lmerTest::contest1D(mm, w)
+    tibble(term = tt, species = sp, estimate = ct$Estimate, se = ct$`Std. Error`, df = ct$df, p = ct$`Pr(>|t|)`) }))))
+}
+m_ext <- refit(mw, dc, alt[["Extended: core + selected additions x species"]])
+m_cc  <- refit(mw, dc, alt[["Core: temperature x water table x species"]])
+sl <- bind_rows(sp_slopes(m_cc, c(tsw, wtw, paste0(tsw, ":", wtw))) %>% mutate(model = "core (shared rows)"),
+                sp_slopes(m_ext, c(tsw, wtw, paste0(tsw, ":", wtw))) %>% mutate(model = "extended (shared rows)"))
+write_csv(sl, file.path(OUT, "wetland_species_slopes_core_vs_extended.csv"))
+say("Species slopes, core vs extended (shared rows):")
+for (i in seq_len(nrow(sl))) say(sprintf("  %-24s %-40s %-4s %6.3f ± %.3f (p = %.2g)", sl$model[i], sl$term[i], sl$species[i], sl$estimate[i], sl$se[i], sl$p[i]))
+
 say("\nWritten to ", OUT)
