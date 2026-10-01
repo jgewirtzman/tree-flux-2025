@@ -20,7 +20,7 @@ suppressPackageStartupMessages(library(neonUtilities))
 #   Sys.setenv(NEON_TOKEN = "...")
 TOKEN <- Sys.getenv("NEON_TOKEN", unset = NA_character_)
 options(timeout = 3600)
-OUT <- "data/raw/NEON_2026"
+OUT <- Sys.getenv("NEON_OUT", unset = "data/raw/NEON_2026")   # download to a local disk first if the project is on a synced drive
 dir.create(OUT, recursive = TRUE, showWarnings = FALSE)
 START <- "2023-01"; END <- "2025-12"
 

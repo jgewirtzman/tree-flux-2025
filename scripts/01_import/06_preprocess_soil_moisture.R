@@ -25,16 +25,28 @@ BASELINE_END <- as.Date("2024-12-31")
 
 message("Downloading NEON soil water content data...")
 
-swc <- loadByProduct(
-  dpID = "DP1.00094.001",
-  site = "HARV",
-  startdate = "2022-01",
-  enddate = NA,
-  timeIndex = 30,
-  package = "basic",
-  include.provisional = TRUE,
-  check.size = FALSE
-)
+# Local download from scripts/00_download/04_download_neon_harv.R (RELEASE-2026 through
+# 2025-06, provisional after); falls back to a live download if it is absent.
+LOCAL_SWC <- "data/raw/NEON_2026/DP1.00094.001"
+fts <- list.files(LOCAL_SWC, pattern = "^filesToStack", full.names = TRUE)
+if (length(fts)) {
+  swc <- stackByTable(fts[1], savepath = "envt")
+} else {
+  swc <- loadByProduct(dpID = "DP1.00094.001", site = "HARV", startdate = "2022-01", enddate = NA,
+                       timeIndex = 30, package = "basic", include.provisional = TRUE, check.size = FALSE)
+}
+if ("release" %in% names(swc$SWS_30_minute)) {
+  message("NEON SWC rows by release:"); print(table(substr(swc$SWS_30_minute$startDateTime, 1, 4), swc$SWS_30_minute$release))
+}
+# sensor depths from the same download (current positions)
+if (!is.null(swc$sensor_positions_00094)) {
+  sp <- swc$sensor_positions_00094
+  hv <- if ("HOR.VER" %in% names(sp)) sp$HOR.VER else paste(sp$horizontalPosition, sp$verticalPosition, sep = ".")
+  write.csv(data.frame(siteID = "HARV", HOR.VER = hv,
+                       horizontalPosition.HOR = sub("\\..*", "", hv), verticalPosition.VER = sub(".*\\.", "", hv),
+                       sensorDepth = sp$zOffset, endDateTime = sp$positionEndDateTime),
+            DEPTHS_PATH, row.names = FALSE)
+}
 
 # ============================================================
 # STEP 2: Load Sensor Depths

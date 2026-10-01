@@ -316,6 +316,18 @@ xHA_hourly <- xHA_hourly %>%
          WS_1_1_1_xHA, WD_1_1_1_xHA, USTAR_xHA) %>%
   rename(WS_xHA = WS_1_1_1_xHA, WD_xHA = WD_1_1_1_xHA)
 
+# The AmeriFlux US-xHA release ends in Dec 2024. If the same variables have been rebuilt
+# from NEON's own products (07b_neon_xha.R; agreement with AmeriFlux in
+# outputs/tables/neon_xha_vs_ameriflux.csv), use the NEON series for the whole period so
+# that every xHA variable comes from one source and covers the full flux record.
+NEON_XHA <- "data/processed/neon_xha_hourly.csv"
+if (file.exists(NEON_XHA)) {
+  nx <- read_csv(NEON_XHA, show_col_types = FALSE) %>% mutate(datetime = as.POSIXct(datetime, tz = "UTC"))
+  keep <- intersect(names(xHA_hourly), names(nx))
+  message("  xHA variables from NEON products (07b_neon_xha.R): ", paste(setdiff(keep, "datetime"), collapse = ", "))
+  xHA_hourly <- nx %>% select(all_of(keep))
+}
+
 message("  ", nrow(xHA_hourly), " hourly records, ", ncol(xHA_hourly) - 1, " variables")
 
 # ============================================================

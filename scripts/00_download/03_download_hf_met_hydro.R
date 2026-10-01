@@ -46,8 +46,13 @@ newest_entity_url <- function(id, ref_rev, ref_entity) {
     sprintf("%s/data/eml/knb-lter-hfr/%d/%d/%s", PASTA, id, ref_rev, ref_entity)
   })
 }
-FISHER_MET_URL <- newest_entity_url(1,  34, "0b439e8fea983c9e20bb2bfaf91931e6")
-HYDRO_URL      <- newest_entity_url(70, 36, "2983b2adba6675e805d144a05087924d")
+# Files downloaded by hand from the Harvard Forest Data Archive take precedence:
+#   data/raw/hf_archive/hf001-10-15min-m.csv  (HF001 table hf001-10, 15-minute metric)
+#   data/raw/hf_archive/hf070-04-15min.csv    (HF070 table hf070-04, 15-minute)
+LOCAL_FISHER <- "data/raw/hf_archive/hf001-10-15min-m.csv"
+LOCAL_HYDRO  <- "data/raw/hf_archive/hf070-04-15min.csv"
+FISHER_MET_URL <- if (file.exists(LOCAL_FISHER)) LOCAL_FISHER else newest_entity_url(1,  34, "0b439e8fea983c9e20bb2bfaf91931e6")
+HYDRO_URL      <- if (file.exists(LOCAL_HYDRO))  LOCAL_HYDRO  else newest_entity_url(70, 36, "2983b2adba6675e805d144a05087924d")
 writeLines(c(paste("HF001", FISHER_MET_URL), paste("HF070", HYDRO_URL), paste("downloaded", Sys.time())),
            "data/processed/wtd_met_sources.txt")
 
@@ -58,7 +63,7 @@ writeLines(c(paste("HF001", FISHER_MET_URL), paste("HF070", HYDRO_URL), paste("d
 message("=== Downloading Fisher Met Station data (HF001) ===")
 
 fisher_file <- tempfile(fileext = ".csv")
-tryCatch({
+if (file.exists(FISHER_MET_URL)) file.copy(FISHER_MET_URL, fisher_file, overwrite = TRUE) else tryCatch({
   download.file(FISHER_MET_URL, fisher_file, method = "curl", quiet = TRUE)
   if (is.na(file.size(fisher_file))) {
     download.file(FISHER_MET_URL, fisher_file, method = "auto", quiet = TRUE)
@@ -99,7 +104,7 @@ message("  Rows: ", nrow(dt10))
 message("\n=== Downloading Stream/Hydro data (HF070) ===")
 
 hydro_file <- tempfile(fileext = ".csv")
-tryCatch({
+if (file.exists(HYDRO_URL)) file.copy(HYDRO_URL, hydro_file, overwrite = TRUE) else tryCatch({
   download.file(HYDRO_URL, hydro_file, method = "curl", quiet = TRUE)
   if (is.na(file.size(hydro_file))) {
     download.file(HYDRO_URL, hydro_file, method = "auto", quiet = TRUE)
