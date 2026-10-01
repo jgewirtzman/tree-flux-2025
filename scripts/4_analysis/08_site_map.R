@@ -151,36 +151,3 @@ ggsave(file.path(OUT, "site_map.pdf"), p, width = 180, height = 165, units = "mm
 ggsave(file.path(OUT, "site_map.png"), p, width = 180, height = 165, units = "mm", dpi = 600, bg = "white")
 message("Saved site_map.png/pdf")
 
-# ============================================================
-# Figure 1 (study design): map (a-c) + sampling timeline (d)
-#   d: one row per site, one mark per sampling date, coloured by analyzer; shading = the
-#      2025 drought (daily BVS water table below 30 cm)
-# Output: outputs/figures/fig1_study_design.png / .pdf
-# ============================================================
-fl <- read.csv(file.path("data", "final", "stem_ch4_flux.csv"), stringsAsFactors = FALSE) %>%
-  distinct(date = as.Date(date), location, inst_label) %>%
-  mutate(location = factor(location, c("Upland", "Wetland")))
-env <- read.csv(file.path("data", "final", "environment_hourly.csv")) %>%
-  mutate(date = as.Date(substr(datetime, 1, 10))) %>% group_by(date) %>%
-  summarise(wt = mean(bvs_wtd_cm, na.rm = TRUE), .groups = "drop")
-rng <- range(fl$date)
-dry <- env %>% filter(date >= as.Date("2025-06-01"), date <= rng[2], wt < 30)
-drought <- data.frame(xmin = min(dry$date), xmax = rng[2] + 7)
-an_col <- c("LGR/UGGA" = "grey35", "LI-7810" = "#C0662B")
-pd <- ggplot(fl) +
-  geom_rect(data = drought, aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf), fill = "#E8D9B5", alpha = 0.7, inherit.aes = FALSE) +
-  annotate("text", x = drought$xmin - 4, y = 2.62, label = "2025 drought", hjust = 1,
-           size = (BASE - 1.5) / .pt, family = FONT, colour = "#7A5A1E") +
-  geom_point(aes(date, location, colour = inst_label), shape = 124, size = 3.2) +
-  scale_colour_manual(values = an_col, name = NULL) +
-  scale_x_date(date_breaks = "3 months", date_labels = "%b\n%Y", limits = rng + c(-10, 10), expand = expansion(mult = 0.005)) +
-  scale_y_discrete(expand = expansion(add = c(0.6, 0.9))) +
-  labs(x = NULL, y = NULL, tag = "d") +
-  theme_classic(base_size = BASE, base_family = FONT) +
-  theme(legend.position = "right", legend.key.size = unit(3, "mm"), plot.tag = element_text(face = "bold"),
-        axis.line.y = element_blank(), axis.ticks.y = element_blank())
-p1 <- pa / (pb + pc + plot_layout(widths = c(1, 2.2))) / patchwork::wrap_elements(leg) / pd +
-  plot_layout(heights = c(1.55, 1, 0.07, 0.3))
-ggsave(file.path(OUT, "fig1_study_design.pdf"), p1, width = 180, height = 178, units = "mm", device = cairo_pdf, bg = "white")
-ggsave(file.path(OUT, "fig1_study_design.png"), p1, width = 180, height = 178, units = "mm", dpi = 600, bg = "white")
-message("Saved fig1_study_design.png/pdf")

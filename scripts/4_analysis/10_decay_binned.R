@@ -87,3 +87,24 @@ write.csv(res, "outputs/tables/decay_binned.csv", row.names = FALSE)
 options(width = 220)
 print(as.data.frame(res %>% select(group, metric, n_trees, r, r_p, median_diff, median_wilcox_p, tertile_kw_p, split_cut, split_n_high, split_perm_p, hinge_r2, hinge_perm_p) %>%
   mutate(across(where(is.numeric), ~ signif(.x, 2)))))
+
+# ------------------------------------------------------------
+# Effect sizes with bootstrap intervals, every species x site (ERT CV, as in Table S2):
+# Pearson r and Spearman rho between ERT CV and tree-mean CH4 flux (nmol m-2 s-1), with
+# percentile 95% intervals from 5,000 resamples of trees; slope of tree-mean flux per
+# 0.1 ERT CV. Output: outputs/tables/decay_effect_sizes.csv
+# ------------------------------------------------------------
+NBOOT <- 5000
+tm <- trees %>% left_join(fx %>% group_by(tree = as.character(Tree)) %>% summarise(flux = mean(CH4_flux_nmolpm2ps), .groups = "drop"), by = "tree")
+eff <- tm %>% filter(!is.na(ert_cv)) %>% group_by(site, SPECIES) %>% group_modify(~ {
+  x <- .x$ert_cv; y <- .x$flux; n <- length(x)
+  b <- replicate(NBOOT, { i <- sample(n, replace = TRUE)
+    if (sd(x[i]) == 0 || sd(y[i]) == 0) c(NA, NA, NA) else c(cor(x[i], y[i]), cor(x[i], y[i], method = "spearman"), coef(lm(y[i] ~ x[i]))[[2]] / 10) })
+  q <- function(v) quantile(v, c(0.025, 0.975), na.rm = TRUE)
+  tibble(n_trees = n, r = cor(x, y), r_lo = q(b[1, ])[[1]], r_hi = q(b[1, ])[[2]], p_boot_r_sign = mean(sign(b[1, ]) != sign(cor(x, y)), na.rm = TRUE),
+         rho = cor(x, y, method = "spearman"), rho_lo = q(b[2, ])[[1]], rho_hi = q(b[2, ])[[2]],
+         slope_per_0.1cv = coef(lm(y ~ x))[[2]] / 10, slope_lo = q(b[3, ])[[1]], slope_hi = q(b[3, ])[[2]],
+         mean_flux = mean(y))
+}) %>% ungroup()
+write.csv(eff, "outputs/tables/decay_effect_sizes.csv", row.names = FALSE)
+print(as.data.frame(eff %>% mutate(across(where(is.numeric), ~ signif(.x, 2)))))
