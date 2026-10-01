@@ -1,25 +1,43 @@
 #!/bin/bash
-# Rerun the flux-dependent pipeline end to end (environmental imports 01-07 do not
-# depend on the flux data and are not rerun; 08_align rebuilds the hourly driver table
-# from their outputs). Logs: outputs/logs/.
-#   bash scripts/run_pipeline.sh            # full run
-#   SKIP_GOFLUX=1 bash scripts/run_pipeline.sh   # reuse the existing goFlux table
+# Run the analysis pipeline in order, from data/package/ and data/external/ to the
+# figures, tables, manuscript numbers and Supporting Information.
+#
+#   bash scripts/run_pipeline.sh                 # stages 1-6
+#   bash scripts/run_pipeline.sh 2 4             # only stages 2 and 4
+#   SKIP_FIT=1 bash scripts/run_pipeline.sh      # reuse data/interim/flux_fits.csv (the fit takes ~20 min)
+#
+# Before the first run: get the data package into data/package/ and the public data into
+# data/external/ (scripts/0_data/, see README.md). Stage 0 is not run here.
+# Not run here: 2_flux/04_review_windows.R (interactive) and 7_publish/ (EDI upload).
+# Logs: outputs/logs/<script>.log; one line per script in outputs/logs/STATUS.txt.
 cd "$(dirname "$0")/.."
 export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8   # non-ASCII plot labels (°C, ×) need a UTF-8 locale
-LOG=outputs/logs; mkdir -p "$LOG"; : > "$LOG/STATUS.txt"
+LOG=outputs/logs; mkdir -p "$LOG" data/interim data/final; : > "$LOG/STATUS.txt"
+
+stage1=(1_environment/01_met_hydro.R 1_environment/02_soil_moisture.R 1_environment/03_neon_xha.R 1_environment/04_hourly_drivers.R)
+stage2=(2_flux/01_closure_table.R 2_flux/02_fit_fluxes.R 2_flux/03_trace_qc.R 2_flux/05_deadband_sensitivity.R 2_flux/06_flux_dataset.R)
+stage3=(3_trees/01_tomography_classes.R 3_trees/02_stand_context.R)
+stage4=(4_analysis/01_data_summary.R 4_analysis/02_flux_timeseries.R 4_analysis/03_flux_by_species.R 4_analysis/04_repeatability.R
+        4_analysis/05_window_screening.R 4_analysis/06_tomography_flux.R 4_analysis/07_decay_definitions.R 4_analysis/08_site_map.R
+        4_analysis/09_driver_timeseries.R)
+stage5=(5_models/01_wetland_model.R 5_models/02_upland_model_A.R 5_models/03_upland_model_B.R 5_models/04_interaction_plots.R
+        5_models/05_compare_upland_models.R 5_models/06_model_checks.R 5_models/07_manuscript_numbers.R)
+stage6=(6_manuscript/01_build_si.R)
+
+stages=("$@"); [ ${#stages[@]} -eq 0 ] && stages=(1 2 3 4 5 6)
 steps=()
-[ "${SKIP_GOFLUX:-0}" = "1" ] || steps+=(scripts/01_import/09_goflux_reprocess.R)
-steps+=(scripts/01_import/08_align.R scripts/01_import/10_quality_flags.R scripts/01_import/11_tomography_classes.R scripts/01_import/12_trace_qc.R scripts/01_import/13_deadband_sensitivity.R
-  scripts/02_analysis/00_data_summary.R scripts/02_analysis/01_timeseries.R scripts/02_analysis/02_flux_summaries.R
-  scripts/02_analysis/03_repeatability.R scripts/02_analysis/04_rolling_corrs.R scripts/02_analysis/05_combined_driver_timeseries.R
-  scripts/02_analysis/06_filtering_snr.R scripts/02_analysis/07_filter_sensitivity_ridges.R scripts/02_analysis/08_tomography.R scripts/02_analysis/09_decay_definitions.R scripts/02_analysis/10_decay_robustness.R scripts/02_analysis/11_site_map.R scripts/02_analysis/12_driver_timeseries_si.R scripts/02_analysis/13_stand_context.R
-  scripts/03_modeling/01_bgs_model.R scripts/03_modeling/02_ems_model_A.R scripts/03_modeling/03_ems_model_B.R
-  scripts/03_modeling/04_interaction_plots.R scripts/03_modeling/05_compare_models.R scripts/03_modeling/07_model_checks.R scripts/03_modeling/06_manuscript_numbers.R scripts/05_manuscript/01_build_si.R)
-[ -f scripts/04_publish/00_goflux_attributes.R ] && steps+=(scripts/04_publish/00_goflux_attributes.R)
+for s in "${stages[@]}"; do
+  eval "list=(\"\${stage$s[@]}\")"
+  for f in "${list[@]}"; do
+    if [ "${SKIP_FIT:-0}" = "1" ] && { [ "$f" = 2_flux/01_closure_table.R ] || [ "$f" = 2_flux/02_fit_fluxes.R ]; }; then continue; fi
+    steps+=("scripts/$f")
+  done
+done
+
 for s in "${steps[@]}"; do
   n=$(basename "$s" .R); t0=$(date +%s)
   Rscript "$s" > "$LOG/$n.log" 2>&1; rc=$?
-  echo "$n rc=$rc $(( $(date +%s) - t0 ))s" | tee -a "$LOG/STATUS.txt"
+  echo "$s rc=$rc $(( $(date +%s) - t0 ))s" | tee -a "$LOG/STATUS.txt"
   [ $rc -ne 0 ] && { echo "FAILED: $s (see $LOG/$n.log)"; exit $rc; }
 done
 echo ALLDONE | tee -a "$LOG/STATUS.txt"

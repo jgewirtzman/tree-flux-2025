@@ -5,6 +5,11 @@
 .Ruserdata
 
 # Data — all gitignored (see data/README.md for sources)
+data/package/
+data/external/
+data/interim/
+data/final/
+data/_old/
 data/raw/
 data/input/
 data/processed/
@@ -56,5 +61,5 @@ DRAFT_*
 
 # EDI data package (one-time build/upload, not needed in repo)
 data/edi/
-scripts/04_publish/
+scripts/7_publish/
 manuscript_work/

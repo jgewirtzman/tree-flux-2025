@@ -7,11 +7,11 @@
 #   Ha1 <- read.csv(find_ameriflux("US-Ha1"), header = TRUE, skip = 2)
 # ============================================================
 
-AMERIFLUX_DIR <- "data/raw/ameriflux"
+AMERIFLUX_DIR <- "data/external/ameriflux"
 
 #' Find the AmeriFlux BASE CSV file for a given site
 #'
-#' Searches data/raw/ameriflux/ for the folder and CSV matching a site ID,
+#' Searches data/external/ameriflux/ for the folder and CSV matching a site ID,
 #' regardless of version number. Returns the path to the CSV.
 #'
 #' @param site_id Character, e.g. "US-Ha1"
@@ -25,7 +25,7 @@ find_ameriflux <- function(site_id, base_dir = AMERIFLUX_DIR) {
     stop("No AmeriFlux CSV found for site ", site_id,
          " in ", base_dir,
          "\n  Expected pattern: AMF_", site_id, "_BASE-BADM_*/AMF_", site_id, "_BASE_*.csv",
-         "\n  Run scripts/00_download/01_download_ameriflux.R first.")
+         "\n  Run scripts/0_data/03_download_ameriflux.R first.")
   }
   if (length(csvs) > 1) {
     message("Multiple AmeriFlux versions found for ", site_id, ", using newest: ", basename(csvs[length(csvs)]))

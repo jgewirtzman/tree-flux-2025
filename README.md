@@ -1,133 +1,68 @@
 # Tree CH4 Flux at Harvard Forest
 
-## Overview
+Stem methane (CH4) fluxes of 60 trees in a forested wetland (Black Gum Swamp) and an upland forest (EMS tower footprint) at Harvard Forest, 2023–2025, with the environmental drivers, tree species and internal wood condition (tomography) that control them. This repository holds the code that turns the raw data into the published dataset, figures, tables, manuscript numbers and Supporting Information.
 
-This project analyzes tree stem methane (CH4) emissions in upland and wetland forest ecosystems at Harvard Forest. It combines tree-level flux chamber measurements with environmental driver data (soil temperature, water table depth, soil moisture, phenology) to understand species-specific and environment-driven controls on CH4 emissions.
-
-## Project Structure
+## How the pipeline is organized
 
 ```
-tree-flux-2025/
-├── scripts/
-│   ├── 00_download/         # Programmatic data downloads
-│   │   ├── 00_download_edi.R          # Study data from EDI → data/input/
-│   │   ├── 01_download_ameriflux.R    # AmeriFlux towers (Ha1, Ha2, xHA)
-│   │   ├── 02_download_phenocam.R     # PhenoCam GCC/NDVI
-│   │   └── 03_download_hf_met_hydro.R # Fisher Met + water table → wtd_met.csv
-│   ├── 01_import/           # Data preprocessing and alignment
-│   │   ├── 01_tower_flux.R
-│   │   ├── 02_tower_temperature.R
-│   │   ├── 03_tower_moisture.R
-│   │   ├── 04_neon_download.R
-│   │   ├── 05_neon_moisture.R
-│   │   ├── 06_preprocess_soil_moisture.R
-│   │   ├── 07_phenocam.R
-│   │   ├── 08_align.R               # Produces aligned_hourly_dataset.csv
-│   │   ├── 09_goflux_reprocess.R    # Raw traces → goFlux/fluxqc → HF_2023-2025_tree_flux_goflux.csv
-│   │   └── 10_quality_flags.R       # Analysis dataset with MDF flags → flux_with_quality_flags.csv
-│   ├── 02_analysis/         # Core analyses and figures
-│   │   ├── 00_data_summary.R         # QC/MDF summary statistics
-│   │   ├── 01_timeseries.R           # Temporal flux plots by species
-│   │   ├── 02_flux_summaries.R       # Main boxplot figure + mixed models
-│   │   ├── 03_repeatability.R        # ICC, Spearman, z-score tracks
-│   │   ├── 04_rolling_corrs.R        # Rolling-window correlations
-│   │   ├── 05_combined_driver_timeseries.R
-│   │   ├── 06_filtering_snr.R        # QC visualization
-│   │   ├── 07_filter_sensitivity_ridges.R  # MDF filter sensitivity analysis
-│   │   └── 08_tomography.R           # ERT/Sonic imaging + flux
-│   ├── 03_modeling/         # Statistical models
-│   │   ├── 01_bgs_model.R            # Wetland mixed-effects model
-│   │   ├── 02_ems_model_A.R          # Upland instantaneous drivers
-│   │   ├── 03_ems_model_B.R          # Upland BGS-style drivers
-│   │   ├── 04_interaction_plots.R
-│   │   ├── 05_compare_models.R
-│   │   ├── 06_manuscript_numbers.R   # Every number quoted in the draft
-│   │   └── 07_model_checks.R         # Species-only R², date effect, out-of-sample, season, permutation
-│   └── helpers/             # Shared utilities
-│       └── find_ameriflux.R          # Version-agnostic AmeriFlux path lookup
-├── data/                    # All data gitignored (see data/README.md)
-│   ├── raw/                 # Source data downloads
-│   ├── input/               # Study data (from EDI package)
-│   └── processed/           # Script-generated intermediates
-├── outputs/                 # All gitignored
-│   ├── figures/
-│   ├── tables/
-│   └── models/              # Saved .rds model objects
-├── archive/                 # Legacy scripts for reference
-├── .gitignore
-├── tree-flux-2025.Rproj
-└── README.md
+data/package/    our primary data, exactly as published (read-only for the pipeline)
+data/external/   public data from other providers (AmeriFlux, NEON, Harvard Forest archive, ...)
+data/interim/    intermediate files (regenerated)
+data/final/      the compiled datasets every analysis reads (regenerated)
+outputs/         figures, tables, models, manuscript numbers, SI (regenerated)
 ```
 
-## Workflow
+Scripts run in numbered stages; within a stage, in numbered order.
 
-Scripts are numbered to indicate execution order. Run them sequentially within each phase:
+| Stage | Folder | What it does | Main outputs |
+|---|---|---|---|
+| 0 | `scripts/0_data/` | get the data (not run by the pipeline) | `data/package/`, `data/external/` |
+| 1 | `scripts/1_environment/` | met and water table, soil moisture, NEON tower variables → hourly drivers | `data/final/environment_hourly.csv` |
+| 2 | `scripts/2_flux/` | raw analyzer records + field logs → fluxes, detection limits, QC flags | `data/final/stem_ch4_flux.csv` (+ dictionary, processing log, settings) |
+| 3 | `scripts/3_trees/` | tomography decay classes; stand composition | `data/final/tomography_classes.csv`, Table 1 inputs |
+| 4 | `scripts/4_analysis/` | descriptive analyses and figures (Figures 1–5, S1–S2) | `outputs/figures/`, `outputs/tables/` |
+| 5 | `scripts/5_models/` | driver models, checks, every number quoted in the manuscript | `outputs/models/`, `outputs/tables/manuscript/` |
+| 6 | `scripts/6_manuscript/` | Supporting Information document | `outputs/manuscript/Supporting_Information.docx` |
+| 7 | `scripts/7_publish/` | assemble the data package and EML for publication (not tracked) | `data/edi/package/` |
 
-### Phase 0: Data Download (`scripts/00_download/`)
-Programmatically downloads all data sources. Run in order:
+Run everything after stage 0:
 
-| Script | Source | Requires |
-|--------|--------|----------|
-| `00_download_edi.R` | Study data (flux, tomography) from [EDI](https://portal.edirepository.org/) | `EDIutils` |
-| `01_download_ameriflux.R` | AmeriFlux towers (Ha1, Ha2, xHA) | `amerifluxr` + free account ([register here](https://ameriflux-data.lbl.gov/Pages/RequestAccount.aspx)) |
-| `02_download_phenocam.R` | PhenoCam (harvardems2) | `phenocamr` |
-| `03_download_hf_met_hydro.R` | Harvard Forest LTER (Fisher Met + hydro) | `plantecophys` (downloads from [EDI/PASTA](https://pasta.lternet.edu/)) |
+```bash
+bash scripts/run_pipeline.sh
+```
 
-NEON data is downloaded directly within the import scripts (`04_neon_download.R`, `05_neon_moisture.R`, `06_preprocess_soil_moisture.R`) via `neonUtilities::loadByProduct()`.
+`bash scripts/run_pipeline.sh 4 5` runs selected stages; `SKIP_FIT=1` reuses the flux fits (the goFlux fit takes ~20 min). Logs go to `outputs/logs/`.
 
-### Phase 1: Data Import (`scripts/01_import/`)
-Preprocesses raw downloads and aligns everything into a single hourly dataset. `08_align.R` produces `data/processed/aligned_hourly_dataset.csv`.
+### Stage 0: getting the data
 
-`09_goflux_reprocess.R` refits every stem-chamber closure that has a raw 1-Hz trace through [goFlux](https://github.com/Qepanna/goFlux) and [fluxqc](https://github.com/jongewirtzman/fluxqc) (>= 0.2.3), so that the published dataset and the papers built on it share one flux fit:
+- **Our data** (`data/package/`): `0_data/02_download_data_package.R` downloads the published package and unpacks it. The authors build `data/package/` from the lab's working folders with `0_data/01_assemble_data_package.R`.
+- **Public data** (`data/external/`): `03_download_ameriflux.R` (US-Ha1, US-Ha2, US-xHA BASE), `04_download_neon.R` (NEON HARV, RELEASE-2026 + provisional; needs a NEON token in `NEON_TOKEN`), `05_download_phenocam.R`. The Harvard Forest Fisher met and hydrology tables (HF001, HF070) are downloaded by `1_environment/01_met_hydro.R` when they are not already in `data/external/hf_archive/`. GIS layers and the ForestGEO census: see `data/README.md`.
 
-- windows come from the field-log start/end times (LGR/UGGA, Jun 2023 - Mar 2025; the Sep 2024 onward logs are the xlsx files in `data/raw/upland_wetland/Sept2024_onwards/`) or from the analyzer REMARK span with a 20-s deadband (LI-7810, Apr 2025 onward); nothing is clicked by hand;
-- flux = `goFlux::best.flux` (linear or Hutchinson-Mosier, Hüppi et al. 2018 criteria);
-- detection: MDF = 1.96 σ / t · flux.term, σ = MAD of first differences over each analyzer's whole record per constant-interval run (`fluxqc::flag_detection(precision = "mad")`), t = closure length in seconds; retain-and-flag;
-- chamber volume = measured collar volume (`tree_volumes.csv`) + analyzer internal volume (0.028 L for both the LGR GLA131 and the LI-7810; the legacy LGR pipeline used 0.200 L, with no documented source); collar area = π·5.08² cm²;
-- physical QC screens (`fluxqc::qc_screens`: C0, CO2 tracer, convexity, window length, noisy closure) only flag; the flagged closures are listed in `outputs/tables/goflux_qc_review.csv` for review.
+### Stage 2: from raw records to the flux dataset
 
-It writes `data/input/HF_2023-2025_tree_flux_goflux.csv` (one row per closure, legacy and goFlux fluxes and SEs side by side, `flux_source` says which is canonical), trace plots in `outputs/figures/goflux/`, and comparison tables in `outputs/tables/goflux_*.csv`. Raw traces are read from `Matthes_Lab/stem-CH4-flux/Raw LGR Data` (LGR day files) and `data/raw/7810_Processed/Tree_Fluxes/raw-7810-tree_flux_data` (+ the Aug 2025 files in `Matthes_Lab/stem-CH4-flux/raw-7810-data`); the Oct 2025 LI-7810 files are not archived, so those closures keep their legacy flux.
+Every cleaning rule records how many measurements it touched in `data/final/flux_processing_log.csv`.
 
-`10_quality_flags.R` builds the analysis dataset `data/processed/flux_with_quality_flags.csv` from it: the canonical flux (`CH4_flux_nmolpm2ps`, goFlux where a trace exists, legacy otherwise), the reference detection flag `CH4_below_MDF` (campaign-σ 95 %), and the comparison MDFs used by the sensitivity analysis (datasheet, campaign σ at 90/95/99 %, per-closure σ ×3·t). By default only closures that were in the legacy dataset are promoted to the analysis dataset (n = 1,640); set `GOFLUX_INCLUDE_NEW=1` to include the closures with traces that the legacy pipeline dropped. All downstream scripts load this flagged dataset.
-
-### Phase 2: Analysis (`scripts/02_analysis/`)
-Runs independently once Phase 1 is complete. Produces publication figures and summary statistics.
-
-### Phase 3: Modeling (`scripts/03_modeling/`)
-Depends on Phase 2 output (particularly `04_rolling_corrs.R` for optimal window sizes). Fits mixed-effects models for wetland and upland sites.
-
-## Data
-
-All data files are gitignored. See `data/README.md` for sources and instructions on obtaining the raw data.
-
-**Key input files:**
-- `data/input/HF_2023-2025_tree_flux_corrected.csv` -- Legacy tree-level CH4 flux measurements (upstream linear fits; the 2023-24 `CH4_SE` in this file is SE_slope × n in ppm without the /area division and is corrected in `09_goflux_reprocess.R`)
-- `data/input/HF_2023-2025_tree_flux_goflux.csv` -- goFlux-reprocessed closures with legacy values side by side (generated by `09_goflux_reprocess.R`; this is the file to publish and to import into dependent projects)
-- `data/processed/flux_with_quality_flags.csv` -- Analysis dataset with MDF flags, precision, and SNR (generated by `10_quality_flags.R`)
-- `data/processed/aligned_hourly_dataset.csv` -- Hourly environmental drivers (generated by Phase 1)
+1. `01_closure_table.R` — closures from the field logs (LGR/UGGA, Jun 2023–Mar 2025) and the tagged analyzer remarks (LI-7810, Apr–Oct 2025): the team's timing corrections, old wetland tags mapped to ForestGEO tags, unusable and duplicate entries removed, aborted starts and superseded redos removed, windows (closure + 20 s deadband to the logged end, ended early at a detected chamber opening), windows set by hand after inspection, chamber volume and met.
+2. `02_fit_fluxes.R` — goFlux linear and Hutchinson–Mosier fits, `best.flux` selection (Hüppi et al. 2018), fluxqc precision and screens. MDF = 1.96 σ / t × flux term, σ = analyzer precision on that day. Measurements without a raw record keep their earlier linear flux.
+3. `03_trace_qc.R` — automated checks of every CO2 and CH4 trace; shortlist for inspection.
+4. `04_review_windows.R` — interactive review of the shortlist (run by hand; decisions go to `data/package/qc_decisions/manual_windows.csv`, applied by step 1).
+5. `05_deadband_sensitivity.R` — refits with 0–45 s deadbands (sensitivity check).
+6. `06_flux_dataset.R` — final dataset: study measurements, exclusions after inspection, detection limits, corrected sampling times, QC flags; checked against `trees.csv`.
 
 ## Requirements
 
-All scripts assume the working directory is the project root (`tree-flux-2025/`).
+Working directory: the project root. R ≥ 4.3 with
+`dplyr`, `tidyr`, `readr`, `lubridate`, `readxl`, `goFlux` (≥ 0.4.0), `fluxqc` (≥ 0.2.3, `remotes::install_github("jongewirtzman/fluxqc")`), `neonUtilities`, `plantecophys`, `lme4`, `lmerTest`, `performance`, `emmeans`, `RcppRoll`, `zoo`, `ggplot2`, `patchwork`, `cowplot`, `ggtext`, `scales`, `viridis`, `ggridges`, `ggpointdensity`, `magick`, `pheatmap`, `car`, `sf`, `terra`, `ggspatial`, `ggnewscale`, `ggrepel`, `officer`, `flextable`; for stage 0/7 also `EDIutils`, `amerifluxr`, `phenocamr`, `EMLassemblyline`.
 
-R packages:
+## Sites and species
 
-**Download:** `EDIutils`, `amerifluxr`, `phenocamr`, `plantecophys`, `neonUtilities`
+| Code | Species | Site |
+|---|---|---|
+| bg | *Nyssa sylvatica* (black gum) | wetland |
+| rm | *Acer rubrum* (red maple) | both |
+| hem | *Tsuga canadensis* (eastern hemlock) | both |
+| ro | *Quercus rubra* (red oak) | upland |
 
-**Flux processing:** `goFlux` (>= 0.4.0), `fluxqc` (>= 0.2.3, `remotes::install_github("jongewirtzman/fluxqc")`), `readxl`
+BGS = Black Gum Swamp (wetland); EMS = Environmental Measurement Station (upland). Ten trees per species and site.
 
-**Analysis:** `tidyverse`, `lubridate`, `lme4`, `emmeans`, `performance`, `patchwork`, `zoo`, `RcppRoll`, `ggtext`, `scales`, `magick`, `ggpointdensity`, `ggridges`, `viridis`, `car`, `cowplot`, `pheatmap`, `readxl`
-
-## Sites
-
-- **BGS** (Black Gum Swamp) -- Wetland site
-- **EMS** (Environmental Measurement Station) -- Upland site
-
-## Species
-
-| Code | Species | Common Name | Strategy |
-|------|---------|-------------|----------|
-| bg | *Nyssa sylvatica* | Black gum | Wetland specialist |
-| rm | *Acer rubrum* | Red maple | Generalist |
-| hem | *Tsuga canadensis* | Eastern hemlock | Generalist |
-| ro | *Quercus rubra* | Red oak | Upland specialist |
+`archive/` holds superseded scripts for reference; they are not part of the pipeline.

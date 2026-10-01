@@ -10,7 +10,7 @@ Status key: **plan** = resolved by the existing workplan; **code** = needs a new
 **Update 30 Sep 2026:** every item below has been addressed as tracked changes in
 `DRAFT_ Contrasting controls on tree methane emissions - v2 tracked 2026-09-30.docx`, with a threaded
 reply (author "Claude (for J. Gewirtzman)") on each co-author comment. Numbers come from
-`scripts/03_modeling/06_manuscript_numbers.R` (outputs/tables/manuscript/). Still open for Jon:
+`scripts/5_models/07_manuscript_numbers.R` (outputs/tables/manuscript/). Still open for Jon:
 precision estimator vs the guidelines paper; Gelman 2-SD scaling (kept 1 SD); citation details for the
 two in-prep companion papers; reference-list entries for Segers 1998 and Christensen et al. 2003 (and other
 pre-existing gaps: Terazawa, Dunfield, Jevon, Leung, Marra 2018 etc. should be checked); the SI panel
@@ -80,7 +80,7 @@ Jenkins 2008; soils sentence now Allen 1995 and Davidson et al. 1998); trajector
 ## 1 Oct 2026 — Figure 3 kept, reframed around synchrony
 
 - Figure 3 (z-score tracks) stays in the main text.
-- Its caption and the repeatability Results now describe how much within-tree variation is shared across trees on the same date. This share comes from adding a sampling-date random effect: *N. sylvatica* 74%, wetland *A. rubrum* 36%, wetland *T. canadensis* 7%, upland species 2–8%. Source: `outputs/tables/synchrony_by_group.csv`, written by `02_analysis/03_repeatability.R`.
+- Its caption and the repeatability Results now describe how much within-tree variation is shared across trees on the same date. This share comes from adding a sampling-date random effect: *N. sylvatica* 74%, wetland *A. rubrum* 36%, wetland *T. canadensis* 7%, upland species 2–8%. Source: `outputs/tables/synchrony_by_group.csv`, written by `4_analysis/04_repeatability.R`.
 - Figure S3 is now the tree random effects only. The trajectory panel was dropped because it duplicated Figure 3.
 - JGR-B Key Points and Plain Language Summary added to the draft.
 - All repeatability statistics are now on the asinh scale, the same scale as the models, the variance partitioning and the synchrony shares. This covers the ICC, its LRT, the period Spearman correlations, the Figure 3 z-scores and the Figure S3 tree effects.
