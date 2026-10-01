@@ -7,10 +7,13 @@
 # Run AFTER: timeseries.R (which creates the corrected flux file)
 #
 # Outputs:
-#   - summary_table (printed): ICC, Spearman rho by species/location
+#   All statistics on asinh(flux), the scale of the models.
+#   - repeatability_summary.csv: ICC, Spearman rho by species/location
 #   - fig_period_cor.png/pdf: Early vs late period scatter
-#   - fig_blups.png/pdf: Tree random effects (SI)
-#   - zscore_tracks.png/pdf: Z-score time series (main figure)
+#   - fig_blups.png/pdf: Tree random effects (exploratory)
+#   - zscore_tracks.png/pdf: Z-score time series (Figure 3)
+#   - outputs/tables/synchrony_by_group.csv: date share of within-tree variance
+#   - fig_tree_effects.png/pdf: Tree random effects with 95% intervals (Figure S3)
 # ============================================================
 
 suppressPackageStartupMessages({
