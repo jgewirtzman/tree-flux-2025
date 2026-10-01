@@ -16,6 +16,15 @@ two in-prep companion papers; reference-list entries for Segers 1998 and Christe
 pre-existing gaps: Terazawa, Dunfield, Jevon, Leung, Marra 2018 etc. should be checked); the SI panel
 combining tree trajectories with random effects (no current script); EDI vs HF archive.
 
+**Update 1 Oct 2026:** current draft `DRAFT_ ... - v2 tracked 2026-10-01b.docx`. All 41 comments are covered:
+31 thread-starting comments have a reply; the other 10 are follow-ups inside answered threads (8–11 repeat 7 on
+other Table 2 rows; 1–2 rephrase 0; 20, 22, 26, 37 are agreements or follow-ups to 19/16, 21, 25, 36). Replies cite
+SI items by key, resolved from `outputs/manuscript/si_items.csv`, so they stay correct when the SI is renumbered.
+Since 30 Sep, resolved: reference entries (Segers, Christensen, Terazawa, Jeffrey 2021, Jevon 2023, Leung 2026,
+Jenkins 2008; soils sentence now Allen 1995 and Davidson et al. 1998); trajectories/random-effects SI figure
+(regenerated); Table 2 merged into SI Table S1 with class names in the Methods. Still open: Gelman 2-SD scaling
+(kept 1 SD); companion-paper citations ("in prep."/preprint); Harvard Forest archive vs stand-alone EDI package.
+
 ## Resolved by the reprocessing / method-alignment workplan
 
 | # | Who | Comment | Resolution |
