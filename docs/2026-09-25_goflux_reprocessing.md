@@ -197,3 +197,11 @@ Changes after inspecting every CO₂/CH₄ trace (`scripts/01_import/12_trace_qc
 - The LGR is the Microportable GGA (GLA131; raw files `micro_*.txt`), not the UGGA. Data column values still
   read "LGR/UGGA" because ch4-data-filtering imports them.
 - Draft: `DRAFT_ ... - v2 tracked 2026-10-01b.docx` (170 tracked edits); EDI package rebuilt.
+- **Model accuracy and bias** (`07_model_checks.R`, `outputs/tables/model_checks/accuracy_bias.csv`): on the
+  asinh scale the models are unbiased (wetland leave-one-date-out RMSE 0.49, bias −0.03); back-transformed,
+  the wetland model underestimates mean flux by about half (mean predicted/observed 0.52; 0.57 with Duan
+  smearing) because the largest N. sylvatica emissions are underpredicted. Upland: 0.90 (0.99 smeared).
+- **Analyzers:** LGR Microportable (field logs say LGR1; LGR3 files also exist on 8 dates, refits there match
+  the original fluxes at r = 0.995) and LI-7810 TG10-01861 (2025). Units, dry correction, windows, clock,
+  daily precision/MDF and volume are handled per analyzer; no side-by-side period, so an analyzer offset is
+  confounded with 2025.

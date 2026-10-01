@@ -40,7 +40,7 @@ core_form <- function(m) {
   as.formula(sprintf("CH4_flux_asinh ~ %s * %s * species + (1|Tree) + (1|date)", ts, mo))
 }
 
-fits <- list(); r2_rows <- list(); date_rows <- list(); oos_rows <- list(); seas_rows <- list(); tr_rows <- list()
+acc_rows <- list(); fits <- list(); r2_rows <- list(); date_rows <- list(); oos_rows <- list(); seas_rows <- list(); tr_rows <- list()
 for (k in names(MODELS)) {
   M <- MODELS[[k]]
   m <- readRDS(file.path(M$dir, "m_final.rds"))
@@ -105,6 +105,25 @@ for (k in names(MODELS)) {
       in_range = pr2(te$CH4_flux_asinh[inr], predict(mt, te[inr, ], re.form = ~ (1 | Tree), allow.new.levels = TRUE)),
       species_in_range = pr2(te$CH4_flux_asinh[inr], predict(ms, te[inr, ], re.form = ~ (1 | Tree), allow.new.levels = TRUE)))
   } else c(n_test = 0, n_in_range = 0, all = NA, in_range = NA, species_in_range = NA)
+  # accuracy and bias: asinh scale and back-transformed to nmol m-2 s-1 (sinh), in-sample
+  # (fixed + tree effects) and leave-one-date-out; mean bias = mean(predicted - observed);
+  # the back-transformed mean ratio shows the retransformation bias of sinh(mean asinh)
+  acc <- function(obs, pred, label) {
+    ok <- is.finite(obs) & is.finite(pred); o <- obs[ok]; pr <- pred[ok]
+    tibble(model_set = k, prediction = label, n = sum(ok),
+           rmse_asinh = sqrt(mean((pr - o)^2)), mae_asinh = mean(abs(pr - o)), bias_asinh = mean(pr - o),
+           rmse_nmol = sqrt(mean((sinh(pr) - sinh(o))^2)), mae_nmol = mean(abs(sinh(pr) - sinh(o))),
+           bias_nmol = mean(sinh(pr) - sinh(o)), mean_obs_nmol = mean(sinh(o)), mean_pred_nmol = mean(sinh(pr)),
+           ratio_mean_pred_obs = mean(sinh(pr)) / mean(sinh(o)),
+           # Duan smearing: average the back-transform over the in-sample residual distribution
+           ratio_mean_smeared_obs = mean(vapply(pr, function(z) mean(sinh(z + res_in)), numeric(1))) / mean(sinh(o)))
+  }
+  res_in <- residuals(m)
+  acc_rows[[k]] <- bind_rows(
+    acc(y, predict(m, re.form = ~ (1 | Tree)), "in-sample (fixed + tree effects)"),
+    acc(y, predict(m, re.form = NA), "in-sample (fixed effects only)"),
+    acc(y, p_date, "leave-one-date-out"),
+    acc(y, p_date_sp, "leave-one-date-out, species only"))
   oos_rows[[k]] <- tibble(model_set = k,
     lodo_R2_final = pr2(y, p_date), lodo_R2_species = pr2(y, p_date_sp),
     loto_R2_final = pr2(y, p_tree), loto_R2_species = pr2(y, p_tree_sp),
@@ -151,6 +170,11 @@ for (k in names(MODELS)) {
 r2_tab <- bind_rows(r2_rows); write_csv(r2_tab, file.path(OUT, "variance_explained.csv"))
 write_csv(bind_rows(date_rows), file.path(OUT, "date_random_effect.csv"))
 write_csv(bind_rows(oos_rows), file.path(OUT, "out_of_sample.csv"))
+acc_tab <- bind_rows(acc_rows); write_csv(acc_tab, file.path(OUT, "accuracy_bias.csv"))
+say("\nAccuracy and bias (asinh scale; nmol m-2 s-1 after back-transformation):")
+for (i in seq_len(nrow(acc_tab))) with(acc_tab[i, ], say(sprintf(
+  "  %-9s %-34s RMSE %.2f, bias %+.3f (asinh) | RMSE %.2f, MAE %.2f, bias %+.3f nmol; mean predicted/observed %.2f (with smearing %.2f)",
+  model_set, prediction, rmse_asinh, bias_asinh, rmse_nmol, mae_nmol, bias_nmol, ratio_mean_pred_obs, ratio_mean_smeared_obs)))
 write_csv(bind_rows(seas_rows), file.path(OUT, "temperature_vs_season.csv"))
 tr_tab <- bind_rows(tr_rows); write_csv(tr_tab, file.path(OUT, "transformation_sensitivity.csv"))
 say("\nTransformation sensitivity (terms whose p < 0.05 status differs from the main asinh scale):")
