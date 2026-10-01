@@ -21,10 +21,8 @@ term_lab <- function(t) { t <- gsub("TS_Ha[12]_raw_(\\d+)h", "Temperature (\\1 h
 doc <- read_docx()
 items <- list(); tab_n <- 0; fig_n <- 0
 # Stable keys -> SI numbers (the manuscript cites items by key; see manuscript_work/edit_manuscript.py)
-TAB_KEYS <- c("decay_key", "tomo_trees", "decay_corr", "decay_robust", "deadband", "wet_comp", "slopes",
-              "upland", "coefs", "diagnostics", "window_null", "transform")
-FIG_KEYS <- c("site_map", "drivers", "trajectories", "pred_by_site", "generalists", "spec_mean",
-              "cv_obs_wetland", "cv_obs_upland", "decay_metrics")
+TAB_KEYS <- c("decay_key", "decay_corr", "wet_comp", "slopes", "upland", "coefs", "diagnostics")
+FIG_KEYS <- c("site_map", "drivers", "trajectories", "pred_by_site", "generalists")
 TXT_KEYS <- c("flux", "models")
 lab <- c(setNames(paste0("S", seq_along(TAB_KEYS)), paste0("T:", TAB_KEYS)),
          setNames(paste0("S", seq_along(FIG_KEYS)), paste0("F:", FIG_KEYS)),
@@ -88,44 +86,11 @@ add_table(key, "Decay classification (from the companion tomography study).",
   "Moisture anomaly: species-normalized ERT PC1 above the study-set mean. Structural loss: > 1% of the SoT cross-section in non-brown (low-velocity) classes. Counts are the 57 trees with both scans.",
   "scripts/01_import/11_tomography_classes.R", "decay_key")
 
-# S3 per-tree tomography metrics
-ert <- rd("data/input/tomography_results_compiled.csv"); names(ert)[1] <- sub("^﻿", "", names(ert)[1])
-tc <- rd("data/processed/tomography_classes.csv")
-tm <- fx %>% group_by(Tree) %>% summarise(`Mean CH₄ flux` = f2(mean(CH4_flux_nmolpm2ps, na.rm = TRUE), 3), .groups = "drop")
-t3 <- tc %>% left_join(ert %>% select(tree, ert_mean, ert_cv), by = "tree") %>% left_join(tm, by = c(tree = "Tree")) %>%
-  transmute(Site = site, Species = sp_full[species], Tree = tree, `ERT mean (Ω m)` = f2(ert_mean, 0), `ERT CV` = f2(ert_cv, 3),
-            `ERT PC1` = f2(ert_pc1, 2), `SoT loss (%)` = f2(sot_structural_loss, 1), Class = sub(":.*", "", decay_class), `Mean CH₄ flux`) %>%
-  arrange(desc(Site), Species, Tree)
-add_table(t3, "Tomography metrics, decay class and mean CH₄ flux (nmol m⁻² s⁻¹) of each study tree.",
-  "ERT PC1: first principal component of eight ERT metrics, each standardized within species (higher = wetter, more heterogeneous). Trees without a complete SoT scan have no class.",
-  "data/processed/tomography_classes.csv; data/input/tomography_results_compiled.csv", "tomo_trees")
-
 # S4 wood-condition metric correlations
 s4 <- rd(file.path(T_, "SI_decay_metric_correlations.csv"))
-add_table(s4, "Correlations of tree-mean CH₄ flux with four wood-condition metrics.",
-  "Pearson r (p) for each species × site (10 trees) and each site pooled (30 trees); the species-adjusted rows give the standardized coefficient β (p, likelihood-ratio test) of the metric in a mixed model of all measurements with species as a fixed effect and tree as a random effect. * p < 0.05.",
+add_table(s4, "Tree-mean CH₄ flux against four wood-condition metrics, by species and site.",
+  "Each cell: Pearson r (p), Spearman ρ, and the range of r when each tree is omitted in turn (LOO), for each species at each site (10 trees) and for all trees at each site (30 trees). The species-adjusted rows give the standardized coefficient β (p, likelihood-ratio test) of the metric in a mixed model of all measurements with species as a fixed effect and tree as a random effect. SoT structural loss: % of the cross-section in non-brown (low-velocity) classes; ERT mean: mean resistivity (lower = wetter); ERT CV: heterogeneity of resistivity; ERT index: first principal component of eight ERT metrics standardized within species (Thompson et al. 2026). * p < 0.05.",
   "scripts/02_analysis/09_decay_definitions.R", "decay_corr")
-
-# S5 decay robustness
-rb <- rd(file.path(T_, "decay_robustness_correlations.csv")) %>% filter(SPECIES %in% c("ro", "bg"), metric %in% c("ert_cv", "ert_pc1")) %>%
-  mutate(Species = sp_full[SPECIES], Metric = ifelse(metric == "ert_cv", "ERT CV", "ERT PC1"),
-         Fluxes = recode(version, legacy = "Original fits", current = "Recalculated (analysis)", goflux_db00 = "Deadband 0 s",
-                         goflux_db10 = "Deadband 10 s", goflux_db20 = "Deadband 20 s", goflux_db30 = "Deadband 30 s", goflux_db45 = "Deadband 45 s"),
-         Summary = recode(summary, mean = "Mean", median = "Median", mean_detected = "Mean, detected only", mean_growing_season = "Mean, May–Oct"),
-         cell = sprintf("%.2f (%s); LOO %.2f to %.2f", r, fp(p), loo_min, loo_max)) %>%
-  filter(Summary == "Mean" | Fluxes == "Recalculated (analysis)") %>%
-  select(Species, Metric, Fluxes, Summary, cell) %>% pivot_wider(names_from = Metric, values_from = cell) %>% arrange(Species, Summary, Fluxes)
-add_table(rb, "Robustness of the specialist wood-condition–flux correlations.",
-  "Pearson r (p) of tree-mean (or median) flux with ERT CV and ERT PC1, and the range of r when each tree is omitted in turn (LOO), for the original linear fits, the recalculated fluxes with deadbands of 0–45 s, and alternative tree summaries.",
-  "scripts/02_analysis/10_decay_robustness.R", "decay_robust")
-
-# S6 deadband sensitivity
-db <- rd(file.path(T_, "deadband_sensitivity_summary.csv")) %>%
-  transmute(Analyzer = sub("LGR/UGGA", "MGGA", inst), Site = location, `Deadband (s)` = deadband_s, n,
-            `Mean flux` = f2(mean_flux, 3), `Median flux` = f2(median_flux, 3), `Median ratio to 0 s` = f2(median_ratio_to_db0, 2),
-            `Change > 25% (%)` = f2(pct_change_gt25, 1), `Sign changes` = sign_changes)
-add_table(db, "Sensitivity of fluxes (nmol m⁻² s⁻¹) to the deadband discarded after chamber closure.",
-  "Each closure refitted with 0–45 s discarded after closure; the analysis uses 20 s.", "scripts/01_import/13_deadband_sensitivity.R", "deadband")
 
 # S7 wetland model comparison (shared observations)
 wc <- rd(file.path(MC, "wetland_model_comparison_common_rows.csv")) %>%
@@ -181,30 +146,18 @@ dg <- ve %>% filter(model %in% c("species only", "final")) %>% select(model_set,
             `Temperature explained by season (%)` = f2(100 * R2_temperature_by_season, 0),
             `p, temperature departure from season` = fp(departure_LRT_p))
 dg <- as.data.frame(t(dg[, -1])) %>% setNames(dg$Model) %>% tibble::rownames_to_column("Diagnostic")
+wpn <- rd(file.path(MC, "window_permutation.csv")) %>% group_by(model_set) %>%
+  summarise(w = paste(sprintf("%s: best %d h, |r| %.2f, p %s", variable, best_window_h, max_abs_r, fp(p_perm)), collapse = "; "), .groups = "drop")
+dg <- rbind(dg, c(Diagnostic = "Window screening, date-permutation test", setNames(wpn$w[match(c("wetland", "upland_A", "upland_B"), wpn$model_set)], names(dg)[-1])))
 add_table(dg, "Model diagnostics.",
-  "Marginal R² (Nakagawa). Out-of-sample predictions include the tree random effect (dates omitted) or fixed effects only (trees omitted). Bias = mean(predicted − observed). The back-transformed mean ratio shows the underestimate of mean flux from sinh(predicted mean); the smeared ratio applies Duan's (1983) correction. 2025 test restricted to observations within the 2023–24 predictor range.",
+  "Marginal R² (Nakagawa). Out-of-sample predictions include the tree random effect (dates omitted) or fixed effects only (trees omitted). Bias = mean(predicted − observed). The back-transformed mean ratio shows the underestimate of mean flux from sinh(predicted mean); the smeared ratio applies Duan's (1983) correction. 2025 test restricted to observations within the 2023–24 predictor range. Window screening: maximum |r| over all windows (3 h–14 d) for each model driver against 500 permutations in which environmental records were reassigned among sampling dates and the search repeated.",
   "outputs/tables/model_checks/", "diagnostics")
-
-# S12 window screening null
-wp <- rd(file.path(MC, "window_permutation.csv")) %>%
-  transmute(Model = lab_ms[model_set], Variable = variable, `Best window (h)` = best_window_h, `max |r|` = f2(max_abs_r, 2),
-            `Windows within 0.02 of best (h)` = `windows_within_0.02_h`, `Null 95th percentile` = f2(null_95, 2), `Permutation p` = fp(p_perm))
-add_table(wp, "Window screening against a date-permutation null.",
-  "For each model driver, the maximum |r| over all windows (3 h–14 d) compared with 500 permutations in which environmental records were reassigned among sampling dates and the window search repeated.",
-  file.path(MC, "window_permutation.csv"), "window_null")
-
-# S13 transformation sensitivity
-tr <- rd(file.path(MC, "transformation_sensitivity.csv")) %>% filter(term != "(Intercept)") %>%
-  mutate(cell = sprintf("%.2f%s", t, star(p))) %>% select(Model = model_set, Term = term, transform, cell) %>%
-  pivot_wider(names_from = transform, values_from = cell) %>% mutate(Model = lab_ms[Model], Term = term_lab(Term))
-add_table(tr, "Sensitivity of the model terms to the flux transformation (t statistics).",
-  "* p < 0.05; ** p < 0.01; *** p < 0.001.", file.path(MC, "transformation_sensitivity.csv"), "transform")
 
 doc <- doc %>% body_add_break()
 
 # ---------------- Figures ----------------
 add_figure(file.path(FIG, "site_map.png"), "Study sites.",
-  "(a) Location of Harvard Forest. (b) Prospect Hill tract: elevation, Black Gum Swamp outline, the study trees at the wetland (Black Gum Swamp) and upland (EMS) sites, the 40 points of the 2025 prism survey of the swamp (crosses), and the EMS, hemlock and NEON flux towers. (c, d) Study trees by species at each site. Tree positions from field GPS surveys.", "site_map")
+  "(a) Prospect Hill tract, Harvard Forest (inset: location in Massachusetts): shaded elevation with 10-m contours, the Black Gum Swamp outline, the study trees at the wetland (Black Gum Swamp) and upland (EMS) sites, the 40 points of the 2025 prism survey of the swamp (crosses), and the EMS (US-Ha1), hemlock (US-Ha2) and NEON (US-xHA) flux towers. (b, c) Study trees by species at the wetland (b) and upland (c) sites. Tree positions from field GPS surveys.", "site_map")
 add_figure(file.path(FIG, "si_driver_timeseries.png"), "Environmental drivers over the study period.",
   "Daily means (precipitation: daily totals) from June 2023 to October 2025; vertical lines mark wetland (solid) and upland (dashed) sampling dates. Note the summer 2025 drought (falling water table and soil water content).", "drivers")
 add_figure(file.path(FIG, "repeatability", "fig_trajectories_blups.png"), "Tree flux trajectories and tree random effects.",
@@ -212,14 +165,7 @@ add_figure(file.path(FIG, "repeatability", "fig_trajectories_blups.png"), "Tree 
 add_figure(file.path(FIG, "interaction_by_site_limited_free.png"), "Model predictions by site and species.",
   "Predicted CH₄ flux across the observed temperature range at different water-table percentiles, for each species, from the wetland core model and upland Model B.", "pred_by_site")
 add_figure(file.path(FIG, "tomography", "tomography_generalists.png"), "Internal wood condition and CH₄ flux in the generalist species.",
-  "As Figure 5, for A. rubrum and T. canadensis at both sites.", "generalists")
-add_figure(file.path(FIG, "tomography", "tomography_specialists_SI_mean.png"), "Specialist species ordered by mean ERT resistivity.",
-  "As Figure 5a, c, with trees ordered by mean resistivity instead of ERT CV.", "spec_mean")
-for (s in c("wetland", "upland")) add_figure(file.path(FIG, "tomography", sprintf("ert_cv_vs_flux_allobs_%s.png", s)),
-  sprintf("ERT CV against individual CH₄ flux measurements, %s site.", s), "Each point is one measurement; lines are per-species fits.", paste0("cv_obs_", s))
-add_figure(file.path(FIG, "tomography", "decay_metric_correlations_specialists.png"), "Tree-mean flux against four wood-condition metrics in the specialist species.",
-  "Lines drawn where p < 0.05. Subtitles give Pearson r, Spearman ρ and r without the tree with the highest metric value.", "decay_metrics")
-
+  "As Figure 5, for A. rubrum and T. canadensis at both sites; the specialists are shown in Figure 5.", "generalists")
 print(doc, target = file.path(OUT, "Supporting_Information.docx"))
 write.csv(bind_rows(items), file.path(OUT, "si_items.csv"), row.names = FALSE)
 message("Wrote ", file.path(OUT, "Supporting_Information.docx"), ": ", tab_n, " tables, ", fig_n, " figures")

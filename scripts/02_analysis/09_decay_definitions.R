@@ -89,16 +89,23 @@ metrics <- c(sot_loss_pct = "SoT structural loss (%)", ert_mean = "ERT mean (Ohm
 trees$sot_loss_pct <- trees$sot_structural_loss
 fmt <- function(r, p) ifelse(is.na(r), "–", sprintf("%.2f (%s)%s", r, ifelse(p < 0.001, "<0.001", sprintf("%.3f", p)),
                                                       ifelse(p < 0.05, "*", "")))
+# Pearson r (p), Spearman rho, and the range of r when each tree is omitted in turn (robustness)
+cell <- function(x, y) {
+  ok <- is.finite(x) & is.finite(y); x <- x[ok]; y <- y[ok]
+  ct <- cor.test(x, y); rho <- suppressWarnings(cor(x, y, method = "spearman"))
+  loo <- vapply(seq_along(x), function(i) cor(x[-i], y[-i]), numeric(1))
+  sprintf("%s; ρ = %.2f; LOO %.2f to %.2f", fmt(ct$estimate, ct$p.value), rho, min(loo), max(loo))
+}
 grp <- list()
 for (s in c("Wetland", "Upland")) {
   for (spp in c("bg", "rm", "hem", "ro")) {
     d <- trees %>% filter(site == s, SPECIES == spp); if (nrow(d) < 6) next
     grp[[length(grp) + 1]] <- c(group = sprintf("%s — %s", s, c(bg = "N. sylvatica", rm = "A. rubrum", hem = "T. canadensis", ro = "Q. rubra")[[spp]]),
-      n = nrow(d), sapply(names(metrics), function(m) { x <- d[[m]]; ok <- !is.na(x); ct <- cor.test(x[ok], d$flux[ok]); fmt(ct$estimate, ct$p.value) }))
+      n = nrow(d), sapply(names(metrics), function(m) cell(d[[m]], d$flux)))
   }
   d <- trees %>% filter(site == s)
   grp[[length(grp) + 1]] <- c(group = sprintf("%s — all trees pooled", s), n = nrow(d),
-    sapply(names(metrics), function(m) { x <- d[[m]]; ok <- !is.na(x); ct <- cor.test(x[ok], d$flux[ok]); fmt(ct$estimate, ct$p.value) }))
+    sapply(names(metrics), function(m) cell(d[[m]], d$flux)))
   # species-adjusted mixed model on all measurements (p of the metric term)
   pv <- sapply(names(metrics), function(m) {
     o <- fx %>% filter(site == s) %>% mutate(tree = as.character(Tree)) %>% inner_join(d %>% select(tree, x = all_of(m)), by = "tree") %>% filter(!is.na(x))
