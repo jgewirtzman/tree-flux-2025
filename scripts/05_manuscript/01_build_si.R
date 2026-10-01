@@ -22,7 +22,7 @@ doc <- read_docx()
 items <- list(); tab_n <- 0; fig_n <- 0
 # Stable keys -> SI numbers (the manuscript cites items by key; see manuscript_work/edit_manuscript.py)
 TAB_KEYS <- c("decay_key", "decay_corr", "wet_comp", "slopes", "upland", "coefs", "diagnostics")
-FIG_KEYS <- c("site_map", "drivers", "trajectories", "pred_by_site", "generalists")
+FIG_KEYS <- c("site_map", "drivers", "tree_effects", "pred_by_site", "generalists")
 TXT_KEYS <- c("flux", "models")
 lab <- c(setNames(paste0("S", seq_along(TAB_KEYS)), paste0("T:", TAB_KEYS)),
          setNames(paste0("S", seq_along(FIG_KEYS)), paste0("F:", FIG_KEYS)),
@@ -160,8 +160,8 @@ add_figure(file.path(FIG, "site_map.png"), "Study sites.",
   "(a) Prospect Hill tract, Harvard Forest (inset: location in Massachusetts): shaded elevation with 10-m contours, the Black Gum Swamp outline, the study trees at the wetland (Black Gum Swamp) and upland (EMS) sites, the 40 points of the 2025 prism survey of the swamp (crosses), and the EMS (US-Ha1), hemlock (US-Ha2) and NEON (US-xHA) flux towers. (b, c) Study trees by species at the wetland (b) and upland (c) sites. Tree positions from field GPS surveys.", "site_map")
 add_figure(file.path(FIG, "si_driver_timeseries.png"), "Environmental drivers over the study period.",
   "Daily means (precipitation: daily totals) from June 2023 to October 2025; vertical lines mark wetland (solid) and upland (dashed) sampling dates. Note the summer 2025 drought (falling water table and soil water content).", "drivers")
-add_figure(file.path(FIG, "repeatability", "fig_trajectories_blups.png"), "Tree flux trajectories and tree random effects.",
-  "Left: flux of each tree over time (asinh scale). Right: tree random effects (BLUPs) with 95% intervals; red where the interval excludes zero.", "trajectories")
+add_figure(file.path(FIG, "repeatability", "fig_tree_effects.png"), "Tree random effects.",
+  "Deviation of each tree's mean CH₄ flux from the mean of its species at that site (random effects from an intercept-only mixed model), with 95% intervals; red where the interval excludes zero. Trees are ordered by their effect.", "tree_effects")
 add_figure(file.path(FIG, "interaction_by_site_limited_free.png"), "Model predictions by site and species.",
   "Predicted CH₄ flux across the observed temperature range at different water-table percentiles, for each species, from the wetland core model and upland Model B.", "pred_by_site")
 add_figure(file.path(FIG, "tomography", "tomography_generalists.png"), "Internal wood condition and CH₄ flux in the generalist species.",

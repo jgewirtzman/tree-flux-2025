@@ -252,6 +252,14 @@ for (i in seq_len(nrow(dd))) with(dd[i, ], say(sprintf("%s-%02d: n = %d; water t
 up25 <- read.csv(file.path("data", "processed", "flux_with_quality_flags.csv")) %>% filter(location == "Upland", substr(date, 1, 4) == "2025") %>% pull(date) %>% unique() %>% sort()
 say("Upland sampling dates 2025: ", paste(up25, collapse = ", "))
 
+sy <- file.path("outputs", "tables", "synchrony_by_group.csv")   # from 02_analysis/03_repeatability.R
+if (file.exists(sy)) {
+  say("\n=== SYNCHRONY: date share of within-tree variance (asinh scale) ===")
+  sy <- read.csv(sy)
+  for (i in seq_len(nrow(sy))) with(sy[i, ], say(sprintf("%s %s: %.0f%% (LRT p = %.2g); tree %.0f%%, date %.0f%%, residual %.0f%% of total",
+                                                       location, species_full, 100 * date_share_within_tree, date_lrt_p, 100 * tree_share, 100 * date_share, 100 * resid_share)))
+}
+
 mc <- file.path("outputs", "tables", "model_checks", "model_checks_summary.txt")
 if (file.exists(mc)) { say("\n=== MODEL CHECKS (07_model_checks.R) ==="); for (l in readLines(mc)) say(l) }
 

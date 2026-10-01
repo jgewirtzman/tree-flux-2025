@@ -490,8 +490,29 @@ tree_effects %>%
   ) %>%
   print()
 # ============================================================
-# SI FIGURE: tree trajectories (A) + tree random effects with 95% intervals (B)
-# (replaces the untracked SI panel in the v1 manuscript)
+# SYNCHRONY: how much of the variation within trees is shared across trees on the same date
+# asinh(flux) ~ 1 + (1|Tree) + (1|date) per species x site; date share of within-tree variance
+# = var(date) / (var(date) + var(residual)); LRT for the date effect (ML fits).
+# Output: outputs/tables/synchrony_by_group.csv (read by 06_manuscript_numbers.R)
+# ============================================================
+sync_one <- function(d) {
+  d$y <- asinh(d$CH4_flux_nmolpm2ps)
+  m <- lmer(y ~ 1 + (1 | Tree) + (1 | date), data = d)
+  v <- as.data.frame(VarCorr(m)); s <- setNames(v$vcov, v$grp)
+  m0 <- lmer(y ~ 1 + (1 | Tree), data = d, REML = FALSE)
+  tibble(n_obs = nrow(d), n_dates = n_distinct(d$date),
+         tree_share = s[["Tree"]] / sum(s), date_share = s[["date"]] / sum(s), resid_share = s[["Residual"]] / sum(s),
+         date_share_within_tree = s[["date"]] / (s[["date"]] + s[["Residual"]]),
+         date_lrt_p = anova(m0, update(m, REML = FALSE))$`Pr(>Chisq)`[2])
+}
+synchrony <- fluxes %>% filter(!is.na(facet_label)) %>% group_by(location, SPECIES) %>%
+  group_modify(~ sync_one(.x)) %>% ungroup() %>%
+  mutate(species_full = c(rm = "A. rubrum", hem = "T. canadensis", ro = "Q. rubra", bg = "N. sylvatica")[SPECIES])
+write_csv(synchrony, "outputs/tables/synchrony_by_group.csv")
+message("\n--- Synchrony (date share of within-tree variance, asinh scale) ---"); print(synchrony)
+
+# ============================================================
+# SI FIGURE: tree random effects with 95% intervals
 # ============================================================
 suppressPackageStartupMessages({ library(patchwork); library(lme4) })
 grp_levels <- c("A. rubrum|Upland", "T. canadensis|Upland", "Q. rubra|Upland",
@@ -501,16 +522,6 @@ traj <- fluxes %>% mutate(sp = sp_lab[SPECIES], grp = factor(paste(sp, location,
                           date = as.Date(date)) %>%
   group_by(grp) %>% mutate(rel_mean = { m <- ave(CH4_flux_nmolpm2ps, Tree); r <- rank(m, ties.method = "average"); (r - min(r)) / max(1, max(r) - min(r)) }) %>%
   ungroup()
-asinh_tr <- scales::trans_new("asinh", function(x) asinh(x), function(x) sinh(x))
-pA <- ggplot(traj, aes(date, CH4_flux_nmolpm2ps, group = Tree, colour = rel_mean)) +
-  geom_hline(yintercept = 0, colour = "grey75", linewidth = 0.3) +
-  geom_line(linewidth = 0.45, alpha = 0.9) +
-  scale_colour_viridis_c(name = "Relative tree mean\n(within group)") +
-  scale_y_continuous(trans = asinh_tr) +
-  facet_wrap(~ grp, scales = "free_y", nrow = 2,
-             labeller = as_labeller(function(x) sub("\\|", "\n", x))) +
-  labs(x = NULL, y = expression(CH[4]~flux~(nmol~m^{-2}~s^{-1}*","~asinh~scale)), tag = "A") +
-  theme_classic(base_size = 10) + theme(strip.background = element_blank(), strip.text = element_text(face = "italic"))
 blup <- traj %>% group_by(grp) %>% group_modify(~ {
   m <- lmer(CH4_flux_nmolpm2ps ~ 1 + (1 | Tree), data = .x)
   re <- ranef(m, condVar = TRUE)$Tree; pv <- attr(re, "postVar")
@@ -526,7 +537,7 @@ pB <- ggplot(blup, aes(effect, Tree)) +
   facet_wrap(~ factor(grp_lab, levels = sub("\\|", " - ", grp_levels)), scales = "free", nrow = 2) +
   labs(x = expression(Tree~random~effect~(deviation~from~group~mean*","~nmol~m^{-2}~s^{-1})), y = "Tree", tag = "B") +
   theme_classic(base_size = 9) + theme(strip.background = element_blank(), axis.text.y = element_text(size = 6))
-fig_tb <- pA / pB + plot_layout(heights = c(1, 1.1))
-ggsave(file.path(OUTPUT_DIR, "fig_trajectories_blups.png"), fig_tb, width = 11, height = 10, dpi = 300, bg = "white")
-ggsave(file.path(OUTPUT_DIR, "fig_trajectories_blups.pdf"), fig_tb, width = 11, height = 10, bg = "white")
-message("  Saved: fig_trajectories_blups.png/pdf")
+pB <- pB + labs(tag = NULL)
+ggsave(file.path(OUTPUT_DIR, "fig_tree_effects.png"), pB, width = 11, height = 5.5, dpi = 300, bg = "white")
+ggsave(file.path(OUTPUT_DIR, "fig_tree_effects.pdf"), pB, width = 11, height = 5.5, bg = "white")
+message("  Saved: fig_tree_effects.png/pdf")

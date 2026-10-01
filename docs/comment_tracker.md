@@ -76,3 +76,10 @@ Jenkins 2008; soils sentence now Allen 1995 and Davidson et al. 1998); trajector
 - The overlapping model-check table and figures cut down to the diagnostics table.
 - All text comparing original and recalculated fluxes removed.
 - Site map (Figure S1) redrawn at publication quality: PDF plus 600-dpi PNG.
+
+## 1 Oct 2026 — Figure 3 kept, reframed around synchrony
+
+- Figure 3 (z-score tracks) stays in the main text.
+- Its caption and the repeatability Results now describe how much within-tree variation is shared across trees on the same date. This share comes from adding a sampling-date random effect: *N. sylvatica* 74%, wetland *A. rubrum* 36%, wetland *T. canadensis* 7%, upland species 2–8%. Source: `outputs/tables/synchrony_by_group.csv`, written by `02_analysis/03_repeatability.R`.
+- Figure S3 is now the tree random effects only. The trajectory panel was dropped because it duplicated Figure 3.
+- JGR-B Key Points and Plain Language Summary added to the draft.
