@@ -52,7 +52,7 @@ Every cleaning rule records how many measurements it touched in `data/final/flux
 ## Requirements
 
 Working directory: the project root. R ≥ 4.3 with
-`dplyr`, `tidyr`, `readr`, `lubridate`, `readxl`, `goFlux` (≥ 0.4.0), `fluxqc` (≥ 0.2.3, `remotes::install_github("jongewirtzman/fluxqc")`), `neonUtilities`, `plantecophys`, `lme4`, `lmerTest`, `performance`, `emmeans`, `RcppRoll`, `zoo`, `ggplot2`, `patchwork`, `cowplot`, `ggtext`, `scales`, `viridis`, `ggridges`, `ggpointdensity`, `magick`, `pheatmap`, `car`, `sf`, `terra`, `ggspatial`, `ggnewscale`, `ggrepel`, `officer`, `flextable`; for stage 0/7 also `EDIutils`, `amerifluxr`, `phenocamr`, `EMLassemblyline`.
+`dplyr`, `tidyr`, `readr`, `lubridate`, `readxl`, `goFlux` (≥ 0.4.0), `fluxqc` (≥ 0.2.3, `remotes::install_github("jgewirtzman/fluxqc")`), `neonUtilities`, `plantecophys`, `lme4`, `lmerTest`, `performance`, `emmeans`, `RcppRoll`, `zoo`, `ggplot2`, `patchwork`, `cowplot`, `ggtext`, `scales`, `viridis`, `ggridges`, `ggpointdensity`, `magick`, `pheatmap`, `car`, `sf`, `terra`, `ggspatial`, `ggnewscale`, `ggrepel`, `officer`, `flextable`; for stage 0/7 also `EDIutils`, `amerifluxr`, `phenocamr`, `EMLassemblyline`.
 
 ## Sites and species
 
