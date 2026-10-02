@@ -23,7 +23,7 @@ items <- list(); tab_n <- 0; fig_n <- 0
 # Stable keys -> SI numbers (the manuscript cites items by key; see manuscript_work/edit_manuscript.py)
 TAB_KEYS <- c("decay_key", "decay_corr", "wet_comp", "slopes", "upland", "coefs", "diagnostics")
 FIG_KEYS <- c("site_map", "drivers", "tree_effects", "pred_by_site", "generalists")
-TXT_KEYS <- c("flux", "models")
+TXT_KEYS <- c("flux", "models", "tomo")
 lab <- c(setNames(paste0("S", seq_along(TAB_KEYS)), paste0("T:", TAB_KEYS)),
          setNames(paste0("S", seq_along(FIG_KEYS)), paste0("F:", FIG_KEYS)),
          setNames(paste0("S", seq_along(TXT_KEYS)), paste0("X:", TXT_KEYS)))
