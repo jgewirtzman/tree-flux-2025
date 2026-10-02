@@ -62,3 +62,6 @@ DRAFT_*
 # EDI data package (one-time build/upload, not needed in repo)
 data/edi/
 manuscript_work/
+
+# Static figures are tracked
+!figures_static/*.png

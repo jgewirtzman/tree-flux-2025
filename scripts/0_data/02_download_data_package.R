@@ -20,9 +20,9 @@
 # Requires: EDIutils
 # ============================================================
 library(EDIutils)
-PACKAGE_ID <- "edi.XXXXX.1"   # TODO: replace with the published package ID
+PACKAGE_ID <- "knb-lter-hfr.XXX.1"   # Harvard Forest Data Archive package (on EDI); TODO: set when issued
 PKG <- "data/package"
-if (grepl("XXXXX", PACKAGE_ID)) stop("Set PACKAGE_ID to the published package first.")
+if (grepl("XXX", PACKAGE_ID)) stop("Set PACKAGE_ID to the published package first.")
 dir.create(PKG, recursive = TRUE, showWarnings = FALSE)
 
 ent <- read_data_entity_names(PACKAGE_ID)

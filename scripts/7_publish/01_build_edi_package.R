@@ -5,7 +5,9 @@
 # processing log (data/final/). Tables are copied as they are; folders of raw files are
 # zipped. Writes EML with EMLassemblyline.
 #
-# Output: data/edi/package/ (ready to upload with 02_upload_edi.R)
+# The package is published through the Harvard Forest Data Archive (knb-lter-hfr, on EDI):
+# hand data/edi/package/ to the HF archivist, who assigns the package ID and DOI.
+# Output: data/edi/package/
 # Requires: EMLassemblyline, EDIutils. Run 00_attributes.R first.
 # ============================================================
 

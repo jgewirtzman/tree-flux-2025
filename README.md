@@ -23,7 +23,7 @@ Scripts run in numbered stages; within a stage, in numbered order.
 | 4 | `scripts/4_analysis/` | descriptive analyses and figures (Figures 1–5, S1–S2) | `outputs/figures/`, `outputs/tables/` |
 | 5 | `scripts/5_models/` | driver models, checks, every number quoted in the manuscript | `outputs/models/`, `outputs/tables/manuscript/` |
 | 6 | `scripts/6_manuscript/` | Supporting Information document | `outputs/manuscript/Supporting_Information.docx` |
-| 7 | `scripts/7_publish/` | assemble the data package and EML for publication (not tracked) | `data/edi/package/` |
+| 7 | `scripts/7_publish/` | assemble the data package and draft EML for the Harvard Forest Data Archive | `data/edi/package/` |
 
 Run everything after stage 0:
 
@@ -35,7 +35,7 @@ bash scripts/run_pipeline.sh
 
 ### Stage 0: getting the data
 
-- **Our data** (`data/package/`): `0_data/02_download_data_package.R` downloads the published package and unpacks it. The authors build `data/package/` from the lab's working folders with `0_data/01_assemble_data_package.R`.
+- **Our data** (`data/package/`): `0_data/02_download_data_package.R` downloads the published package (Harvard Forest Data Archive, knb-lter-hfr) and unpacks it. The authors build `data/package/` from the lab's working folders with `0_data/01_assemble_data_package.R`.
 - **Public data** (`data/external/`): `03_download_ameriflux.R` (US-Ha1, US-Ha2, US-xHA BASE), `04_download_neon.R` (NEON HARV, RELEASE-2026 + provisional; needs a NEON token in `NEON_TOKEN`), `05_download_phenocam.R`. The Harvard Forest Fisher met and hydrology tables (HF001, HF070) are downloaded by `1_environment/01_met_hydro.R` when they are not already in `data/external/hf_archive/`. GIS layers and the ForestGEO census: see `data/README.md`.
 
 ### Stage 2: from raw records to the flux dataset
