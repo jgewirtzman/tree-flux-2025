@@ -66,3 +66,4 @@ manuscript_work/
 # Static figures are tracked
 !figures_static/*.png
 !figures_static/*.tif
+!figures_static/*.jpg
