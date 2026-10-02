@@ -2,4 +2,4 @@
 
 | File | Figure | Source |
 |---|---|---|
-| `fig7_conceptual_model.png` | Figure 7, conceptual model of stem CH₄ flux mechanisms across hydrologic settings | Illustration by Debbie Maizels, Zoobotanica Scientific Illustration (credited in the Acknowledgements). Extracted at full embedded resolution from the original draft (`DRAFT_ Contrasting controls on tree methane emissions in upland and wetland forests.docx`, media/image7.png) on 2 Oct 2026. Ask the illustrator for the vector original (AI/PDF) for the final submission. |
+| `fig7_conceptual_model.tif` | Figure 7, conceptual model of stem CH₄ flux mechanisms across hydrologic settings ("no boxes" version, the one in the draft; 2314 × 1566 px) | Illustration by Debbie Maizels, Zoobotanica Scientific Illustration (credited in the Acknowledgements). Final files, 6 Apr 2026: `My Drive/Tree methane emissions final files/`. Vector originals there (`Tree methane emissions no boxes.pdf`, 41 MB; `.eps`, 70 MB) are too large to track; use them for submission. A version with labelled boxes (`Tree methane emissions.*`) is also in that folder. |
