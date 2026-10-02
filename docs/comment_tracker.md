@@ -85,3 +85,16 @@ Jenkins 2008; soils sentence now Allen 1995 and Davidson et al. 1998); trajector
 - JGR-B Key Points and Plain Language Summary added to the draft.
 - All repeatability statistics are now on the asinh scale, the same scale as the models, the variance partitioning and the synchrony shares. This covers the ICC, its LRT, the period Spearman correlations, the Figure 3 z-scores and the Figure S3 tree effects.
 - Resulting values: ICC 0–0.28 (mean 0.11), with *N. sylvatica* 0.28 and wetland *A. rubrum* 0.20; ρ 0.32–0.90.
+
+## 2 Oct 2026 — Concision and SI moves
+
+- Wordiness and redundancy pass: 30 tracked edits.
+- Moved to the SI:
+  - Text S3 (new): tomography procedures.
+  - Text S1: the flux equation.
+  - Text S2: model selection, diagnostics, upland A vs B, variance partitioning.
+- Software and data availability moved to a new Open Research section.
+- Knowledge-gaps paragraph tightened, with added references: Megonigal et al. 2020, Jeffrey et al. 2021b, Plain & Epron 2021, Iorliam et al. 2026. The bark-methanotroph paper is now Jeffrey et al. 2021a.
+- Generalist decay effect sizes added to the Results.
+- Old in-document SI removed.
+- Length: text about 7,100 words plus 830 words of captions, about 23.8 PU (limit 25).
