@@ -45,6 +45,19 @@ tables <- c(
   BGS_VRP_2025.csv                  = file.path(PKG, "stand", "BGS_VRP_2025.csv"))
 stopifnot(all(file.exists(tables)))
 stopifnot(file.copy(tables, file.path(PACKAGE_DIR, names(tables)), overwrite = TRUE))
+# The pipeline writes these local/EST times as "YYYY-MM-DDThh:mm:ssZ"; the "Z" is not UTC.
+# The published copies use "YYYY-MM-DD hh:mm:ss" (the pipeline's own files are unchanged).
+# HF_2023-2025_tree_flux_v1.csv is primary data read by the pipeline and keeps its format.
+untz <- function(file, col) {   # text substitution, so no other value or quote changes
+  p <- file.path(PACKAGE_DIR, file); x <- readLines(p, encoding = "UTF-8")
+  n <- sum(!is.na(read.csv(p, check.names = FALSE)[[col]]))
+  pat <- "([0-9]{4}-[0-9]{2}-[0-9]{2})T([0-9]{2}:[0-9]{2}:[0-9]{2})Z"
+  stopifnot(sum(lengths(regmatches(x, gregexpr(pat, x)))) == n)   # only that column has the pattern
+  writeLines(gsub(pat, "\\1 \\2", x), p, useBytes = TRUE)
+}
+untz("stem_ch4_flux.csv", "datetime_posx"); untz("environment_hourly.csv", "datetime")
+dd <- file.path(PACKAGE_DIR, "stem_ch4_flux_dictionary.csv")
+writeLines(sub("(local wall clock; the trailing Z is not UTC)", "(local wall clock)", readLines(dd), fixed = TRUE), dd)
 
 table_info <- rbind(
   c("Stem CH4 and CO2 flux, one row per measurement",

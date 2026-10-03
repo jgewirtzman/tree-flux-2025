@@ -1,5 +1,5 @@
 column,unit,description,source
-datetime,,"start of the hour on Eastern Standard Time (UTC-5, no daylight saving); written with a trailing Z, which here does not mean UTC",
+datetime,,"start of the hour on Eastern Standard Time (UTC-5, no daylight saving)",
 bgs_wtd_cm,cm,"water level (stage) at the Black Gum Swamp hydrological station, hourly mean; relative to the station datum (higher = wetter)",HF070 bgs.stg
 bvs_wtd_cm,cm,"water level (stage) at the Beaver Swamp hydrological station, hourly mean; relative to the station datum (higher = wetter)",HF070 bvs.stg
 date,,date (EST),
