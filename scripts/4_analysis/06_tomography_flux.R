@@ -111,10 +111,12 @@ obs_test <- function(o, adjust_species = FALSE) {
   a <- anova(fit, ddf = "Kenward-Roger")["x", ]
   grid <- data.frame(m = seq(min(o$m), max(o$m), length.out = 60)); X <- cbind(1, (grid$m - mu) / sdv)
   b <- fixef(fit)[c("(Intercept)", "x")]; V <- as.matrix(vcov(fit))[c("(Intercept)", "x"), c("(Intercept)", "x")]
-  if (adjust_species) b[1] <- mean(predict(fit, re.form = NA))   # line at the mean of the species
+  if (adjust_species) b[1] <- mean(predict(fit, re.form = NA)) - b[["x"]] * mean(o$x)   # line at the average species
   grid$fit <- drop(X %*% b); grid$se <- sqrt(rowSums((X %*% V) * X))
+  tv <- unique(o[c("Tree", "m")])$m; q <- quantile(tv, c(0.1, 0.9), names = FALSE)
+  pred <- sinh(b[["(Intercept)"]] + b[["x"]] * (q - mu) / sdv)   # typical flux (back-transformed asinh mean)
   list(p = a$`Pr(>F)`, df = a$DenDF, beta = fixef(fit)[["x"]], se_beta = sqrt(V[2, 2]),
-       n_obs = nrow(o), n_trees = n_distinct(o$Tree), line = grid)
+       n_obs = nrow(o), n_trees = n_distinct(o$Tree), line = grid, metric_q = q, pred_q = pred)
 }
 fmt_p <- function(p) ifelse(p < 0.001, "< 0.001", sprintf("= %.3f", p))
 # axis ticks in flux units; the ±0.1 ticks are dropped when the axis spans more than ~±3 nmol m-2 s-1
@@ -378,7 +380,7 @@ create_species_panel <- function(data, species_label, bad_sonic_indices = c(),
       geom_line(data = tt$line, aes(m, fit), inherit.aes = FALSE, colour = "black", linewidth = 0.8)
   }
   p_scatter <- p_scatter + geom_point(size = 2.5, shape = 16) + scale_y_asinh() +
-    labs(x = metric_x_label, y = expression(CH[4]~flux), subtitle = sprintf("β = %.2f per SD\np %s", tt$beta, fmt_p(tt$p))) +
+    labs(x = metric_x_label, y = expression(CH[4]~flux), subtitle = sprintf("p %s", fmt_p(tt$p))) +
     theme_classic(base_size = 11) +
     theme(axis.line = element_line(linewidth = 0.5),
           axis.ticks = element_line(linewidth = 0.5),
@@ -545,7 +547,7 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
   }
   class_scatter <- function(data, sp_col, thr) {
     o <- obs_for(data); tt <- obs_test(o)
-    lab <- sprintf("β = %.2f per SD (p %s)\n%d trees, %d measurements", tt$beta, fmt_p(tt$p), tt$n_trees, tt$n_obs)
+    lab <- sprintf("p %s\n%d trees, %d measurements", fmt_p(tt$p), tt$n_trees, tt$n_obs)
     tm <- o %>% group_by(Tree) %>% summarise(m = first(m), y = mean(y), .groups = "drop") %>%
       left_join(data %>% transmute(Tree = as.numeric(tree), cls = ifelse(is.na(decay_phase_short), "no SoT", decay_phase_short)), by = "Tree")
     ggplot(tm, aes(m, y)) +
@@ -581,10 +583,10 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
     o_all <- obs_for(sd0) %>% left_join(sd0 %>% transmute(Tree = as.numeric(tree), species_full), by = "Tree")
     tests <- lapply(split(o_all, o_all$species_full), obs_test)
     st <- tibble(species_full = names(tests), beta = sapply(tests, `[[`, "beta"), p = sapply(tests, `[[`, "p")) %>%
-      mutate(lab = sprintf("%s  β = %.2f, p %s%s", species_full, beta, fmt_p(p), ifelse(p < SIG_P, " *", "")))
+      mutate(lab = sprintf("%s  p %s%s", species_full, fmt_p(p), ifelse(p < SIG_P, " *", "")))
     labs_v <- setNames(st$lab, st$species_full)
     adj <- obs_test(o_all, adjust_species = TRUE)
-    sub <- sprintf("All species, species-adjusted:\nβ = %.2f per SD (p %s)", adj$beta, fmt_p(adj$p))
+    sub <- sprintf("All species, species-adjusted: p %s", fmt_p(adj$p))
     lines <- bind_rows(lapply(names(tests)[st$p < SIG_P], function(k) tests[[k]]$line %>% mutate(species_full = k)))
     tm <- o_all %>% group_by(Tree, species_full) %>% summarise(m = first(m), y = mean(y), .groups = "drop")
     g <- ggplot(tm, aes(m, y, colour = species_full, shape = species_full)) +
@@ -613,7 +615,8 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
     bind_rows(lapply(c(sort(unique(o_all$species_full)), "species-adjusted"), function(k) {
       t <- if (k == "species-adjusted") obs_test(o_all, adjust_species = TRUE) else obs_test(o_all %>% filter(species_full == k))
       tibble(site = s, group = k, metric = "ert_cv", beta_per_sd = t$beta, se = t$se_beta, kr_df = t$df, p = t$p,
-             n_trees = t$n_trees, n_obs = t$n_obs)
+             n_trees = t$n_trees, n_obs = t$n_obs, ert_cv_p10 = t$metric_q[1], ert_cv_p90 = t$metric_q[2],
+             flux_at_p10 = t$pred_q[1], flux_at_p90 = t$pred_q[2])
     }))
   }))
   write_csv(allobs_tests, "outputs/tables/ert_allobs_tests.csv")
