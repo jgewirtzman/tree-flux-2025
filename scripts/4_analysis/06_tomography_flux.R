@@ -97,12 +97,12 @@ message("  Flux data: ", nrow(tree_flux_means), " trees")
 # date, flux ~ metric (per SD) + (1 | tree) + (1 | date), on untransformed flux so that the
 # effect reads as nmol m-2 s-1 per SD of the metric; the metric is tested with Kenward-Roger
 # degrees of freedom (about 8 for 10 trees), because likelihood-ratio tests are anticonservative
-# with so few groups. Figures show flux on an asinh axis (y = asinh(flux)) for legibility only.
+# with so few groups. Figures show flux on linear axes, scaled to each panel.
 suppressPackageStartupMessages(library(lmerTest))
 obs_for <- function(trees, metric = "ert_cv") {
   flux_data %>% filter(!is.na(CH4_flux_nmolpm2ps)) %>%
     inner_join(trees %>% transmute(Tree = as.numeric(tree), m = .data[[metric]]) %>% filter(!is.na(m)), by = "Tree") %>%
-    mutate(flux = CH4_flux_nmolpm2ps, y = asinh(flux))   # y: display scale only
+    mutate(flux = CH4_flux_nmolpm2ps, y = flux)
 }
 obs_test <- function(o, adjust_species = FALSE) {
   mu <- mean(unique(o[c("Tree", "m")])$m); sdv <- sd(unique(o[c("Tree", "m")])$m)
@@ -114,7 +114,7 @@ obs_test <- function(o, adjust_species = FALSE) {
   b <- fixef(fit)[c("(Intercept)", "x")]; V <- as.matrix(vcov(fit))[c("(Intercept)", "x"), c("(Intercept)", "x")]
   if (adjust_species) b[1] <- mean(predict(fit, re.form = NA)) - b[["x"]] * mean(o$x)   # line at the average species
   fr <- drop(X %*% b); se <- sqrt(rowSums((X %*% V) * X))
-  grid$fit <- asinh(fr); grid$lo <- asinh(fr - 1.96 * se); grid$hi <- asinh(fr + 1.96 * se)   # display scale
+  grid$fit <- fr; grid$lo <- fr - 1.96 * se; grid$hi <- fr + 1.96 * se
   list(p = a$`Pr(>F)`, df = a$DenDF, beta = fixef(fit)[["x"]], se_beta = sqrt(V[2, 2]), metric_sd = sdv,
        n_obs = nrow(o), n_trees = n_distinct(o$Tree), line = grid)
 }
@@ -370,7 +370,7 @@ create_species_panel <- function(data, species_label, bad_sonic_indices = c(),
 
   # Scatter: ERT metric vs every CH4 measurement (grey) and tree means; mixed-model test (see obs_test)
   o <- obs_for(data, metric); tt <- obs_test(o)
-  tm <- o %>% group_by(Tree) %>% summarise(m = first(m), y = asinh(mean(flux)), .groups = "drop")
+  tm <- o %>% group_by(Tree) %>% summarise(m = first(m), y = mean(flux), .groups = "drop")
   p_scatter <- ggplot(tm, aes(m, y)) +
     geom_hline(yintercept = 0, colour = "grey80", linewidth = 0.3) +
     geom_point(data = o, colour = "grey55", size = 0.7, alpha = 0.35, stroke = 0)
@@ -379,7 +379,7 @@ create_species_panel <- function(data, species_label, bad_sonic_indices = c(),
       geom_ribbon(data = tt$line, aes(m, ymin = lo, ymax = hi), inherit.aes = FALSE, fill = "grey30", alpha = 0.15) +
       geom_line(data = tt$line, aes(m, fit), inherit.aes = FALSE, colour = "black", linewidth = 0.8)
   }
-  p_scatter <- p_scatter + geom_point(size = 2.5, shape = 16) + scale_y_asinh() +
+  p_scatter <- p_scatter + geom_point(size = 2.5, shape = 16) + 
     labs(x = metric_x_label, y = expression(CH[4]~flux), subtitle = sprintf("p %s", fmt_p(tt$p))) +
     theme_classic(base_size = 11) +
     theme(axis.line = element_line(linewidth = 0.5),
@@ -548,7 +548,7 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
   class_scatter <- function(data, sp_col, thr) {
     o <- obs_for(data); tt <- obs_test(o)
     lab <- sprintf("p %s\n%d trees, %d measurements", fmt_p(tt$p), tt$n_trees, tt$n_obs)
-    tm <- o %>% group_by(Tree) %>% summarise(m = first(m), y = asinh(mean(flux)), .groups = "drop") %>%
+    tm <- o %>% group_by(Tree) %>% summarise(m = first(m), y = mean(flux), .groups = "drop") %>%
       left_join(data %>% transmute(Tree = as.numeric(tree), cls = ifelse(is.na(decay_phase_short), "no SoT", decay_phase_short)), by = "Tree")
     ggplot(tm, aes(m, y)) +
       geom_hline(yintercept = 0, colour = "grey80", linewidth = 0.3) +
@@ -557,7 +557,7 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
                                geom_line(data = tt$line, aes(m, fit), inherit.aes = FALSE, colour = sp_col, linewidth = 0.8)) } +
       geom_point(aes(fill = cls), shape = 21, size = 3.2, colour = "grey20", stroke = 0.3) +
       scale_fill_manual(values = c(class_cols, "no SoT" = "white"), name = "Class", drop = TRUE) +
-      scale_y_asinh() +
+      
       labs(x = "ERT CV", y = expression(CH[4]~flux~(nmol~m^{-2}~s^{-1})), subtitle = lab) +
       theme_classic(base_size = 12) +
       theme(aspect.ratio = 1, legend.position = "none", plot.margin = margin(4, 8, 4, 4),
@@ -588,7 +588,7 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
     adj <- obs_test(o_all, adjust_species = TRUE)
     sub <- sprintf("All species, species-adjusted: p %s", fmt_p(adj$p))
     lines <- bind_rows(lapply(names(tests)[st$p < SIG_P], function(k) tests[[k]]$line %>% mutate(species_full = k)))
-    tm <- o_all %>% group_by(Tree, species_full) %>% summarise(m = first(m), y = asinh(mean(flux)), .groups = "drop")
+    tm <- o_all %>% group_by(Tree, species_full) %>% summarise(m = first(m), y = mean(flux), .groups = "drop")
     g <- ggplot(tm, aes(m, y, colour = species_full, shape = species_full)) +
       geom_hline(yintercept = 0, colour = "grey80", linewidth = 0.3) +
       geom_point(data = o_all, size = 0.6, alpha = 0.25, stroke = 0, show.legend = FALSE)
@@ -599,7 +599,7 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
       scale_colour_manual(values = species_colors, labels = labs_v, name = NULL) +
       scale_fill_manual(values = species_colors, guide = "none") +
       scale_shape_manual(values = spp_shapes, labels = labs_v, name = NULL) +
-      scale_y_asinh() +
+      
       labs(x = "ERT CV",
            y = expression(CH[4]~flux~(nmol~m^{-2}~s^{-1})), title = site_name, subtitle = sub, tag = tag) +
       theme_classic(base_size = 12) + tg +
