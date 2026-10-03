@@ -133,8 +133,8 @@ add_table(key, "Decay classification (from the companion tomography study).",
 # S4 wood-condition metric correlations
 s4 <- rd(file.path(T_, "SI_decay_metric_correlations.csv")) %>%
   mutate(across(-(1:2), ~ gsub("; ", "\n", .x)))
-add_table(s4, "Four wood-condition metrics against stem CH₄ flux, by species and site.",
-  "Each cell: β, the slope of asinh-transformed flux per SD of the metric, with its p-value, in a mixed model of every measurement with random intercepts for tree and sampling date (Kenward–Roger degrees of freedom; the tree is the unit of replication), and the range of β when each tree is omitted in turn (LOO). The species-adjusted rows fit all species at a site with species as a fixed effect. SoT structural loss: % of the cross-section in non-brown (low-velocity) classes; ERT mean: mean resistivity (lower = wetter); ERT CV: heterogeneity of resistivity; ERT index: first principal component of eight ERT metrics standardized within species (Thompson et al. 2026). –: no variation among trees. * p < 0.10 (with ten trees per species, the threshold used for these tests).",
+add_table(s4, "Wood-condition metrics against stem CH₄ flux, by species and site.",
+  "Each cell: β, the slope of asinh-transformed flux per SD of the metric, with its p-value, in a mixed model of every measurement with random intercepts for tree and sampling date (Kenward–Roger degrees of freedom; the tree is the unit of replication), and the range of β when each tree is omitted in turn (LOO). The species-adjusted rows fit all species at a site with species as a fixed effect. SoT structural loss: % of the cross-section in non-brown (low-velocity) classes; ERT CV: heterogeneity of resistivity; ERT index: first principal component of eight ERT metrics standardized within species (Thompson et al. 2026). –: no variation among trees. * p < 0.10 (with ten trees per species, the threshold used for these tests).",
   "scripts/4_analysis/07_decay_definitions.R", "decay_corr")
 
 # S7 wetland model comparison (shared observations)

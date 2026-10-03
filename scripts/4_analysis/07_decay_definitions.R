@@ -76,9 +76,8 @@ print(as.data.frame(res %>% mutate(across(where(is.numeric), ~ signif(.x, 2)))))
 print(as.data.frame(sp_res %>% mutate(across(where(is.numeric), ~ signif(.x, 2)))))
 
 # ------------------------------------------------------------
-# SI table: four wood-condition metrics against every CH4 measurement
+# SI table: three wood-condition metrics against every CH4 measurement
 #   SoT structural loss  % of the SoT cross-section in non-brown (low-velocity) classes (PiCUS Q74)
-#   ERT mean             mean resistivity of the ERT cross-section (Ohm m; lower = wetter)
 #   ERT CV               coefficient of variation of resistivity (heterogeneity of moisture)
 #   ERT index (PC1)      first principal component of eight ERT metrics, each z-scored within
 #                        species (tomography paper; higher = wetter, more heterogeneous)
@@ -89,7 +88,7 @@ print(as.data.frame(sp_res %>% mutate(across(where(is.numeric), ~ signif(.x, 2))
 # Cells: beta per SD (p), and the range of beta when each tree is omitted in turn.
 # ------------------------------------------------------------
 suppressPackageStartupMessages(library(lmerTest))
-metrics <- c(sot_loss_pct = "SoT structural loss (%)", ert_mean = "ERT mean (Ohm m)", ert_cv = "ERT CV", ert_pc1 = "ERT index (PC1)")
+metrics <- c(sot_loss_pct = "SoT structural loss (%)", ert_cv = "ERT CV", ert_pc1 = "ERT index (PC1)")
 trees$sot_loss_pct <- trees$sot_structural_loss
 kr_fit <- function(o, adjust) {
   sdx <- sd(unique(o[c("Tree", "x")])$x); if (!is.finite(sdx) || sdx == 0) return(c(b = NA, p = NA))
