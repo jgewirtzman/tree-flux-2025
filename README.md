@@ -23,7 +23,7 @@ Scripts run in numbered stages; within a stage, in numbered order.
 | 4 | `scripts/4_analysis/` | descriptive analyses and figures (Figures 1–5, S1–S2) | `outputs/figures/`, `outputs/tables/` |
 | 5 | `scripts/5_models/` | driver models, checks, every number quoted in the manuscript | `outputs/models/`, `outputs/tables/manuscript/` |
 | 6 | `scripts/6_manuscript/` | Supporting Information document | `outputs/manuscript/Supporting_Information.docx` |
-| 7 | `scripts/7_publish/` | assemble the data package and draft EML for the Harvard Forest Data Archive | `data/edi/package/` |
+| 7 | `scripts/7_publish/` | assemble the data package and its EML for the Harvard Forest Data Archive (`00_attributes.R`, then `01_build_edi_package.R`; metadata text in `metadata/`) | `data/edi/package/` |
 
 Run everything after stage 0:
 

@@ -1,0 +1,47 @@
+column,unit,description,source
+datetime,,"start of the hour on Eastern Standard Time (UTC-5, no daylight saving); written with a trailing Z, which here does not mean UTC",
+bgs_wtd_cm,cm,"water level (stage) at the Black Gum Swamp hydrological station, hourly mean; relative to the station datum (higher = wetter)",HF070 bgs.stg
+bvs_wtd_cm,cm,"water level (stage) at the Beaver Swamp hydrological station, hourly mean; relative to the station datum (higher = wetter)",HF070 bvs.stg
+date,,date (EST),
+hour,h,hour of day (EST),
+tair_C,degC,"air temperature, hourly mean",HF001 airt
+p_kPa,kPa,"barometric pressure, hourly mean",HF001 bar
+P_mm,mm,"precipitation, hourly total",HF001 prec
+RH,%,"relative humidity, hourly mean",HF001 rh
+PAR,umol m-2 s-1,"photosynthetically active radiation, hourly mean",HF001 parr
+rnet,W m-2,"net radiation, hourly mean",HF001 netr
+slrr,W m-2,"global solar radiation, hourly mean",HF001 slrr
+s10t,degC,"soil temperature at 10 cm, hourly mean",HF001 s10t
+VPD_kPa,kPa,"vapour pressure deficit, calculated from tair_C, RH and p_kPa (plantecophys RHtoVPD)",HF001
+NEON_SWC_shallow,m3 m-3,"volumetric soil water content, shallow sensors (~6 cm), baseline-adjusted mean across NEON soil plots, hourly",NEON DP1.00094.001
+NEON_SWC_mid,m3 m-3,"volumetric soil water content, mid-depth sensors (~16-26 cm), baseline-adjusted mean across NEON soil plots, hourly",NEON DP1.00094.001
+NEON_SWC_deep,m3 m-3,"volumetric soil water content, deep sensors (~50 cm and below), baseline-adjusted mean across NEON soil plots, hourly",NEON DP1.00094.001
+SWC_Ha1,%,"soil water content at the EMS tower, baseline-adjusted mean across sensors, hourly",AmeriFlux US-Ha1 SWC
+SWC_Ha2,%,"soil water content at the Hemlock tower, baseline-adjusted mean across sensors, hourly",AmeriFlux US-Ha2 SWC
+TS_Ha1,degC,"soil temperature at the EMS tower, baseline-adjusted mean across sensors, hourly",AmeriFlux US-Ha1 TS
+TS_Ha2,degC,"soil temperature at the Hemlock tower, baseline-adjusted mean across sensors, hourly",AmeriFlux US-Ha2 TS
+FC_Ha1,umol m-2 s-1,"CO2 turbulent flux at the EMS tower (mean of replicates), hourly",AmeriFlux US-Ha1 FC
+LE_Ha1,W m-2,"latent heat flux at the EMS tower (mean of replicates), hourly",AmeriFlux US-Ha1 LE
+SC_Ha1,umol m-2 s-1,"CO2 storage flux at the EMS tower, hourly",AmeriFlux US-Ha1 SC
+H_Ha1,W m-2,"sensible heat flux at the EMS tower, hourly",AmeriFlux US-Ha1 H
+USTAR_Ha1,m s-1,"friction velocity at the EMS tower, hourly",AmeriFlux US-Ha1 USTAR
+FC_Ha2,umol m-2 s-1,"CO2 turbulent flux at the Hemlock tower (mean of replicates), hourly",AmeriFlux US-Ha2 FC
+LE_Ha2,W m-2,"latent heat flux at the Hemlock tower (mean of replicates), hourly",AmeriFlux US-Ha2 LE
+H_Ha2,W m-2,"sensible heat flux at the Hemlock tower (mean of replicates), hourly",AmeriFlux US-Ha2 H
+SC_Ha2,umol m-2 s-1,"CO2 storage flux at the Hemlock tower, hourly",AmeriFlux US-Ha2 SC
+CO2_MR_Ha2,umol mol-1,"CO2 mole fraction at the Hemlock tower, mean of profile levels, hourly",AmeriFlux US-Ha2 CO2
+USTAR_Ha2,m s-1,"friction velocity at the Hemlock tower (mean of replicates), hourly",AmeriFlux US-Ha2 USTAR
+FC_xHA,umol m-2 s-1,"CO2 turbulent flux at the NEON tower, hourly",NEON DP4.00200.001
+SC_xHA,umol m-2 s-1,"CO2 storage flux at the NEON tower, hourly",NEON DP4.00200.001
+CH4_MR_xHA,nmol mol-1,"CH4 dry mole fraction at the NEON tower, mean of profile levels, hourly",NEON DP4.00200.001
+CO2_MR_xHA,umol mol-1,"CO2 dry mole fraction at the NEON tower, mean of profile levels, hourly",NEON DP4.00200.001
+T_CANOPY_xHA,degC,"canopy (infrared biological) temperature at the NEON tower, mean of sensors, hourly",NEON DP1.00005.001
+THROUGHFALL_xHA,mm,"throughfall, mean of the NEON gauges, per 30 min averaged over the hour",NEON DP1.00046.001
+G_xHA,W m-2,"soil heat flux, mean of the NEON plates, hourly",NEON DP1.00040.001
+USTAR_xHA,m s-1,"friction velocity at the NEON tower, hourly",NEON DP4.00200.001
+gcc,,"green chromatic coordinate (90th percentile, daily value repeated for each hour), EMS camera harvardems2 ROI DB_1000",PhenoCam gcc_90
+ndvi,,"NDVI (90th percentile, daily value repeated for each hour), EMS camera harvardems2 ROI DB_1000",PhenoCam ndvi_90
+year,,calendar year (EST),
+month,,month (EST),
+doy,,day of year (EST),
+wyear,,water year (October-September; labelled by the year in which it ends),

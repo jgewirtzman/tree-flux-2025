@@ -67,3 +67,4 @@ manuscript_work/
 !figures_static/*.png
 !figures_static/*.tif
 !figures_static/*.jpg
+!scripts/7_publish/metadata/dictionaries/*.csv

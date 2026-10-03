@@ -1,0 +1,25 @@
+keyword	keywordThesaurus
+methane	LTER Controlled Vocabulary
+carbon dioxide	LTER Controlled Vocabulary
+greenhouse gases	LTER Controlled Vocabulary
+trees	LTER Controlled Vocabulary
+wetlands	LTER Controlled Vocabulary
+forests	LTER Controlled Vocabulary
+drought	LTER Controlled Vocabulary
+water table	LTER Controlled Vocabulary
+soil temperature	LTER Controlled Vocabulary
+decomposition	LTER Controlled Vocabulary
+stem flux	
+tree stem methane emissions	
+chamber flux	
+minimum detectable flux	
+wood decay	
+sonic tomography	
+electrical resistance tomography	
+Nyssa sylvatica	
+Acer rubrum	
+Tsuga canadensis	
+Quercus rubra	
+Harvard Forest	
+Black Gum Swamp	
+Environmental Measurement Station	

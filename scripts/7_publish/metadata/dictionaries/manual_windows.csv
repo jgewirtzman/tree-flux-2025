@@ -1,0 +1,6 @@
+column,unit,description
+closure_id,,closure (analyzer_date_tree_start) as in the processing
+decision,,"keep: kept as fitted; click: refitted over the window start-end chosen on inspection; exclude: excluded (concentration spike at the start of the record)"
+start,,start of the manually chosen window (local wall clock; click only)
+end,,end of the manually chosen window (local wall clock; click only)
+note,,note made on inspection

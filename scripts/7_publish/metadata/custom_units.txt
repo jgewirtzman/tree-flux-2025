@@ -1,0 +1,5 @@
+id	unitType	parentSI	multiplierToSI	description
+nanomolePerMeterSquaredPerSecond	arealAmountRate	molesPerMeterSquaredPerSecond	0.000000001	nanomoles per square meter per second
+cubicCentimeter	volume	cubicMeter	0.000001	cubic centimeters
+squareCentimeter	area	squareMeter	0.0001	square centimeters
+cubicMeterPerCubicMeter	dimensionless	dimensionless	1	volumetric water content, cubic meters of water per cubic meter of soil

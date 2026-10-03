@@ -1,0 +1,15 @@
+column,unit,description
+Plot,,plot code: BGS (wetland) or ForestGEO sub-plot code (upland: C1-H1)
+Tag,,ForestGEO tag of the tree
+Old tag,,earlier field tag of wetland trees (mapped to the ForestGEO tag in processing)
+depth1,cm,collar depth at interior point 1
+depth2,cm,collar depth at interior point 2
+depth3,cm,collar depth at interior point 3
+depth4,cm,collar depth at interior point 4
+average,cm,mean of the four collar depths
+radius,cm,collar inner radius
+Volume_cylinder,cm3,collar volume (pi x radius^2 x average depth)
+Volume_cap,cm3,cap volume
+Volume_tubes,cm3,tubing volume
+Volume (cm3),cm3,"chamber volume: collar + cap + tubing (the analyzer volume, 0.028 L, is added in processing)"
+Volume,L,chamber volume in liters

@@ -1,0 +1,6 @@
+column,unit,description
+script,,processing script (scripts/2_flux/ of the analysis code)
+step,,processing step
+rule,,cleaning rule applied
+n_records,,number of records the rule touched
+detail,,details

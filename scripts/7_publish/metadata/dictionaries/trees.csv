@@ -1,0 +1,11 @@
+column,unit,description
+Tree,,ForestGEO tag of the tree
+site,,Wetland (Black Gum Swamp) or Upland (EMS)
+plot,,plot code: BGS or EMS
+species,,"species code: bg Nyssa sylvatica; hem Tsuga canadensis; rm Acer rubrum; ro Quercus rubra"
+species_name,,species name
+DBH_cm,cm,stem diameter at breast height (1.37 m)
+microtopography,,"wetland trees: hummock, hollow or hollow/hummock (transition); empty for upland trees"
+lat,deg,latitude (WGS84; field GPS)
+lon,deg,longitude (WGS84; field GPS)
+gps_date,,date of the GPS survey

@@ -1,0 +1,9 @@
+column,unit,description
+tree,,ForestGEO tag of the tree
+species,,"species code: bg Nyssa sylvatica; hem Tsuga canadensis; rm Acer rubrum; ro Quercus rubra"
+site,,Wetland (Black Gum Swamp) or Upland (EMS)
+ert_pc1,,"first principal component of the eight ERT metrics, each standardized within species (higher = lower and more heterogeneous resistivity, i.e. wetter or anomalous)"
+ert_pc1_threshold,,"anomalous-moisture threshold on ert_pc1 (study-set mean; the same for every tree)"
+sot_structural_loss,%,"percentage of the SoT cross-section in non-brown (low-velocity) classes (from Tree_ID_info.csv)"
+sot_solid,%,"percentage of the SoT cross-section classified as solid wood"
+decay_class,,"decay class (Thompson et al. 2026): I: No Decay (no moisture anomaly, structural loss <= 1 %); II: Incipient (moisture anomaly only); III: Active (both); IV: Cavity (structural loss only)"

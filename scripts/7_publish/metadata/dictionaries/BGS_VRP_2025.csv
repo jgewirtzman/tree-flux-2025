@@ -1,0 +1,9 @@
+column,unit,description
+date,,survey date (YYYYMMDD)
+plot,,prism point identifier
+lat,deg,latitude of the point (WGS84)
+long,deg,longitude of the point (WGS84)
+tree_id,,stem number within the point
+species,,"species code as recorded: six-letter genus-species codes (acerru Acer rubrum; betual Betula alleghaniensis; betule Betula lenta; betupa Betula papyrifera; nysssy Nyssa sylvatica; piceru Picea rubens; pinure Pinus resinosa; pinust Pinus strobus; queral Quercus alba; querru Quercus rubra; tsugca Tsuga canadensis), genus only (ACER, BETULA, PICEA) or UNK (unknown)"
+dbh,cm,stem diameter at breast height
+status,,"alive, dead or stressed"

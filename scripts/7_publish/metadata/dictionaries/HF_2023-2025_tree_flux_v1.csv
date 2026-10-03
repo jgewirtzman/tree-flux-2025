@@ -1,0 +1,39 @@
+column,unit,description
+...1,,row number of the earlier processing
+airt,degC,air temperature at the time of measurement (Fisher Meteorological Station)
+rh,%,relative humidity at the time of measurement (Fisher Meteorological Station)
+parr,umol m-2 s-1,photosynthetically active radiation at the time of measurement (Fisher Meteorological Station)
+bar,mbar,barometric pressure at the time of measurement (Fisher Meteorological Station)
+datetime_posx,,"start time of the measurement on the local wall clock (America/New_York); written with a trailing Z, which here does not mean UTC"
+Tree,,ForestGEO tag of the tree
+DATE,,measurement date (LI-7810 period only)
+H2O,umol mol-1,mean H2O mole fraction during the closure (LI-7810 period only)
+CO2,umol mol-1,mean CO2 mole fraction during the closure (LI-7810 period only)
+CH4,nmol mol-1,mean CH4 mole fraction during the closure (LI-7810 period only)
+ERROR,,error flag of the LI-7810 remark (LI-7810 period only)
+ERROR_comment,,error comment of the LI-7810 remark (empty in this version)
+REMARK_LENGTH,s,length of the tagged LI-7810 remark (closure length; LI-7810 period only)
+PLOT,,"plot code: BGS (wetland) or ForestGEO sub-plot code (upland)"
+SPECIES,,"species code: bg Nyssa sylvatica; hem Tsuga canadensis; rm Acer rubrum; ro Quercus rubra"
+DBH,cm,stem diameter at breast height
+OLD_TAG,,earlier field tag of wetland trees
+MEAN_DEPTH,cm,mean collar depth (LI-7810 period only)
+vol_system,L,system volume (LI-7810 period only)
+nmol,mol,moles of gas in the closed system (LI-7810 period only)
+surfarea,m2,enclosed bark area (LI-7810 period only)
+CO2_r2,,R2 of the linear CO2 fit
+CH4_r2,,R2 of the linear CH4 fit
+CO2_SE,,standard error of the CO2 slope (units differ between the two analyzers; not used in the current processing)
+CH4_SE,,standard error of the CH4 slope (units differ between the two analyzers; not used in the current processing)
+CO2_flux_umolpm2ps,umol m-2 s-1,stem CO2 flux of the earlier processing (linear fit)
+CH4_flux_nmolpm2ps,nmol m-2 s-1,stem CH4 flux of the earlier processing (linear fit; positive = emission)
+year,,calendar year
+jday,,day of year
+UniqueID,,"measurement identifier of the earlier processing (some values were converted to dates by spreadsheet software, e.g. 1-Jan)"
+qa_check,,"good or bad: quality classification of the earlier processing (LGR period; not used in the current processing)"
+date,,measurement date
+location,,Wetland (Black Gum Swamp) or Upland (EMS)
+days_since_last,d,days since the previous campaign
+new_round,,TRUE for the first measurement of a campaign
+sampling_round,,sampling campaign (campaigns separated by more than 7 days)
+species_label,,species name

@@ -15,8 +15,9 @@
 #     tomography/                      tomography metrics and images (companion study)
 #     stand/                           2025 prism survey of the swamp, swamp outline
 #
-# The final datasets (stem_ch4_flux.csv etc.) are also in the package but are rebuilt by
-# the pipeline; they are saved to data/package/published_final/ for comparison.
+# The derived datasets (stem_ch4_flux.csv, environment_hourly.csv, tomography_classes.csv and
+# their dictionaries, log and settings) are also in the package but are rebuilt by the pipeline;
+# they are saved to data/package/published_final/ for comparison.
 # Requires: EDIutils
 # ============================================================
 library(EDIutils)
@@ -45,7 +46,11 @@ place <- list(
   "BGS_VRP_2025.csv" = file.path(PKG, "stand"), "Black_Gum_Swamp.kmz" = file.path(PKG, "stand"),
   "stem_ch4_flux.csv" = file.path(PKG, "published_final"),
   "stem_ch4_flux_dictionary.csv" = file.path(PKG, "published_final"),
-  "flux_processing_log.csv" = file.path(PKG, "published_final"))
+  "flux_processing_log.csv" = file.path(PKG, "published_final"),
+  "environment_hourly.csv" = file.path(PKG, "published_final"),
+  "environment_hourly_dictionary.csv" = file.path(PKG, "published_final"),
+  "tomography_classes.csv" = file.path(PKG, "published_final"),
+  "flux_processing_settings.json" = file.path(PKG, "published_final"))
 zips <- c("field_logs.zip" = file.path(PKG, "field_logs"),
           "analyzer_raw_lgr.zip" = file.path(PKG, "analyzer_raw", "lgr"),
           "analyzer_raw_li7810.zip" = file.path(PKG, "analyzer_raw", "li7810"),
