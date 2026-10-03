@@ -66,18 +66,18 @@ add_figure <- function(path, title, caption, key, w = 6.5, h = NULL) {
   items[[length(items) + 1]] <<- data.frame(key = paste0("F:", key), item = sprintf("Figure S%d", fig_n), title = title, source = path)
 }
 
-AUTHORS <- "Jonathan Gewirtzman¹˒²˒³, Naomi Hegwood⁴, Hannah Burrows⁵˒⁶, Maxwell P. Lutz⁴, Grace E. Thompson⁴†, Bethany Duncan⁷, Masako Yang⁸, Samuel Jurado¹, Mark A. Bradford¹˒⁹, Robert E. Marra¹⁰, Jaclyn Hatala Matthes⁴"
+AUTHORS <- "Jonathan Gewirtzman¹˒²˒³, Naomi Hegwood⁴, Hannah Burrows⁵˒⁶, Maxwell P. Lutz⁴, Grace E. Thompson⁴˒⁷, Bethany Duncan⁸, Masako Yang⁹, Samuel Jurado¹, Mark A. Bradford¹˒¹⁰, Robert E. Marra¹¹, Jaclyn Hatala Matthes⁴"
 AFFIL <- c("¹ Yale School of the Environment, Yale University, New Haven, Connecticut, USA",
            "² Department of Earth System Science, Stanford University, Stanford, California, USA",
            "³ Department of Ecology and Evolution, University of Chicago, Chicago, Illinois, USA",
            "⁴ Harvard Forest, Harvard University, Petersham, Massachusetts, USA",
            "⁵ Department of Earth and Planetary Sciences, Harvard University, Cambridge, Massachusetts, USA",
            "⁶ Department of Astronomy and Astrophysics, University of Chicago, Chicago, Illinois, USA",
-           "⁷ Fu Foundation School of Engineering and Applied Science, Columbia University, New York, New York, USA",
-           "⁸ Harvard College, Harvard University, Cambridge, Massachusetts, USA",
-           "⁹ The Forest School, Yale School of the Environment, Yale University, New Haven, Connecticut, USA",
-           "¹⁰ Department of Plant Pathology and Ecology, The Connecticut Agricultural Experiment Station, New Haven, Connecticut, USA",
-           "† Now at: Department of Natural Resources and the Environment, University of Connecticut, Storrs, Connecticut, USA")
+           "⁷ Department of Natural Resources and the Environment, University of Connecticut, Storrs, Connecticut, USA",
+           "⁸ Fu Foundation School of Engineering and Applied Science, Columbia University, New York, New York, USA",
+           "⁹ Harvard College, Harvard University, Cambridge, Massachusetts, USA",
+           "¹⁰ The Forest School, Yale School of the Environment, Yale University, New Haven, Connecticut, USA",
+           "¹¹ Department of Plant Pathology and Ecology, The Connecticut Agricultural Experiment Station, New Haven, Connecticut, USA")
 P0 <- update(PP, padding.bottom = 0)
 doc <- doc %>% par_(ftext("Journal of Geophysical Research: Biogeosciences", ti), fp_p = update(PP, padding.bottom = 12)) %>%
   par_(ftext("Supporting Information for", tb), fp_p = P0) %>%

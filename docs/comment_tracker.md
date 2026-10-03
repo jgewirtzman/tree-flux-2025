@@ -98,3 +98,30 @@ Jenkins 2008; soils sentence now Allen 1995 and Davidson et al. 1998); trajector
 - Generalist decay effect sizes added to the Results.
 - Old in-document SI removed.
 - Length: text about 7,100 words plus 830 words of captions, about 23.8 PU (limit 25).
+
+## 3 Oct 2026 — Wood condition against every measurement (Bradford #39); authorship
+
+- **Test:** wood condition is now tested against every flux measurement, not tree means. Comment 39 asked for this.
+  - Model: flux ~ metric (per SD within group) + (1 | tree) + (1 | date), on untransformed flux.
+  - Kenward–Roger df. α = 0.10 for these tree-level tests only (10 trees per group), stated in the Methods.
+  - Effects are given as nmol m⁻² s⁻¹ per SD of ERT CV.
+- **Results (p-values):**
+
+  | Group | p |
+  |---|---|
+  | *N. sylvatica* | 0.031 |
+  | *Q. rubra* | 0.025 |
+  | Upland *A. rubrum* | 0.065 |
+  | Wetland *A. rubrum* | 0.37 |
+  | *T. canadensis* | n.s. |
+  | Pooled, species-adjusted | wetland 0.004; upland 0.015 |
+
+  - The conclusions are the same on the asinh scale.
+  - The earlier "no metric significant in species-adjusted models" came from an asinh(1000 × flux) analysis. It has been removed.
+- **Figures 5 and S5:** grey measurements behind the tree means. Linear axes are zoomed to the tree means, with subtle edge markers for measurements off the axis.
+- **Table S2:** same model throughout, with SoT structural loss, ERT CV and the ERT index; ERT mean dropped.
+- **Main text:** ERT CV only. The other metrics are referred to Table S2.
+- **Authorship:** Mark A. Bradford (Yale School of the Environment; The Forest School) added as a co-author before Marra.
+- **Acknowledgements:** now thank Peter Raymond only. Co-author comments in the draft were checked; none are from Raymond.
+- **Funding:** NSF DEB-1945921/DEB-2231681 (corrected) and REU DBI-1950364/DBI-2348924 added.
+- **Data citations:** AmeriFlux and NEON datasets cited by DOI, with the required acknowledgement statements.

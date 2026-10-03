@@ -578,11 +578,8 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
   pc <- strip_panel(oa2, "Quercus rubra (upland)", species_colors[["Q. rubra"]]) + labs(tag = "c") + tg
   pd <- class_scatter(oa2, species_colors[["Q. rubra"]], thr) + labs(tag = "d", title = "Q. rubra") + tg
 
-  # site-level scatters (all trees), species coloured; each species' r and p in the legend;
-  # a line only where that species' correlation is significant; pooled r and the
-  # species-adjusted p (4_analysis/07_decay_definitions.R) in the subtitle
-  dd <- if (file.exists("outputs/tables/decay_definition_comparison.csv"))
-    read_csv("outputs/tables/decay_definition_comparison.csv", show_col_types = FALSE) else NULL
+  # site-level scatters (all trees), species coloured; each species' p in the legend;
+  # a line only where that species' test has p < SIG_P; the species-adjusted test in the subtitle
   site_pc1 <- function(site_name, tag) {
     sd0 <- tomo_flux %>% filter(location == site_name, !is.na(ert_cv))
     o_all <- obs_for(sd0) %>% left_join(sd0 %>% transmute(Tree = as.numeric(tree), species_full), by = "Tree")
