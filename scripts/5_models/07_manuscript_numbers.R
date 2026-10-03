@@ -39,7 +39,7 @@ d <- read.csv(file.path("data", "final", "stem_ch4_flux.csv"), stringsAsFactors 
   mutate(location = ifelse(PLOT == "BGS", "Wetland", "Upland"), date = as.Date(date),
          species_full = dplyr::recode(SPECIES, bg = "N. sylvatica", hem = "T. canadensis", rm = "A. rubrum", ro = "Q. rubra"),
          month = as.integer(format(date, "%m")), year = as.integer(format(date, "%Y")),
-         flux = CH4_flux_nmolpm2ps, asinh_flux = asinh(flux * 1000))
+         flux = CH4_flux_nmolpm2ps, asinh_flux = asinh(flux))   # flux already in nmol m-2 s-1: the model scale
 dd <- sort(unique(d$date)); d$round <- cumsum(c(TRUE, diff(dd) > 7))[match(d$date, dd)]
 
 say("=== DATA ===")
@@ -118,7 +118,7 @@ for (i in seq_len(nrow(rmx))) with(rmx[i, ], say(sprintf("Peak round mean %s: %.
 # ------------------------------------------------------------
 # Variance partitioning (#36, #37): shares of one model sum to 100 %
 # ------------------------------------------------------------
-say("\n=== VARIANCE PARTITIONING (asinh(flux x 1000); random-intercept variance shares) ===")
+say("\n=== VARIANCE PARTITIONING (asinh(flux, nmol m-2 s-1); random-intercept variance shares) ===")
 vp <- list()
 m0 <- lmer(asinh_flux ~ 1 + (1 | location), data = d)
 v0 <- as.data.frame(VarCorr(m0)); tot0 <- sum(v0$vcov)

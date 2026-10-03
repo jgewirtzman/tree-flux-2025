@@ -172,7 +172,7 @@ co <- bind_rows(lapply(c(wetland_core = "Wetland core", upland_A = "Upland A", u
   { mapply(function(k, lab) rd(file.path(MN, paste0("coefficients_", k, ".csv"))) %>% mutate(Model = lab), names(.), ., SIMPLIFY = FALSE) }) %>%
   transmute(Model, Term = term_lab(term), Estimate = f2(estimate, 3), SE = f2(se, 3), df = f2(df, 1), t = f2(t, 2), p = fp(p))
 add_table(co, "Fixed-effect coefficients of the final models (asinh scale; standardized predictors).",
-  "Reference species: N. sylvatica (wetland) and A. rubrum (upland). Satterthwaite degrees of freedom.", "outputs/tables/manuscript/coefficients_*.csv", "coefs")
+  "Reference species: N. sylvatica (wetland) and T. canadensis (upland). Satterthwaite degrees of freedom.", "outputs/tables/manuscript/coefficients_*.csv", "coefs")
 
 # S11 diagnostics: variance explained, out-of-sample, accuracy and bias
 oos <- rd(file.path(MC, "out_of_sample.csv")); acc <- rd(file.path(MC, "accuracy_bias.csv")); ts <- rd(file.path(MC, "temperature_vs_season.csv"))
@@ -207,8 +207,8 @@ add_figure(file.path(FIG, "si_driver_timeseries.png"), "Environmental drivers ov
   "Daily means (precipitation: daily totals) from June 2023 to October 2025; vertical lines mark wetland (solid) and upland (dashed) sampling dates. Note the summer 2025 drought (falling water table and soil water content).", "drivers")
 add_figure(file.path(FIG, "repeatability", "fig_tree_effects.png"), "Tree random effects.",
   "Deviation of each tree's mean asinh-transformed CH₄ flux from the mean of its species at that site (random effects from an intercept-only mixed model), with 95% intervals; red where the interval excludes zero. Trees are ordered by their effect.", "tree_effects")
-add_figure(file.path(FIG, "interaction_by_site_limited_free.png"), "Model predictions by site and species.",
-  "Predicted CH₄ flux across the observed temperature range at different water-table percentiles, for each species, from the wetland core model and upland Model B.", "pred_by_site")
+add_figure(file.path(FIG, "interaction_by_site_limited_free.png"), "Model predictions by site.",
+  "Predicted CH₄ flux across the observed temperature range at different water-table percentiles, averaged across species, from the wetland core model and upland Model B.", "pred_by_site")
 add_figure(file.path(FIG, "tomography", "tomography_generalists.png"), "Internal wood condition and CH₄ flux in the generalist species.",
   "As Figure 5, for A. rubrum and T. canadensis at both sites; the specialists are shown in Figure 5.", "generalists")
 print(doc, target = file.path(OUT, "Supporting_Information.docx"))

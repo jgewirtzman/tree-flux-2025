@@ -225,7 +225,7 @@ for (k in names(MODELS)) {
     perm_rows[[length(perm_rows) + 1]] <- tibble(model_set = k, variable = v, best_window_h = best, max_abs_r = obs,
       r_range_over_windows = sprintf("%.2f to %.2f", min(rr, na.rm = TRUE), max(rr, na.rm = TRUE)),
       windows_within_0.02_h = sprintf("%d-%d", near[1], near[2]),
-      null_median = median(nulls), null_95 = quantile(nulls, 0.95), p_perm = mean(nulls >= obs))
+      null_median = median(nulls), null_95 = quantile(nulls, 0.95), p_perm = (1 + sum(nulls >= obs)) / (1 + length(nulls)))   # permutation p with the +1 correction (minimum 1/(N+1))
     say(sprintf("Window screening %s %s: best %d h, max|r| = %.2f; windows within 0.02 of the best: %d-%d h; date-permutation p = %.3f",
                 k, v, best, obs, near[1], near[2], mean(nulls >= obs)))
   }
