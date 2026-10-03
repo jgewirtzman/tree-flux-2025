@@ -15,7 +15,7 @@
 #   (1) Pearson r and Spearman rho with tree-mean CH4 flux (n = 30 trees per site)
 #   (2) leave-one-tree-out range of r (influence of single trees)
 #   (3) species-adjusted mixed model on ALL observations:
-#       asinh(flux) ~ metric + species + (1 | tree), per site (the scale of all other models)
+#       flux ~ metric + species + (1 | tree), per site (untransformed flux, nmol m-2 s-1)
 #       (species-adjusted = within-species association; avoids confounding species
 #        differences in flux with species differences in wood properties)
 #
@@ -28,7 +28,7 @@ ert <- read.csv("data/package/tomography/tomography_results_compiled.csv", strin
 fx <- read.csv("data/final/stem_ch4_flux.csv", stringsAsFactors = FALSE) %>%
   filter(!is.na(PLOT), !is.na(CH4_flux_nmolpm2ps)) %>%
   group_by(Tree) %>% mutate(SPECIES = first(na.omit(SPECIES))) %>% ungroup() %>%
-  mutate(site = ifelse(PLOT == "BGS", "Wetland", "Upland"), y = asinh(CH4_flux_nmolpm2ps))
+  mutate(site = ifelse(PLOT == "BGS", "Wetland", "Upland"), y = CH4_flux_nmolpm2ps)
 
 zs <- function(x, g) ave(x, g, FUN = function(v) (v - mean(v, na.rm = TRUE)) / sd(v, na.rm = TRUE))
 trees <- ert %>% transmute(tree = as.character(tree), ert_cv, ert_mean, ert_cma) %>%
@@ -82,27 +82,28 @@ print(as.data.frame(sp_res %>% mutate(across(where(is.numeric), ~ signif(.x, 2))
 #   ERT index (PC1)      first principal component of eight ERT metrics, each z-scored within
 #                        species (tomography paper; higher = wetter, more heterogeneous)
 # Each metric is measured once per tree, so the tree is the unit of replication: every
-# measurement enters asinh(flux) ~ metric (per SD) + (1 | tree) + (1 | date), tested with
+# measurement enters flux ~ metric (per SD) + (1 | tree) + (1 | date), tested with
 # Kenward-Roger degrees of freedom (about 8 for 10 trees), as in Figure 5 (06_tomography_flux.R).
 # Rows: each species x site (10 trees), and per site all species with species as a fixed effect.
-# Cells: beta per SD (p), and the range of beta when each tree is omitted in turn.
+# Cells: change in flux (nmol m-2 s-1) per SD of the metric (p), and its range when each tree is omitted in turn.
 # ------------------------------------------------------------
 suppressPackageStartupMessages(library(lmerTest))
 metrics <- c(sot_loss_pct = "SoT structural loss (%)", ert_cv = "ERT CV", ert_pc1 = "ERT index (PC1)")
 trees$sot_loss_pct <- trees$sot_structural_loss
-kr_fit <- function(o, adjust) {
+kr_fit <- function(o, adjust, test = TRUE) {   # test = FALSE: slope only (leave-one-out refits)
   sdx <- sd(unique(o[c("Tree", "x")])$x); if (!is.finite(sdx) || sdx == 0) return(c(b = NA, p = NA))
   o$x <- (o$x - mean(unique(o[c("Tree", "x")])$x)) / sdx
   f <- if (adjust) y ~ x + SPECIES + (1 | Tree) + (1 | date) else y ~ x + (1 | Tree) + (1 | date)
   m <- suppressMessages(lmer(f, data = o, REML = TRUE))
-  c(b = fixef(m)[["x"]], p = anova(m, ddf = "Kenward-Roger")["x", "Pr(>F)"])
+  c(b = fixef(m)[["x"]], p = if (test) anova(m, ddf = "Kenward-Roger")["x", "Pr(>F)"] else NA)
 }
 cell <- function(o, adjust = FALSE) {
   o <- o %>% filter(is.finite(x)); fit <- kr_fit(o, adjust)
   if (is.na(fit[["b"]])) return("–")
-  loo <- sapply(unique(o$Tree), function(t) kr_fit(o %>% filter(Tree != t), adjust)[["b"]])
-  sprintf("β = %.2f (%s)%s\nLOO %.2f to %.2f", fit[["b"]], ifelse(fit[["p"]] < 0.001, "<0.001", sprintf("%.3f", fit[["p"]])),
-          ifelse(fit[["p"]] < 0.10, "*", ""), min(loo, na.rm = TRUE), max(loo, na.rm = TRUE))
+  loo <- sapply(unique(o$Tree), function(t) kr_fit(o %>% filter(Tree != t), adjust, test = FALSE)[["b"]])
+  g <- function(v) formatC(v, digits = 2, format = "fg", flag = "#")
+  sprintf("%s (%s)%s\nLOO %s to %s", g(fit[["b"]]), ifelse(fit[["p"]] < 0.001, "<0.001", sprintf("%.3f", fit[["p"]])),
+          ifelse(fit[["p"]] < 0.10, "*", ""), g(min(loo, na.rm = TRUE)), g(max(loo, na.rm = TRUE)))
 }
 obs <- function(d, m) fx %>% mutate(tree = as.character(Tree)) %>% inner_join(d %>% select(tree, x = all_of(m)), by = "tree")
 grp <- list()

@@ -94,29 +94,29 @@ message("  Flux data: ", nrow(tree_flux_means), " trees")
 # ---- Tree-level predictor against repeated flux measurements ----
 # Wood condition is measured once per tree and flux ~30 times, so the unit of replication is
 # the tree. Every measurement enters a mixed model with random intercepts for tree and sampling
-# date, asinh(flux) ~ metric (per SD) + (1 | tree) + (1 | date), on the asinh scale of all other
-# models; the metric is tested with Kenward-Roger degrees of freedom (about 8 for 10 trees),
-# because likelihood-ratio tests are anticonservative with so few groups.
+# date, flux ~ metric (per SD) + (1 | tree) + (1 | date), on untransformed flux so that the
+# effect reads as nmol m-2 s-1 per SD of the metric; the metric is tested with Kenward-Roger
+# degrees of freedom (about 8 for 10 trees), because likelihood-ratio tests are anticonservative
+# with so few groups. Figures show flux on an asinh axis (y = asinh(flux)) for legibility only.
 suppressPackageStartupMessages(library(lmerTest))
 obs_for <- function(trees, metric = "ert_cv") {
   flux_data %>% filter(!is.na(CH4_flux_nmolpm2ps)) %>%
     inner_join(trees %>% transmute(Tree = as.numeric(tree), m = .data[[metric]]) %>% filter(!is.na(m)), by = "Tree") %>%
-    mutate(y = asinh(CH4_flux_nmolpm2ps))
+    mutate(flux = CH4_flux_nmolpm2ps, y = asinh(flux))   # y: display scale only
 }
 obs_test <- function(o, adjust_species = FALSE) {
   mu <- mean(unique(o[c("Tree", "m")])$m); sdv <- sd(unique(o[c("Tree", "m")])$m)
   o$x <- (o$m - mu) / sdv
-  f <- if (adjust_species) y ~ x + SPECIES + (1 | Tree) + (1 | date) else y ~ x + (1 | Tree) + (1 | date)
+  f <- if (adjust_species) flux ~ x + SPECIES + (1 | Tree) + (1 | date) else flux ~ x + (1 | Tree) + (1 | date)
   fit <- suppressMessages(lmer(f, data = o, REML = TRUE))
   a <- anova(fit, ddf = "Kenward-Roger")["x", ]
   grid <- data.frame(m = seq(min(o$m), max(o$m), length.out = 60)); X <- cbind(1, (grid$m - mu) / sdv)
   b <- fixef(fit)[c("(Intercept)", "x")]; V <- as.matrix(vcov(fit))[c("(Intercept)", "x"), c("(Intercept)", "x")]
   if (adjust_species) b[1] <- mean(predict(fit, re.form = NA)) - b[["x"]] * mean(o$x)   # line at the average species
-  grid$fit <- drop(X %*% b); grid$se <- sqrt(rowSums((X %*% V) * X))
-  tv <- unique(o[c("Tree", "m")])$m; q <- quantile(tv, c(0.1, 0.9), names = FALSE)
-  pred <- sinh(b[["(Intercept)"]] + b[["x"]] * (q - mu) / sdv)   # typical flux (back-transformed asinh mean)
-  list(p = a$`Pr(>F)`, df = a$DenDF, beta = fixef(fit)[["x"]], se_beta = sqrt(V[2, 2]),
-       n_obs = nrow(o), n_trees = n_distinct(o$Tree), line = grid, metric_q = q, pred_q = pred)
+  fr <- drop(X %*% b); se <- sqrt(rowSums((X %*% V) * X))
+  grid$fit <- asinh(fr); grid$lo <- asinh(fr - 1.96 * se); grid$hi <- asinh(fr + 1.96 * se)   # display scale
+  list(p = a$`Pr(>F)`, df = a$DenDF, beta = fixef(fit)[["x"]], se_beta = sqrt(V[2, 2]), metric_sd = sdv,
+       n_obs = nrow(o), n_trees = n_distinct(o$Tree), line = grid)
 }
 fmt_p <- function(p) ifelse(p < 0.001, "< 0.001", sprintf("= %.3f", p))
 # axis ticks in flux units; the ±0.1 ticks are dropped when the axis spans more than ~±3 nmol m-2 s-1
@@ -370,13 +370,13 @@ create_species_panel <- function(data, species_label, bad_sonic_indices = c(),
 
   # Scatter: ERT metric vs every CH4 measurement (grey) and tree means; mixed-model test (see obs_test)
   o <- obs_for(data, metric); tt <- obs_test(o)
-  tm <- o %>% group_by(Tree) %>% summarise(m = first(m), y = mean(y), .groups = "drop")
+  tm <- o %>% group_by(Tree) %>% summarise(m = first(m), y = asinh(mean(flux)), .groups = "drop")
   p_scatter <- ggplot(tm, aes(m, y)) +
     geom_hline(yintercept = 0, colour = "grey80", linewidth = 0.3) +
     geom_point(data = o, colour = "grey55", size = 0.7, alpha = 0.35, stroke = 0)
   if (tt$p < 0.10) {   # alpha = 0.10 for tree-level tests (10 trees)
     p_scatter <- p_scatter +
-      geom_ribbon(data = tt$line, aes(m, ymin = fit - 1.96 * se, ymax = fit + 1.96 * se), inherit.aes = FALSE, fill = "grey30", alpha = 0.15) +
+      geom_ribbon(data = tt$line, aes(m, ymin = lo, ymax = hi), inherit.aes = FALSE, fill = "grey30", alpha = 0.15) +
       geom_line(data = tt$line, aes(m, fit), inherit.aes = FALSE, colour = "black", linewidth = 0.8)
   }
   p_scatter <- p_scatter + geom_point(size = 2.5, shape = 16) + scale_y_asinh() +
@@ -548,12 +548,12 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
   class_scatter <- function(data, sp_col, thr) {
     o <- obs_for(data); tt <- obs_test(o)
     lab <- sprintf("p %s\n%d trees, %d measurements", fmt_p(tt$p), tt$n_trees, tt$n_obs)
-    tm <- o %>% group_by(Tree) %>% summarise(m = first(m), y = mean(y), .groups = "drop") %>%
+    tm <- o %>% group_by(Tree) %>% summarise(m = first(m), y = asinh(mean(flux)), .groups = "drop") %>%
       left_join(data %>% transmute(Tree = as.numeric(tree), cls = ifelse(is.na(decay_phase_short), "no SoT", decay_phase_short)), by = "Tree")
     ggplot(tm, aes(m, y)) +
       geom_hline(yintercept = 0, colour = "grey80", linewidth = 0.3) +
       geom_point(data = o, colour = "grey55", size = 0.7, alpha = 0.35, stroke = 0) +
-      { if (tt$p < SIG_P) list(geom_ribbon(data = tt$line, aes(m, ymin = fit - 1.96 * se, ymax = fit + 1.96 * se), inherit.aes = FALSE, fill = sp_col, alpha = 0.15),
+      { if (tt$p < SIG_P) list(geom_ribbon(data = tt$line, aes(m, ymin = lo, ymax = hi), inherit.aes = FALSE, fill = sp_col, alpha = 0.15),
                                geom_line(data = tt$line, aes(m, fit), inherit.aes = FALSE, colour = sp_col, linewidth = 0.8)) } +
       geom_point(aes(fill = cls), shape = 21, size = 3.2, colour = "grey20", stroke = 0.3) +
       scale_fill_manual(values = c(class_cols, "no SoT" = "white"), name = "Class", drop = TRUE) +
@@ -588,11 +588,11 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
     adj <- obs_test(o_all, adjust_species = TRUE)
     sub <- sprintf("All species, species-adjusted: p %s", fmt_p(adj$p))
     lines <- bind_rows(lapply(names(tests)[st$p < SIG_P], function(k) tests[[k]]$line %>% mutate(species_full = k)))
-    tm <- o_all %>% group_by(Tree, species_full) %>% summarise(m = first(m), y = mean(y), .groups = "drop")
+    tm <- o_all %>% group_by(Tree, species_full) %>% summarise(m = first(m), y = asinh(mean(flux)), .groups = "drop")
     g <- ggplot(tm, aes(m, y, colour = species_full, shape = species_full)) +
       geom_hline(yintercept = 0, colour = "grey80", linewidth = 0.3) +
       geom_point(data = o_all, size = 0.6, alpha = 0.25, stroke = 0, show.legend = FALSE)
-    if (nrow(lines)) g <- g + geom_ribbon(data = lines, aes(m, ymin = fit - 1.96 * se, ymax = fit + 1.96 * se, fill = species_full),
+    if (nrow(lines)) g <- g + geom_ribbon(data = lines, aes(m, ymin = lo, ymax = hi, fill = species_full),
                                           inherit.aes = FALSE, alpha = 0.12, show.legend = FALSE) +
       geom_line(data = lines, aes(m, fit, colour = species_full), inherit.aes = FALSE, linewidth = 0.8, show.legend = FALSE)
     g + geom_point(size = 2.6, alpha = 0.95) +
@@ -614,9 +614,8 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
     o_all <- obs_for(sd0) %>% left_join(sd0 %>% transmute(Tree = as.numeric(tree), species_full), by = "Tree")
     bind_rows(lapply(c(sort(unique(o_all$species_full)), "species-adjusted"), function(k) {
       t <- if (k == "species-adjusted") obs_test(o_all, adjust_species = TRUE) else obs_test(o_all %>% filter(species_full == k))
-      tibble(site = s, group = k, metric = "ert_cv", beta_per_sd = t$beta, se = t$se_beta, kr_df = t$df, p = t$p,
-             n_trees = t$n_trees, n_obs = t$n_obs, ert_cv_p10 = t$metric_q[1], ert_cv_p90 = t$metric_q[2],
-             flux_at_p10 = t$pred_q[1], flux_at_p90 = t$pred_q[2])
+      tibble(site = s, group = k, metric = "ert_cv", flux_change_per_sd = t$beta, se = t$se_beta, kr_df = t$df, p = t$p,
+             ert_cv_sd = t$metric_sd, n_trees = t$n_trees, n_obs = t$n_obs)
     }))
   }))
   write_csv(allobs_tests, "outputs/tables/ert_allobs_tests.csv")
