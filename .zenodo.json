@@ -1,0 +1,15 @@
+{
+  "title": "Analysis code for \"Contrasting controls on tree methane emissions in upland and wetland forests\"",
+  "description": "R pipeline that turns raw analyzer records, field logs and tomography metrics into the published stem CH4 flux dataset for Harvard Forest (2023-2025), and reproduces every figure, table, model and number in the paper and its Supporting Information. Data are read from the Harvard Forest Data Archive package and public sources (AmeriFlux, NEON, PhenoCam); see README.md.",
+  "creators": [
+    {
+      "name": "Gewirtzman, Jonathan",
+      "orcid": "0000-0003-3959-3758"
+    }
+  ],
+  "license": "MIT",
+  "upload_type": "software",
+  "keywords": ["methane", "tree stem flux", "wetland", "Harvard Forest", "tomography", "goFlux", "fluxqc"],
+  "version": "1.0.0",
+  "language": "eng"
+}

@@ -66,3 +66,7 @@ Working directory: the project root. R ≥ 4.3 with
 BGS = Black Gum Swamp (wetland); EMS = Environmental Measurement Station (upland). Ten trees per species and site.
 
 `archive/` holds superseded scripts for reference; they are not part of the pipeline.
+
+## Citation and license
+
+Code: MIT (`LICENSE`). Cite the archived release (Zenodo DOI; see `CITATION.cff`), the paper, and the data package in the Harvard Forest Data Archive.
