@@ -66,7 +66,7 @@ add_figure <- function(path, title, caption, key, w = 6.5, h = NULL) {
   items[[length(items) + 1]] <<- data.frame(key = paste0("F:", key), item = sprintf("Figure S%d", fig_n), title = title, source = path)
 }
 
-AUTHORS <- "Jonathan Gewirtzman¹˒²˒³, Naomi Hegwood⁴, Hannah Burrows⁵˒⁶, Maxwell P. Lutz⁴, Grace E. Thompson⁴†, Bethany Duncan⁷, Masako Yang⁸, Samuel Jurado¹, Mark A. Bradford¹, Robert E. Marra⁹, Jaclyn Hatala Matthes⁴"
+AUTHORS <- "Jonathan Gewirtzman¹˒²˒³, Naomi Hegwood⁴, Hannah Burrows⁵˒⁶, Maxwell P. Lutz⁴, Grace E. Thompson⁴†, Bethany Duncan⁷, Masako Yang⁸, Samuel Jurado¹, Mark A. Bradford¹˒⁹, Robert E. Marra¹⁰, Jaclyn Hatala Matthes⁴"
 AFFIL <- c("¹ Yale School of the Environment, Yale University, New Haven, Connecticut, USA",
            "² Department of Earth System Science, Stanford University, Stanford, California, USA",
            "³ Department of Ecology and Evolution, University of Chicago, Chicago, Illinois, USA",
@@ -75,7 +75,8 @@ AFFIL <- c("¹ Yale School of the Environment, Yale University, New Haven, Conne
            "⁶ Department of Astronomy and Astrophysics, University of Chicago, Chicago, Illinois, USA",
            "⁷ Fu Foundation School of Engineering and Applied Science, Columbia University, New York, New York, USA",
            "⁸ Harvard College, Harvard University, Cambridge, Massachusetts, USA",
-           "⁹ Department of Plant Pathology and Ecology, The Connecticut Agricultural Experiment Station, New Haven, Connecticut, USA",
+           "⁹ The Forest School, Yale School of the Environment, Yale University, New Haven, Connecticut, USA",
+           "¹⁰ Department of Plant Pathology and Ecology, The Connecticut Agricultural Experiment Station, New Haven, Connecticut, USA",
            "† Now at: Department of Natural Resources and the Environment, University of Connecticut, Storrs, Connecticut, USA")
 P0 <- update(PP, padding.bottom = 0)
 doc <- doc %>% par_(ftext("Journal of Geophysical Research: Biogeosciences", ti), fp_p = update(PP, padding.bottom = 12)) %>%
@@ -133,7 +134,7 @@ add_table(key, "Decay classification (from the companion tomography study).",
 s4 <- rd(file.path(T_, "SI_decay_metric_correlations.csv")) %>%
   mutate(across(-(1:2), ~ gsub("; ", "\n", .x)))
 add_table(s4, "Four wood-condition metrics against stem CH₄ flux, by species and site.",
-  "Each cell: β, the slope of asinh-transformed flux per SD of the metric, with its p-value, in a mixed model of every measurement with random intercepts for tree and sampling date (Kenward–Roger degrees of freedom; the tree is the unit of replication), and the range of β when each tree is omitted in turn (LOO). The species-adjusted rows fit all species at a site with species as a fixed effect. SoT structural loss: % of the cross-section in non-brown (low-velocity) classes; ERT mean: mean resistivity (lower = wetter); ERT CV: heterogeneity of resistivity; ERT index: first principal component of eight ERT metrics standardized within species (Thompson et al. 2026). –: no variation among trees. * p < 0.05.",
+  "Each cell: β, the slope of asinh-transformed flux per SD of the metric, with its p-value, in a mixed model of every measurement with random intercepts for tree and sampling date (Kenward–Roger degrees of freedom; the tree is the unit of replication), and the range of β when each tree is omitted in turn (LOO). The species-adjusted rows fit all species at a site with species as a fixed effect. SoT structural loss: % of the cross-section in non-brown (low-velocity) classes; ERT mean: mean resistivity (lower = wetter); ERT CV: heterogeneity of resistivity; ERT index: first principal component of eight ERT metrics standardized within species (Thompson et al. 2026). –: no variation among trees. * p < 0.10 (with ten trees per species, the threshold used for these tests).",
   "scripts/4_analysis/07_decay_definitions.R", "decay_corr")
 
 # S7 wetland model comparison (shared observations)

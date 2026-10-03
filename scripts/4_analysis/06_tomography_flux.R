@@ -372,7 +372,7 @@ create_species_panel <- function(data, species_label, bad_sonic_indices = c(),
   p_scatter <- ggplot(tm, aes(m, y)) +
     geom_hline(yintercept = 0, colour = "grey80", linewidth = 0.3) +
     geom_point(data = o, colour = "grey55", size = 0.7, alpha = 0.35, stroke = 0)
-  if (tt$p < 0.05) {
+  if (tt$p < 0.10) {   # alpha = 0.10 for tree-level tests (10 trees)
     p_scatter <- p_scatter +
       geom_ribbon(data = tt$line, aes(m, ymin = fit - 1.96 * se, ymax = fit + 1.96 * se), inherit.aes = FALSE, fill = "grey30", alpha = 0.15) +
       geom_line(data = tt$line, aes(m, fit), inherit.aes = FALSE, colour = "black", linewidth = 0.8)

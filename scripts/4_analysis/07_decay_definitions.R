@@ -103,7 +103,7 @@ cell <- function(o, adjust = FALSE) {
   if (is.na(fit[["b"]])) return("–")
   loo <- sapply(unique(o$Tree), function(t) kr_fit(o %>% filter(Tree != t), adjust)[["b"]])
   sprintf("β = %.2f (%s)%s\nLOO %.2f to %.2f", fit[["b"]], ifelse(fit[["p"]] < 0.001, "<0.001", sprintf("%.3f", fit[["p"]])),
-          ifelse(fit[["p"]] < 0.05, "*", ""), min(loo, na.rm = TRUE), max(loo, na.rm = TRUE))
+          ifelse(fit[["p"]] < 0.10, "*", ""), min(loo, na.rm = TRUE), max(loo, na.rm = TRUE))
 }
 obs <- function(d, m) fx %>% mutate(tree = as.character(Tree)) %>% inner_join(d %>% select(tree, x = all_of(m)), by = "tree")
 grp <- list()
