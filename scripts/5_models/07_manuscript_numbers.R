@@ -116,6 +116,25 @@ rmx <- d %>% group_by(location, round) %>% summarise(date = min(date), mean = me
 for (i in seq_len(nrow(rmx))) with(rmx[i, ], say(sprintf("Peak round mean %s: %.1f (%s)", location, mean, date)))
 
 # ------------------------------------------------------------
+# Upland detection by analyzer, with and without matching the 2025 conditions
+# (LGR 2023-24 vs LI-7810 2025; matched = May-Oct and soil temperature (TS_Ha1) and shallow
+# soil water (NEON) within the 10-90 % range of the 2025 measurements)
+# ------------------------------------------------------------
+env_u <- read.csv(file.path("data", "final", "environment_hourly.csv")) %>% transmute(hr = substr(datetime, 1, 13), TS_Ha1, NEON_SWC_shallow)
+up <- read.csv(file.path("data", "final", "stem_ch4_flux.csv")) %>% filter(location == "Upland", !is.na(CH4_flux_nmolpm2ps)) %>%
+  mutate(hr = sub(" ", "T", substr(sample_hour_est, 1, 13)), month = as.integer(substr(date, 6, 7))) %>% left_join(env_u, by = "hr")
+rng <- up %>% filter(inst_label == "LI-7810") %>% summarise(t_lo = quantile(TS_Ha1, .1, na.rm = TRUE), t_hi = quantile(TS_Ha1, .9, na.rm = TRUE),
+                                                          w_lo = quantile(NEON_SWC_shallow, .1, na.rm = TRUE), w_hi = quantile(NEON_SWC_shallow, .9, na.rm = TRUE))
+up$matched <- up$month %in% 5:10 & between(up$TS_Ha1, rng$t_lo, rng$t_hi) & between(up$NEON_SWC_shallow, rng$w_lo, rng$w_hi)
+det <- bind_rows(up %>% mutate(subset = "all"), up %>% filter(month %in% 5:10) %>% mutate(subset = "May-Oct"),
+                 up %>% filter(matched %in% TRUE) %>% mutate(subset = "May-Oct, 2025 soil T and moisture range")) %>%
+  group_by(subset, inst_label) %>% summarise(n = n(), pct_emission = 100 * mean(CH4_det_class == "emission"),
+                                             pct_uptake = 100 * mean(CH4_det_class == "uptake"), median_MDF = median(CH4_MDF), .groups = "drop")
+write_csv(det, file.path(OUT, "upland_detection_by_analyzer.csv"))
+say("\n=== UPLAND DETECTION BY ANALYZER ===")
+for (i in seq_len(nrow(det))) with(det[i, ], say(sprintf("%s, %s: n = %d, emission %.1f%%, uptake %.1f%%, median MDF %.3f", subset, inst_label, n, pct_emission, pct_uptake, median_MDF)))
+
+# ------------------------------------------------------------
 # Variance partitioning (#36, #37): shares of one model sum to 100 %
 # ------------------------------------------------------------
 say("\n=== VARIANCE PARTITIONING (asinh(flux, nmol m-2 s-1); random-intercept variance shares) ===")
