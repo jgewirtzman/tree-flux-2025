@@ -313,9 +313,8 @@ xHA_hourly <- xHA_hourly %>%
          THROUGHFALL_xHA,
          # Ground heat (aggregated)
          G_xHA,
-         # Wind
-         WS_1_1_1_xHA, WD_1_1_1_xHA, USTAR_xHA) %>%
-  rename(WS_xHA = WS_1_1_1_xHA, WD_xHA = WD_1_1_1_xHA)
+         # Friction velocity (wind speed and direction are not used in any analysis)
+         USTAR_xHA)
 
 # The AmeriFlux US-xHA release ends in Dec 2024. If the same variables have been rebuilt
 # from NEON's own products (1_environment/03_neon_xha.R; agreement with AmeriFlux in
