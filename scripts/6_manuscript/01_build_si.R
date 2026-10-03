@@ -18,7 +18,19 @@ sp_full <- c(bg = "N. sylvatica", rm = "A. rubrum", hem = "T. canadensis", ro = 
 term_lab <- function(t) { t <- gsub("TS_Ha[12]_raw_(\\d+)h", "Temperature (\\1 h)", t); t <- gsub("bvs_wtd_cm_raw_(\\d+)h", "Water table (\\1 h)", t)
   t <- gsub("NEON_SWC_shallow_raw_(\\d+)h", "Soil water (\\1 h)", t); t <- gsub("species", "", t); t <- gsub(":", " × ", t); t }
 
-doc <- read_docx()
+# AGU Supporting Information layout: US Letter, 1-inch margins, Times New Roman 12 pt text,
+# bold item labels, 6 pt after each paragraph, tables at 9 pt wrapped to the page width
+SEC <- prop_section(page_size = page_size(width = 8.5, height = 11, orient = "portrait"),
+                    page_margins = page_mar(top = 1, bottom = 1, left = 1, right = 1, header = 0.5, footer = 0.5, gutter = 0),
+                    type = "continuous")
+doc <- read_docx() %>% body_set_default_section(SEC)
+FONT <- "Times New Roman"
+tx <- fp_text(font.family = FONT, font.size = 12); tb <- update(tx, bold = TRUE); ti <- update(tx, italic = TRUE)
+PP <- fp_par(padding.bottom = 6, line_spacing = 1)
+par_ <- function(doc, ..., fp_p = PP) body_add_fpar(doc, fpar(..., fp_p = fp_p))
+txt <- function(doc, x) par_(doc, ftext(x, tx))
+lbl <- function(doc, label, rest, keep = FALSE) par_(doc, ftext(label, tb), ftext(paste0(" ", rest), tx),
+                                                       fp_p = update(PP, keep_with_next = keep))
 items <- list(); tab_n <- 0; fig_n <- 0
 # Stable keys -> SI numbers (the manuscript cites items by key; see manuscript_work/edit_manuscript.py)
 TAB_KEYS <- c("decay_key", "decay_corr", "wet_comp", "slopes", "upland", "coefs", "diagnostics")
@@ -28,26 +40,58 @@ lab <- c(setNames(paste0("S", seq_along(TAB_KEYS)), paste0("T:", TAB_KEYS)),
          setNames(paste0("S", seq_along(FIG_KEYS)), paste0("F:", FIG_KEYS)),
          setNames(paste0("S", seq_along(TXT_KEYS)), paste0("X:", TXT_KEYS)))
 fill <- function(x) { for (k in names(lab)) x <- gsub(paste0("{", k, "}"), lab[[k]], x, fixed = TRUE); x }
-ft_style <- function(ft) ft %>% theme_booktabs() %>% fontsize(size = 9, part = "all") %>% font(fontname = "Times New Roman", part = "all") %>%
-  autofit() %>% fit_to_width(6.5)
-add_table <- function(df, title, note, src, key) {
+ft_style <- function(ft) ft %>% theme_booktabs() %>% fontsize(size = 9, part = "all") %>% font(fontname = FONT, part = "all") %>%
+  bold(part = "header") %>% valign(valign = "top", part = "body") %>% padding(padding = 2, part = "all") %>%
+  set_table_properties(layout = "autofit", width = 1)   # Word wraps text to the page width; no shrinking
+# header repeated on each page; rows kept together so short tables do not split from their header
+tab_ft <- function(df, widths = NULL) {
+  ft <- ft_style(flextable(df))
+  if (!is.null(widths)) ft <- ft %>% width(width = widths) %>% set_table_properties(layout = "fixed")
+  paginate(ft, init = TRUE, hdr_ftr = TRUE)
+}
+add_table <- function(df, title, note, src, key, widths = NULL) {
   tab_n <<- tab_n + 1; stopifnot(TAB_KEYS[tab_n] == key); note <- fill(note)
-  doc <<- doc %>% body_add_par(sprintf("Table S%d. %s", tab_n, title), style = "Normal") %>%
-    body_add_flextable(ft_style(flextable(df))) %>% body_add_par(note, style = "Normal") %>% body_add_par("", style = "Normal")
+  doc <<- doc %>% lbl(sprintf("Table S%d.", tab_n), title, keep = TRUE) %>%
+    body_add_flextable(tab_ft(df, widths)) %>% par_(ftext(note, update(tx, font.size = 10)), fp_p = update(PP, padding.top = 4, padding.bottom = 18))
   items[[length(items) + 1]] <<- data.frame(key = paste0("T:", key), item = sprintf("Table S%d", tab_n), title = title, source = src)
 }
 add_figure <- function(path, title, caption, key, w = 6.5, h = NULL) {
   if (!file.exists(path)) stop("missing figure: ", path)
   fig_n <<- fig_n + 1; stopifnot(FIG_KEYS[fig_n] == key); caption <- fill(caption)
   if (is.null(h)) { dims <- dim(png::readPNG(path, native = TRUE)); h <- w * dims[1] / dims[2] }
-  if (h > 8.5) { w <- w * 8.5 / h; h <- 8.5 }
-  doc <<- doc %>% body_add_img(path, width = w, height = h) %>%
-    body_add_par(sprintf("Figure S%d. %s %s", fig_n, title, caption), style = "Normal") %>% body_add_break()
+  if (h > 7.5) { w <- w * 7.5 / h; h <- 7.5 }   # room for the caption on the same page
+  doc <<- doc %>% body_add_fpar(fpar(external_img(path, width = w, height = h), fp_p = update(PP, text.align = "center", keep_with_next = TRUE))) %>%
+    lbl(sprintf("Figure S%d.", fig_n), paste(title, caption))
+  if (fig_n < length(FIG_KEYS)) doc <<- body_add_break(doc)
   items[[length(items) + 1]] <<- data.frame(key = paste0("F:", key), item = sprintf("Figure S%d", fig_n), title = title, source = path)
 }
 
-doc <- doc %>% body_add_par("Supporting Information", style = "heading 1") %>%
-  body_add_par("Contrasting controls on tree methane emissions in upland and wetland forests", style = "Normal") %>%
+AUTHORS <- "Jonathan Gewirtzman¹˒²˒³, Naomi Hegwood⁴, Hannah Burrows⁵˒⁶, Maxwell P. Lutz⁴, Grace E. Thompson⁴†, Bethany Duncan⁷, Masako Yang⁸, Samuel Jurado¹, Robert E. Marra⁹, Jaclyn Hatala Matthes⁴"
+AFFIL <- c("¹ Yale School of the Environment, Yale University, New Haven, Connecticut, USA",
+           "² Department of Earth System Science, Stanford University, Stanford, California, USA",
+           "³ Department of Ecology and Evolution, University of Chicago, Chicago, Illinois, USA",
+           "⁴ Harvard Forest, Harvard University, Petersham, Massachusetts, USA",
+           "⁵ Department of Earth and Planetary Sciences, Harvard University, Cambridge, Massachusetts, USA",
+           "⁶ Department of Astronomy and Astrophysics, University of Chicago, Chicago, Illinois, USA",
+           "⁷ Fu Foundation School of Engineering and Applied Science, Columbia University, New York, New York, USA",
+           "⁸ Harvard College, Harvard University, Cambridge, Massachusetts, USA",
+           "⁹ Department of Plant Pathology and Ecology, The Connecticut Agricultural Experiment Station, New Haven, Connecticut, USA",
+           "† Now at: Department of Natural Resources and the Environment, University of Connecticut, Storrs, Connecticut, USA")
+P0 <- update(PP, padding.bottom = 0)
+doc <- doc %>% par_(ftext("Journal of Geophysical Research: Biogeosciences", ti), fp_p = update(PP, padding.bottom = 12)) %>%
+  par_(ftext("Supporting Information for", tb), fp_p = P0) %>%
+  par_(ftext("Contrasting controls on tree methane emissions in upland and wetland forests", tb), fp_p = update(PP, padding.bottom = 12)) %>%
+  par_(ftext(AUTHORS, tx), fp_p = update(PP, padding.bottom = 12))
+for (a in AFFIL) doc <- par_(doc, ftext(a, update(tx, font.size = 10)), fp_p = P0)
+doc <- doc %>% par_(ftext("", tx), fp_p = P0) %>%
+  par_(ftext("Contents of this file", tb), fp_p = update(PP, padding.top = 12)) %>%
+  par_(ftext(sprintf("Text S1 to S%d", length(TXT_KEYS)), tx), fp_p = P0) %>%
+  par_(ftext(sprintf("Figures S1 to S%d", length(FIG_KEYS)), tx), fp_p = P0) %>%
+  par_(ftext(sprintf("Tables S1 to S%d", length(TAB_KEYS)), tx), fp_p = PP) %>%
+  par_(ftext("Introduction", tb), fp_p = update(PP, padding.top = 12)) %>%
+  txt(paste("This file gives details of the flux calculation and quality control (Text S1), model selection and diagnostics (Text S2)",
+            "and the tomography procedures (Text S3), with supporting tables and figures. Every item is produced by the archived",
+            "analysis code from the published data package (see Open Research in the main text).")) %>%
   body_add_break()
 
 # ---------------- Methods texts ----------------
@@ -55,9 +99,9 @@ md <- readLines("scripts/6_manuscript/si_methods.md", encoding = "UTF-8")
 for (ln in md) {
   if (grepl("^## ", ln)) {
     k <- sub("^## (\\w+) \\|.*", "\\1", ln); ttl <- trimws(sub("^## \\w+ \\|", "", ln))
-    doc <- doc %>% body_add_par(ttl, style = "heading 2")
+    doc <- doc %>% par_(ftext(ttl, tb), fp_p = update(PP, padding.top = 12, keep_with_next = TRUE))
     items[[length(items) + 1]] <- data.frame(key = paste0("X:", k), item = sub("\\..*", "", ttl), title = ttl, source = "scripts/6_manuscript/si_methods.md")
-  } else if (nzchar(trimws(ln))) doc <- doc %>% body_add_par(fill(ln), style = "Normal")
+  } else if (nzchar(trimws(ln))) doc <- doc %>% txt(fill(ln))
 }
 doc <- doc %>% body_add_break()
 
@@ -86,7 +130,8 @@ add_table(key, "Decay classification (from the companion tomography study).",
   "scripts/3_trees/01_tomography_classes.R", "decay_key")
 
 # S4 wood-condition metric correlations
-s4 <- rd(file.path(T_, "SI_decay_metric_correlations.csv"))
+s4 <- rd(file.path(T_, "SI_decay_metric_correlations.csv")) %>%
+  mutate(across(-c(Group, n), ~ gsub("; ", "\n", gsub("; LOO NA to NA", "", .x))))
 add_table(s4, "Tree-mean CH₄ flux against four wood-condition metrics, by species and site.",
   "Each cell: Pearson r (p), Spearman ρ, and the range of r when each tree is omitted in turn (LOO), for each species at each site (10 trees) and for all trees at each site (30 trees). The species-adjusted rows give the standardized coefficient β (p, likelihood-ratio test) of the metric in a mixed model of all measurements with species as a fixed effect and tree as a random effect. SoT structural loss: % of the cross-section in non-brown (low-velocity) classes; ERT mean: mean resistivity (lower = wetter); ERT CV: heterogeneity of resistivity; ERT index: first principal component of eight ERT metrics standardized within species (Thompson et al. 2026). * p < 0.05.",
   "scripts/4_analysis/07_decay_definitions.R", "decay_corr")
@@ -150,7 +195,7 @@ wpn <- rd(file.path(MC, "window_permutation.csv")) %>% group_by(model_set) %>%
 dg <- rbind(dg, c(Diagnostic = "Window screening, date-permutation test", setNames(wpn$w[match(c("wetland", "upland_A", "upland_B"), wpn$model_set)], names(dg)[-1])))
 add_table(dg, "Model diagnostics.",
   "Marginal R² (Nakagawa). Out-of-sample predictions include the tree random effect (dates omitted) or fixed effects only (trees omitted). Bias = mean(predicted − observed). The back-transformed mean ratio shows the underestimate of mean flux from sinh(predicted mean); the smeared ratio applies Duan's (1983) correction. 2025 test restricted to observations within the 2023–24 predictor range. Window screening: maximum |r| over all windows (3 h–14 d) for each model driver against 500 permutations in which environmental records were reassigned among sampling dates and the search repeated.",
-  "outputs/tables/model_checks/", "diagnostics")
+  "outputs/tables/model_checks/", "diagnostics", widths = c(1.9, rep(1.53, 3)))
 
 doc <- doc %>% body_add_break()
 
