@@ -125,3 +125,42 @@ Jenkins 2008; soils sentence now Allen 1995 and Davidson et al. 1998); trajector
 - **Acknowledgements:** now thank Peter Raymond only. Co-author comments in the draft were checked; none are from Raymond.
 - **Funding:** NSF DEB-1945921/DEB-2231681 (corrected) and REU DBI-1950364/DBI-2348924 added.
 - **Data citations:** AmeriFlux and NEON datasets cited by DOI, with the required acknowledgement statements.
+
+## 3 Oct 2026 (later) — Submission-readiness review; upland framing
+
+### Review fixes
+
+- Figure S4 caption and text: "averaged across species".
+- Figure S3 is now cited for the tree effects.
+- Abstract and Discussion state the 58% as the model including species, with species alone at 31%.
+- Table S6 upland reference species: *T. canadensis*.
+- Text S2 sample size: n = 722.
+- Window-screening permutation p now uses the +1 correction.
+- Repeatability "scale" wording corrected.
+- Decay-class denominator: 57 trees.
+- Species-comparison methods added: mixed models on untransformed flux, emmeans, KR df, Tukey.
+- Barker-Plotkin duplicate merged; Bates `\textbf` artifact removed.
+- Corresponding author email: jgewirtz@stanford.edu.
+- Variance partitioning recomputed on the model scale: it had used asinh(1000 × nmol).
+
+### Upland framing
+
+- Upland stems are small, persistent net sources, most likely from in-stem production partly offset by methanotrophy. This replaces "competing processes near equilibrium".
+- Basis:
+
+  | Analyzer | Detectable uptake | Detectable emission |
+  |---|---|---|
+  | LI-7810, 2025 (MDF 0.004) | 1% | 83% |
+  | LGR, 2023–24 (MDF ~0.1) | 5.5% | 17% |
+  | LGR, restricted to 2025 months, soil temperature and moisture | 4.5% | 20% |
+  | LI-7810, matched comparison | 1.8% | 86% |
+
+  - LGR uptake shows no soil-moisture dependence and sits just above the MDF.
+  - Numbers: `outputs/tables/manuscript/upland_detection_by_analyzer.csv`.
+- Detected uptake is treated as mostly analytical noise. Upland stems "rarely, if ever, became net sinks at this height".
+
+### Wording and Key Point 3
+
+- "Smaller in magnitude than the MDF" replaces "below detection" throughout.
+- Methods and Text S1 give the rationale for retaining and flagging all fluxes.
+- Key Point 3 now reads: "Wetwood/decay associated with higher emissions where stem production dominates and lower emissions where transport dominates."
