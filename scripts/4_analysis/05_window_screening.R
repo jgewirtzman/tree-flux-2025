@@ -51,7 +51,7 @@ message("Configuration:")
 message("  Windows: ", length(WINDOWS_DAYS), " (", WINDOW_STEP_HOURS, "h to ", MAX_DAYS, "d, step = ", WINDOW_STEP_HOURS, "h)")
 
 # Variables to drop (insufficient data or redundant)
-DROP_VARS <- c("FC_xHA", "USTAR_xHA", "TS_xHA")
+DROP_VARS <- c("FC_xHA", "USTAR_xHA")
 
 # Variable groups
 VAR_GROUPS <- list(

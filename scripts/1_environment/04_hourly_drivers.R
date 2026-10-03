@@ -215,9 +215,10 @@ if (file.exists(PATHS$neon_swc)) {
 if (file.exists(PATHS$tower_swc_ts)) {
   tower_swc_ts <- read_csv(PATHS$tower_swc_ts, show_col_types = FALSE) %>%
     mutate(datetime = as.POSIXct(datetime, tz = "UTC")) %>%
-    # Remove xHA SWC (keep only Ha1, Ha2 SWC and all TS)
-    select(-any_of("SWC_xHA"))
-  message("Loaded Tower SWC/TS: ", nrow(tower_swc_ts), " rows, ", ncol(tower_swc_ts) - 1, " variables (excluding SWC_xHA)")
+    # Ha1 and Ha2 only: the NEON tower's soil data come from NEON products (NEON_SWC_*),
+    # and its AmeriFlux record (US-xHA) is not used in any analysis
+    select(-any_of(c("SWC_xHA", "TS_xHA")))
+  message("Loaded Tower SWC/TS: ", nrow(tower_swc_ts), " rows, ", ncol(tower_swc_ts) - 1, " variables (Ha1, Ha2)")
 } else {
   message("WARNING: tower_swc_ts_hourly.csv not found - run 06b_process_tower_swc_ts.R first")
   tower_swc_ts <- NULL
