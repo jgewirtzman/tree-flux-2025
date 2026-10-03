@@ -119,12 +119,17 @@ obs_test <- function(o, adjust_species = FALSE) {
        n_obs = nrow(o), n_trees = n_distinct(o$Tree), line = grid)
 }
 fmt_p <- function(p) ifelse(p < 0.001, "< 0.001", sprintf("= %.3f", p))
-# axis ticks in flux units; the ±0.1 ticks are dropped when the axis spans more than ~±3 nmol m-2 s-1
-asinh_breaks <- function(l) {
-  b <- if (diff(l) > 2.5) c(-10, -1, 0, 1, 10, 100) else c(-1, -0.1, 0, 0.1, 1)
-  asinh(b)[asinh(b) >= l[1] & asinh(b) <= l[2]]
+# Linear y axis zoomed to the tree means (the tests use every measurement). Measurements beyond
+# the axis are marked at the panel edge, one small grey triangle per tree (explained in the caption).
+zoom_edge <- function(o, tm) {
+  r <- range(c(tm$y, 0)); top <- r[2] + 0.6 * diff(r); bot <- r[1] - 0.4 * diff(r); pad <- 0 * (top - bot)
+  hi <- o %>% filter(flux > top) %>% distinct(Tree, m); lo <- o %>% filter(flux < bot) %>% distinct(Tree, m)
+  list(coord_cartesian(ylim = c(bot, top)),   # default 5% margin keeps edge points and markers whole
+       if (nrow(hi)) geom_point(data = hi, aes(m, top - pad), inherit.aes = FALSE, shape = 24, size = 1.3,
+                                colour = "grey50", fill = "grey50", alpha = 0.6, stroke = 0.2),
+       if (nrow(lo)) geom_point(data = lo, aes(m, bot + pad), inherit.aes = FALSE, shape = 25, size = 1.3,
+                                colour = "grey50", fill = "grey50", alpha = 0.6, stroke = 0.2))
 }
-scale_y_asinh <- function(...) scale_y_continuous(breaks = asinh_breaks, labels = function(x) signif(sinh(x), 2), ...)
 
 # Image file lists
 ert_images <- if (dir.exists(PATHS$ert_images)) {
@@ -379,7 +384,7 @@ create_species_panel <- function(data, species_label, bad_sonic_indices = c(),
       geom_ribbon(data = tt$line, aes(m, ymin = lo, ymax = hi), inherit.aes = FALSE, fill = "grey30", alpha = 0.15) +
       geom_line(data = tt$line, aes(m, fit), inherit.aes = FALSE, colour = "black", linewidth = 0.8)
   }
-  p_scatter <- p_scatter + geom_point(size = 2.5, shape = 16) + 
+  p_scatter <- p_scatter + geom_point(size = 2.5, shape = 16) + zoom_edge(o, tm) +
     labs(x = metric_x_label, y = expression(CH[4]~flux), subtitle = sprintf("p %s", fmt_p(tt$p))) +
     theme_classic(base_size = 11) +
     theme(axis.line = element_line(linewidth = 0.5),
@@ -557,7 +562,7 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
                                geom_line(data = tt$line, aes(m, fit), inherit.aes = FALSE, colour = sp_col, linewidth = 0.8)) } +
       geom_point(aes(fill = cls), shape = 21, size = 3.2, colour = "grey20", stroke = 0.3) +
       scale_fill_manual(values = c(class_cols, "no SoT" = "white"), name = "Class", drop = TRUE) +
-      
+      zoom_edge(o, tm) +
       labs(x = "ERT CV", y = expression(CH[4]~flux~(nmol~m^{-2}~s^{-1})), subtitle = lab) +
       theme_classic(base_size = 12) +
       theme(aspect.ratio = 1, legend.position = "none", plot.margin = margin(4, 8, 4, 4),
@@ -599,7 +604,7 @@ if (nrow(nyssa_data) > 0 && nrow(oak_data) > 0) {
       scale_colour_manual(values = species_colors, labels = labs_v, name = NULL) +
       scale_fill_manual(values = species_colors, guide = "none") +
       scale_shape_manual(values = spp_shapes, labels = labs_v, name = NULL) +
-      
+      zoom_edge(o_all, tm) +
       labs(x = "ERT CV",
            y = expression(CH[4]~flux~(nmol~m^{-2}~s^{-1})), title = site_name, subtitle = sub, tag = tag) +
       theme_classic(base_size = 12) + tg +
