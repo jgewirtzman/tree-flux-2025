@@ -15,7 +15,7 @@
 #   (1) Pearson r and Spearman rho with tree-mean CH4 flux (n = 30 trees per site)
 #   (2) leave-one-tree-out range of r (influence of single trees)
 #   (3) species-adjusted mixed model on ALL observations:
-#       asinh(1000 x flux) ~ metric + species + (1 | tree), per site
+#       asinh(flux) ~ metric + species + (1 | tree), per site (the scale of all other models)
 #       (species-adjusted = within-species association; avoids confounding species
 #        differences in flux with species differences in wood properties)
 #
@@ -28,7 +28,7 @@ ert <- read.csv("data/package/tomography/tomography_results_compiled.csv", strin
 fx <- read.csv("data/final/stem_ch4_flux.csv", stringsAsFactors = FALSE) %>%
   filter(!is.na(PLOT), !is.na(CH4_flux_nmolpm2ps)) %>%
   group_by(Tree) %>% mutate(SPECIES = first(na.omit(SPECIES))) %>% ungroup() %>%
-  mutate(site = ifelse(PLOT == "BGS", "Wetland", "Upland"), y = asinh(1000 * CH4_flux_nmolpm2ps))
+  mutate(site = ifelse(PLOT == "BGS", "Wetland", "Upland"), y = asinh(CH4_flux_nmolpm2ps))
 
 zs <- function(x, g) ave(x, g, FUN = function(v) (v - mean(v, na.rm = TRUE)) / sd(v, na.rm = TRUE))
 trees <- ert %>% transmute(tree = as.character(tree), ert_cv, ert_mean, ert_cma) %>%
@@ -76,45 +76,48 @@ print(as.data.frame(res %>% mutate(across(where(is.numeric), ~ signif(.x, 2)))))
 print(as.data.frame(sp_res %>% mutate(across(where(is.numeric), ~ signif(.x, 2)))))
 
 # ------------------------------------------------------------
-# SI table: correlation of tree-mean CH4 flux with four wood-condition metrics
+# SI table: four wood-condition metrics against every CH4 measurement
 #   SoT structural loss  % of the SoT cross-section in non-brown (low-velocity) classes (PiCUS Q74)
 #   ERT mean             mean resistivity of the ERT cross-section (Ohm m; lower = wetter)
 #   ERT CV               coefficient of variation of resistivity (heterogeneity of moisture)
 #   ERT index (PC1)      first principal component of eight ERT metrics, each z-scored within
 #                        species (tomography paper; higher = wetter, more heterogeneous)
-# rows: each species x site (10 trees), each site pooled (30 trees), and the species-adjusted
-# mixed-model test on all measurements (p only)
+# Each metric is measured once per tree, so the tree is the unit of replication: every
+# measurement enters asinh(flux) ~ metric (per SD) + (1 | tree) + (1 | date), tested with
+# Kenward-Roger degrees of freedom (about 8 for 10 trees), as in Figure 5 (06_tomography_flux.R).
+# Rows: each species x site (10 trees), and per site all species with species as a fixed effect.
+# Cells: beta per SD (p), and the range of beta when each tree is omitted in turn.
 # ------------------------------------------------------------
+suppressPackageStartupMessages(library(lmerTest))
 metrics <- c(sot_loss_pct = "SoT structural loss (%)", ert_mean = "ERT mean (Ohm m)", ert_cv = "ERT CV", ert_pc1 = "ERT index (PC1)")
 trees$sot_loss_pct <- trees$sot_structural_loss
-fmt <- function(r, p) ifelse(is.na(r), "–", sprintf("%.2f (%s)%s", r, ifelse(p < 0.001, "<0.001", sprintf("%.3f", p)),
-                                                      ifelse(p < 0.05, "*", "")))
-# Pearson r (p), Spearman rho, and the range of r when each tree is omitted in turn (robustness)
-cell <- function(x, y) {
-  ok <- is.finite(x) & is.finite(y); x <- x[ok]; y <- y[ok]
-  ct <- cor.test(x, y); rho <- suppressWarnings(cor(x, y, method = "spearman"))
-  loo <- vapply(seq_along(x), function(i) cor(x[-i], y[-i]), numeric(1))
-  sprintf("%s; ρ = %.2f; LOO %.2f to %.2f", fmt(ct$estimate, ct$p.value), rho, min(loo), max(loo))
+kr_fit <- function(o, adjust) {
+  sdx <- sd(unique(o[c("Tree", "x")])$x); if (!is.finite(sdx) || sdx == 0) return(c(b = NA, p = NA))
+  o$x <- (o$x - mean(unique(o[c("Tree", "x")])$x)) / sdx
+  f <- if (adjust) y ~ x + SPECIES + (1 | Tree) + (1 | date) else y ~ x + (1 | Tree) + (1 | date)
+  m <- suppressMessages(lmer(f, data = o, REML = TRUE))
+  c(b = fixef(m)[["x"]], p = anova(m, ddf = "Kenward-Roger")["x", "Pr(>F)"])
 }
+cell <- function(o, adjust = FALSE) {
+  o <- o %>% filter(is.finite(x)); fit <- kr_fit(o, adjust)
+  if (is.na(fit[["b"]])) return("–")
+  loo <- sapply(unique(o$Tree), function(t) kr_fit(o %>% filter(Tree != t), adjust)[["b"]])
+  sprintf("β = %.2f (%s)%s\nLOO %.2f to %.2f", fit[["b"]], ifelse(fit[["p"]] < 0.001, "<0.001", sprintf("%.3f", fit[["p"]])),
+          ifelse(fit[["p"]] < 0.05, "*", ""), min(loo, na.rm = TRUE), max(loo, na.rm = TRUE))
+}
+obs <- function(d, m) fx %>% mutate(tree = as.character(Tree)) %>% inner_join(d %>% select(tree, x = all_of(m)), by = "tree")
 grp <- list()
 for (s in c("Wetland", "Upland")) {
   for (spp in c("bg", "rm", "hem", "ro")) {
     d <- trees %>% filter(site == s, SPECIES == spp); if (nrow(d) < 6) next
     grp[[length(grp) + 1]] <- c(group = sprintf("%s — %s", s, c(bg = "N. sylvatica", rm = "A. rubrum", hem = "T. canadensis", ro = "Q. rubra")[[spp]]),
-      n = nrow(d), sapply(names(metrics), function(m) cell(d[[m]], d$flux)))
+      n = sprintf("%d / %d", nrow(d), sum(fx$Tree %in% d$tree)), sapply(names(metrics), function(m) cell(obs(d, m))))
   }
   d <- trees %>% filter(site == s)
-  grp[[length(grp) + 1]] <- c(group = sprintf("%s — all trees pooled", s), n = nrow(d),
-    sapply(names(metrics), function(m) cell(d[[m]], d$flux)))
-  # species-adjusted mixed model on all measurements (p of the metric term)
-  pv <- sapply(names(metrics), function(m) {
-    o <- fx %>% filter(site == s) %>% mutate(tree = as.character(Tree)) %>% inner_join(d %>% select(tree, x = all_of(m)), by = "tree") %>% filter(!is.na(x))
-    o$x <- as.numeric(scale(o$x)); mm <- lmer(y ~ x + SPECIES + (1 | Tree), data = o, REML = FALSE)
-    b <- fixef(mm)[["x"]]; p <- anova(update(mm, . ~ . - x), mm)$`Pr(>Chisq)`[2]
-    sprintf("β = %.2f (%s)%s", b, ifelse(p < 0.001, "<0.001", sprintf("%.3f", p)), ifelse(p < 0.05, "*", "")) })
-  grp[[length(grp) + 1]] <- c(group = sprintf("%s — species-adjusted, all measurements", s), n = sum(fx$site == s), pv)
+  grp[[length(grp) + 1]] <- c(group = sprintf("%s — all species, species-adjusted", s), n = sprintf("%d / %d", nrow(d), sum(fx$site == s)),
+    sapply(names(metrics), function(m) cell(obs(d, m), adjust = TRUE)))
 }
 si <- as.data.frame(do.call(rbind, grp), stringsAsFactors = FALSE)
-names(si) <- c("Group", "n", unname(metrics))
+names(si) <- c("Group", "Trees / measurements", unname(metrics))
 write.csv(si, "outputs/tables/SI_decay_metric_correlations.csv", row.names = FALSE)
 print(si)

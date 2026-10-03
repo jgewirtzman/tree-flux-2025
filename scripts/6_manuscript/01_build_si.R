@@ -66,7 +66,7 @@ add_figure <- function(path, title, caption, key, w = 6.5, h = NULL) {
   items[[length(items) + 1]] <<- data.frame(key = paste0("F:", key), item = sprintf("Figure S%d", fig_n), title = title, source = path)
 }
 
-AUTHORS <- "Jonathan Gewirtzman¹˒²˒³, Naomi Hegwood⁴, Hannah Burrows⁵˒⁶, Maxwell P. Lutz⁴, Grace E. Thompson⁴†, Bethany Duncan⁷, Masako Yang⁸, Samuel Jurado¹, Robert E. Marra⁹, Jaclyn Hatala Matthes⁴"
+AUTHORS <- "Jonathan Gewirtzman¹˒²˒³, Naomi Hegwood⁴, Hannah Burrows⁵˒⁶, Maxwell P. Lutz⁴, Grace E. Thompson⁴†, Bethany Duncan⁷, Masako Yang⁸, Samuel Jurado¹, Mark A. Bradford¹, Robert E. Marra⁹, Jaclyn Hatala Matthes⁴"
 AFFIL <- c("¹ Yale School of the Environment, Yale University, New Haven, Connecticut, USA",
            "² Department of Earth System Science, Stanford University, Stanford, California, USA",
            "³ Department of Ecology and Evolution, University of Chicago, Chicago, Illinois, USA",
@@ -131,9 +131,9 @@ add_table(key, "Decay classification (from the companion tomography study).",
 
 # S4 wood-condition metric correlations
 s4 <- rd(file.path(T_, "SI_decay_metric_correlations.csv")) %>%
-  mutate(across(-c(Group, n), ~ gsub("; ", "\n", gsub("; LOO NA to NA", "", .x))))
-add_table(s4, "Tree-mean CH₄ flux against four wood-condition metrics, by species and site.",
-  "Each cell: Pearson r (p), Spearman ρ, and the range of r when each tree is omitted in turn (LOO), for each species at each site (10 trees) and for all trees at each site (30 trees). The species-adjusted rows give the standardized coefficient β (p, likelihood-ratio test) of the metric in a mixed model of all measurements with species as a fixed effect and tree as a random effect. SoT structural loss: % of the cross-section in non-brown (low-velocity) classes; ERT mean: mean resistivity (lower = wetter); ERT CV: heterogeneity of resistivity; ERT index: first principal component of eight ERT metrics standardized within species (Thompson et al. 2026). * p < 0.05.",
+  mutate(across(-(1:2), ~ gsub("; ", "\n", .x)))
+add_table(s4, "Four wood-condition metrics against stem CH₄ flux, by species and site.",
+  "Each cell: β, the slope of asinh-transformed flux per SD of the metric, with its p-value, in a mixed model of every measurement with random intercepts for tree and sampling date (Kenward–Roger degrees of freedom; the tree is the unit of replication), and the range of β when each tree is omitted in turn (LOO). The species-adjusted rows fit all species at a site with species as a fixed effect. SoT structural loss: % of the cross-section in non-brown (low-velocity) classes; ERT mean: mean resistivity (lower = wetter); ERT CV: heterogeneity of resistivity; ERT index: first principal component of eight ERT metrics standardized within species (Thompson et al. 2026). –: no variation among trees. * p < 0.05.",
   "scripts/4_analysis/07_decay_definitions.R", "decay_corr")
 
 # S7 wetland model comparison (shared observations)
