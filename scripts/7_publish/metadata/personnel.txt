@@ -1,5 +1,5 @@
 givenName	middleInitial	surName	organizationName	electronicMailAddress	userId	role	projectTitle	fundingAgency	fundingNumber
-Jonathan		Gewirtzman	Yale University	jongewirtzman@gmail.com	0000-0003-3959-3758	creator			
+Jonathan		Gewirtzman	Stanford University	jgewirtz@stanford.edu	0000-0003-3959-3758	creator			
 Naomi		Hegwood	Harvard Forest, Harvard University			creator			
 Hannah		Burrows	Harvard University		0009-0000-9253-906X	creator			
 Maxwell	P	Lutz	Harvard Forest, Harvard University			creator			
@@ -9,7 +9,7 @@ Masako		Yang	Harvard University			creator
 Samuel		Jurado	Yale University			creator			
 Robert	E	Marra	The Connecticut Agricultural Experiment Station		0000-0002-5357-3270	creator			
 Jaclyn	Hatala	Matthes	Harvard Forest, Harvard University		0000-0001-8999-8062	creator			
-Jonathan		Gewirtzman	Yale University	jongewirtzman@gmail.com	0000-0003-3959-3758	contact			
+Jonathan		Gewirtzman	Stanford University	jgewirtz@stanford.edu	0000-0003-3959-3758	contact			
 Jaclyn	Hatala	Matthes	Harvard Forest, Harvard University		0000-0001-8999-8062	PI	Redefining the ecological memory of disturbance over multiple temporal and spatial scales in forest ecosystems	National Science Foundation	DEB-1945921, DEB-2231681
 Jaclyn	Hatala	Matthes	Harvard Forest, Harvard University		0000-0001-8999-8062	PI	Environmental System Science	U.S. Department of Energy, Office of Science	DE-SC0024092
-Jonathan		Gewirtzman	Yale University	jongewirtzman@gmail.com	0000-0003-3959-3758	PI	Graduate Research Fellowship	National Science Foundation	DGE-2139841
+Jonathan		Gewirtzman	Stanford University	jgewirtz@stanford.edu	0000-0003-3959-3758	PI	Graduate Research Fellowship	National Science Foundation	DGE-2139841
