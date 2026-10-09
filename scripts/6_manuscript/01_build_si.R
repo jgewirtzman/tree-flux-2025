@@ -34,7 +34,7 @@ lbl <- function(doc, label, rest, keep = FALSE) par_(doc, ftext(label, tb), ftex
 items <- list(); tab_n <- 0; fig_n <- 0
 # Stable keys -> SI numbers (the manuscript cites items by key; see manuscript_work/edit_manuscript.py)
 TAB_KEYS <- c("decay_key", "decay_corr", "wet_comp", "slopes", "upland", "coefs", "diagnostics")
-FIG_KEYS <- c("site_map", "drivers", "tree_effects", "pred_by_site", "generalists")
+FIG_KEYS <- c("site_map", "drivers", "tree_effects", "period_ranks", "pred_by_site", "generalists")
 TXT_KEYS <- c("flux", "models", "tomo")
 lab <- c(setNames(paste0("S", seq_along(TAB_KEYS)), paste0("T:", TAB_KEYS)),
          setNames(paste0("S", seq_along(FIG_KEYS)), paste0("F:", FIG_KEYS)),
@@ -207,6 +207,8 @@ add_figure(file.path(FIG, "si_driver_timeseries.png"), "Environmental drivers ov
   "Daily means (precipitation: daily totals) from June 2023 to October 2025; vertical lines mark wetland (solid) and upland (dashed) sampling dates. Note the summer 2025 drought (falling water table and soil water content).", "drivers")
 add_figure(file.path(FIG, "repeatability", "fig_tree_effects.png"), "Tree random effects.",
   "Deviation of each tree's mean asinh-transformed CH₄ flux from the mean of its species at that site (random effects from an intercept-only mixed model), with 95% intervals; red where the interval excludes zero. Trees are ordered by their effect.", "tree_effects")
+add_figure(file.path(FIG, "repeatability", "fig_period_cor.png"), "Tree rankings before and after June 2024.",
+  "Mean asinh-transformed CH₄ flux of each tree before and after 1 June 2024, by species and site, with Spearman rank correlations (ρ) and their p-values; the dashed line is 1:1.", "period_ranks")
 add_figure(file.path(FIG, "interaction_by_site_limited_free.png"), "Model predictions by site.",
   "Predicted CH₄ flux across the observed temperature range at different water-table percentiles, averaged across species, from the wetland core model and upland Model B.", "pred_by_site")
 add_figure(file.path(FIG, "tomography", "tomography_generalists.png"), "Internal wood condition and CH₄ flux in the generalist species.",

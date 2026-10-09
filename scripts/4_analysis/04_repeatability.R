@@ -204,24 +204,28 @@ cor_labels <- cor_by_group %>%
                    ifelse(p_value < 0.01, "*", ""))
   )
 
-fig_period_cor <- ggplot(tree_by_period, aes(x = early, y = late)) +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray50") +
-  geom_smooth(method = "lm", se = TRUE, color = "firebrick", alpha = 0.2) +
-  geom_point(size = 3, alpha = 0.7) +
-  geom_text(data = cor_labels, 
-            aes(x = -Inf, y = Inf, label = label),
-            hjust = -0.1, vjust = 1.5, size = 3.5) +
-  facet_grid(location ~ species_full, scales = "free") +
-  labs(x = expression("Mean CH"[4]~"flux, early period (nmol m"^-2~"s"^-1~")"),
-       y = expression("Mean CH"[4]~"flux, late period (nmol m"^-2~"s"^-1~")")) +
+# one panel per species x site (the six study groups), free scales; Spearman rho as in the text
+grp_levels <- c("Wetland · N. sylvatica", "Wetland · A. rubrum", "Wetland · T. canadensis",
+                "Upland · Q. rubra", "Upland · A. rubrum", "Upland · T. canadensis")
+tbp <- tree_by_period %>% mutate(group = factor(paste(location, "·", species_full), levels = grp_levels))
+lab <- cor_labels %>% mutate(group = factor(paste(location, "·", species_full), levels = grp_levels),
+                             label = sprintf("ρ = %.2f, p %s", spearman_rho, ifelse(p_value < 0.001, "< 0.001", sprintf("= %.3f", p_value))))
+fig_period_cor <- ggplot(tbp, aes(x = early, y = late)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray60") +
+  geom_point(size = 2.6, alpha = 0.8) +
+  geom_text(data = lab, aes(x = -Inf, y = Inf, label = label), hjust = -0.05, vjust = 1.4, size = 3.3) +
+  facet_wrap(~ group, nrow = 2, scales = "free") +
+  scale_x_continuous(expand = expansion(mult = c(0.08, 0.08))) +
+  scale_y_continuous(expand = expansion(mult = c(0.08, 0.2))) +
+  labs(x = expression("Tree mean of asinh(CH"[4]~"flux), before June 2024"),
+       y = expression("Tree mean of asinh(CH"[4]~"flux), after June 2024")) +
   theme_classic(base_size = 11) +
-  theme(strip.text = element_text(face = "italic"),
-        strip.background = element_blank())
+  theme(strip.text = element_text(face = "italic"), strip.background = element_blank())
 
 print(fig_period_cor)
 
 ggsave(file.path(OUTPUT_DIR, "fig_period_cor.png"), fig_period_cor, 
-       width = 9, height = 6, dpi = 300)
+       width = 9, height = 5.6, dpi = 300, bg = "white")
 ggsave(file.path(OUTPUT_DIR, "fig_period_cor.pdf"), fig_period_cor, 
        width = 9, height = 6)
 
