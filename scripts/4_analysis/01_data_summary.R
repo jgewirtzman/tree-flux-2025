@@ -41,7 +41,7 @@ summ <- data.frame(
   statistic = c("measurements", "trees", "sampling dates", "fitted to the raw record", "earlier linear flux (no raw record)",
                 "non-linear (HM) model selected, % of fitted", "median CH4 R2 (linear fit)",
                 "below MDF, upland %", "below MDF, wetland %", "positive flux, upland %", "positive flux, wetland %",
-                "fluxqc screen fired", "trace QC window problem", "trace QC data problem", "window set by hand",
+                "goFlux QC screen fired", "trace QC window problem", "trace QC data problem", "window set by hand",
                 "window ended at chamber opening"),
   value = c(nrow(df), n_distinct(df$Tree), n_distinct(df$date), sum(df$fitted), sum(!df$fitted),
             round(100 * mean(fit$CH4_model == "HM"), 1), round(median(fit$CH4_r2, na.rm = TRUE), 3),

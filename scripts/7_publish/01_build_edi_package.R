@@ -61,7 +61,7 @@ writeLines(sub("(local wall clock; the trailing Z is not UTC)", "(local wall clo
 
 table_info <- rbind(
   c("Stem CH4 and CO2 flux, one row per measurement",
-    "Final stem flux dataset: 1,637 closed-chamber measurements on 60 trees, June 2023-October 2025, recalculated from the raw 1-Hz analyzer records with goFlux, with minimum detectable flux, detection flags and quality-control flags (fluxqc and trace checks), sampling times, chamber volume and meteorology used in the calculation. Fluxes below the detection limit are retained. Column definitions also in stem_ch4_flux_dictionary.csv."),
+    "Final stem flux dataset: 1,637 closed-chamber measurements on 60 trees, June 2023-October 2025, recalculated from the raw 1-Hz analyzer records with goFlux, with minimum detectable flux, detection flags and quality-control flags (goFlux screens and trace checks), sampling times, chamber volume and meteorology used in the calculation. Fluxes below the detection limit are retained. Column definitions also in stem_ch4_flux_dictionary.csv."),
   c("Data dictionary of the stem flux dataset", "Column, unit and definition of every column of stem_ch4_flux.csv."),
   c("Flux processing log", "Every cleaning rule applied in building stem_ch4_flux.csv from the raw records and field logs, in order, with the number of records it affected."),
   c("Hourly environmental drivers",

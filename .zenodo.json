@@ -9,7 +9,7 @@
   ],
   "license": "MIT",
   "upload_type": "software",
-  "keywords": ["methane", "tree stem flux", "wetland", "Harvard Forest", "tomography", "goFlux", "fluxqc"],
+  "keywords": ["methane", "tree stem flux", "wetland", "Harvard Forest", "tomography", "goFlux"],
   "version": "1.0.0",
   "language": "eng"
 }

@@ -19,7 +19,7 @@
 #   review_windows()                         # the shortlist
 #   review_windows(ids = c("LGR_20240626_431_155638"))   # any closures
 # ============================================================
-suppressPackageStartupMessages({ library(fluxqc) })
+suppressPackageStartupMessages({ library(goFlux) })
 
 review_windows <- function(ids = NULL,
                            shortlist = "outputs/tables/flux_processing/trace_qc_clickpeak_shortlist.csv",
@@ -50,7 +50,7 @@ review_windows <- function(ids = NULL,
     row <- data.frame(closure_id = id, decision = c(k = "keep", c = "click", x = "exclude")[[a]],
                       start = NA_character_, end = NA_character_, note = note)
     if (a == "c") {
-      m <- click_peak2_stacked(list(d), gases = c("CO2dry_ppm", "CH4dry_ppb"), sleep = 2)
+      m <- click.peak2(list(d), gastype = "CO2dry_ppm", gases = c("CO2dry_ppm", "CH4dry_ppb"), sleep = 2)
       if (!nrow(m)) { message("  no window clicked; skipped"); next }
       row$start <- format(min(m$POSIX.time[m$flag == 1]), "%Y-%m-%d %H:%M:%S")
       row$end <- format(max(m$POSIX.time[m$flag == 1]), "%Y-%m-%d %H:%M:%S")

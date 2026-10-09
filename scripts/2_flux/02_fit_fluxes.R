@@ -3,9 +3,9 @@
 #
 # Fits CH4 and CO2 fluxes to every closure with a raw trace: goFlux linear (LM) and
 # Hutchinson-Mosier (HM) models, best.flux selection with the Hueppi et al. (2018)
-# criteria (g.limit = 2), and fluxqc precision, minimum detectable flux and QC screens.
+# criteria (g.limit = 2), and goFlux QC screens (jgewirtzman/goFlux fork, doi:10.5281/zenodo.23254791).
 #   MDF = 1.96 * sigma / t * flux.term (1.96: benchmark multiplier, not a calibrated 95 % test); sigma = analyzer precision on
-#   that day (MAD of first differences over the whole day record / sqrt 2); t = closure
+#   that day (goFlux empirical.prec, second differences inside the closure windows; 01_closure_table.R); t = closure
 #   length in seconds. Retain-and-flag: nothing is removed here.
 # Measurements without a raw record keep the flux of the earlier processing.
 #
@@ -22,9 +22,8 @@ suppressPackageStartupMessages({
   library(tidyr)
   library(lubridate)
   library(goFlux)
-  library(fluxqc)
 })
-stopifnot(packageVersion("fluxqc") >= "0.2.3")
+stopifnot(packageVersion("goFlux") >= "0.5.0.9001")
 SCRIPT <- "02_fit_fluxes"
 source("scripts/2_flux/flux_settings.R")
 
@@ -33,10 +32,10 @@ closures <- cl$closures; lgr_segments <- cl$lgr_segments; li_segments <- cl$li_s
 legacy <- cl$legacy; day_sigma <- cl$day_sigma
 
 # ============================================================
-# PART 7: goFlux + fluxqc
+# PART 7: goFlux fits and QC screens
 # ============================================================
 
-message("\n=== Part 7: goFlux / fluxqc ===")
+message("\n=== Part 7: goFlux ===")
 
 segs <- c(lgr_segments, li_segments)
 fit_ids <- closures$closure_id[closures$has_trace & !is.na(closures$Vtot)]
@@ -57,28 +56,37 @@ message("Trace rows: ", nrow(manID), " for ", length(unique(manID$UniqueID)), " 
 aux <- closures %>% filter(closure_id %in% fit_ids) %>% transmute(UniqueID = closure_id, instrument)
 
 t0 <- Sys.time()
-res_co2 <- process_fluxes(manID, aux = aux, gastype = "CO2dry_ppm", precision = "mad",
-                          mdf = "wassmann", conf = 0.95, group = "instrument", qc = FALSE,
-                          extra = list(precision = c("mad", "allan", "datasheet"), mdf = c("wassmann", "goflux")))
+# The fit itself uses the *_prec columns set above (unchanged), so the fluxes do not depend on the
+# precision estimator; det.* (goFlux's own detection columns) are kept for reference only. The MDF
+# used in the dataset is computed below from the analyzer x day precision (01_closure_table.R).
+res_co2 <- process.fluxes(manID, gastype = "CO2dry_ppm", auxfile = aux, by = "instrument", conf = 0.95, qc = FALSE)
 message("CO2 done in ", round(as.numeric(Sys.time() - t0, units = "mins"), 1), " min")
 t0 <- Sys.time()
-res_ch4 <- process_fluxes(manID, aux = aux, gastype = "CH4dry_ppb", precision = "mad",
-                          mdf = "wassmann", conf = 0.95, group = "instrument",
-                          extra = "all", co2 = res_co2$fluxes,
-                          # ambient_start is off: the field-log windows begin after the closure onset,
-                          # so the first seconds of a window are never at ambient by design
-                          qc = list(c0 = TRUE, co2_tracer = TRUE, convex = TRUE, min_window = list(secs = 60),
-                                    ambient_start = FALSE, noisy = TRUE))
+res_ch4 <- process.fluxes(manID, gastype = "CH4dry_ppb", auxfile = aux, by = "instrument", conf = 0.95,
+                          co2.flux.result = res_co2$fluxes,
+                          # qc.ambient is computed but not used: the field-log windows begin after the
+                          # closure onset, so the first seconds of a window are never at ambient by design
+                          qc = list(min.obs = 60))
 message("CH4 done in ", round(as.numeric(Sys.time() - t0, units = "mins"), 1), " min")
-print(res_ch4)
-message("Campaign sigma (ppb) by analyzer: ",
+message("Campaign sigma (ppb) by analyzer (goFlux det.prec): ",
         paste(capture.output(print(res_ch4$fluxes %>% group_by(instrument) %>%
-          summarise(n = n(), sigma_mad_ppb = round(median(sigma_emp), 3),
-                    sigma_allan_med = round(median(sigma_allan, na.rm = TRUE), 3), .groups = "drop"))),
-          collapse = "\n"))
+          summarise(n = n(), sigma_ppb = round(median(det.prec), 3), .groups = "drop"))), collapse = "\n"))
 
-# closure length and logging interval actually used
-cs <- closure_seconds(manID)
+# Convex (accelerating) traces: goFlux qc.convex fires only when goFlux is run with k.min < 0, so
+# the screen is computed here as before: a quadratic in time fitted to the CH4 window, flagged when
+# the quadratic term has the sign of the net trend and p < 0.05.
+convex_flag <- manID %>% filter(flag == 1) %>% group_by(UniqueID) %>% group_modify(function(d, k) {
+  if (nrow(d) < 6) return(data.frame(qc_convex_local = NA))
+  co <- summary(lm(CH4dry_ppb ~ Etime + I(Etime^2), data = d))$coefficients
+  if (nrow(co) < 3) return(data.frame(qc_convex_local = NA))
+  net <- sign(coef(lm(CH4dry_ppb ~ Etime, data = d))[2])
+  data.frame(qc_convex_local = sign(co[3, 1]) == net && co[3, 4] < 0.05)
+}) %>% ungroup()
+res_ch4$fluxes <- res_ch4$fluxes %>% left_join(convex_flag, by = "UniqueID") %>% mutate(qc.convex = qc_convex_local)
+
+# closure length (goFlux closure.time: window span + one logging interval) and logging interval
+cs <- manID %>% filter(flag == 1) %>% group_by(UniqueID) %>%
+  summarise(t = closure.time(Etime), dt = median(diff(as.numeric(POSIX.time))), .groups = "drop")
 
 # ============================================================
 # PART 8: ASSEMBLE OUTPUT
@@ -95,20 +103,21 @@ gf_ch4 <- res_ch4$fluxes %>% transmute(
   CH4_C0 = C0, CH4_Ct = Ct, CH4_MAE_LM = LM.MAE, CH4_MAE_HM = HM.MAE,
   CH4_quality_check = quality.check, CH4_LM_diagnose = LM.diagnose, CH4_HM_diagnose = HM.diagnose,
   nb_obs = nb.obs, flux_term = flux.term,
-  CH4_sigma_mad_record = sigma_emp, CH4_MDF_record = MDF_emp,
-  CH4_sigma_allan = sigma_allan, CH4_sigma_datasheet = sigma_datasheet, CH4_sigma_rolling = sigma_rolling,
-  CH4_MDF_wass90 = MDF_wassmann_mad_90, CH4_MDF_wass95 = MDF_wassmann_mad_95, CH4_MDF_wass99 = MDF_wassmann_mad_99,
-  CH4_MDF_chr90 = MDF_christiansen_allan_90, CH4_MDF_chr95 = MDF_christiansen_allan_95,
-  CH4_MDF_chr99 = MDF_christiansen_allan_99,
-  CH4_MDF_datasheet = MDF_goflux_datasheet, CH4_MDF_2sigma_allan = MDF_two_sigma_allan,
-  qc_c0, qc_c0_ratio, qc_co2_tracer, qc_co2_slope, qc_convex, qc_min_window,
-  qc_noisy, qc_noisy_ratio, qc_any, qc_note)
+  CH4_sigma_mad_record = det.prec, CH4_MDF_record = det.MDF, CH4_sigma_closure = det.prec.closure,
+  qc_c0 = qc.c0, qc_c0_ratio = qc.c0.ratio,
+  qc_co2_tracer = !co2.tracer,                  # goFlux co2.tracer is TRUE when CO2 rises (pass); flag = not rising
+  qc_convex = qc.convex, qc_min_window = qc.min.obs, qc_noisy = qc.noisy, qc_noisy_ratio = qc.noisy.ratio) %>%
+  mutate(qc_any = coalesce(qc_c0, FALSE) | coalesce(qc_co2_tracer, FALSE) | coalesce(qc_convex, FALSE) |
+                  coalesce(qc_min_window, FALSE) | coalesce(qc_noisy, FALSE),
+         qc_note = trimws(paste0(ifelse(coalesce(qc_c0, FALSE), "c0 ", ""), ifelse(coalesce(qc_co2_tracer, FALSE), "co2_tracer ", ""),
+                                 ifelse(coalesce(qc_convex, FALSE), "convex ", ""), ifelse(coalesce(qc_min_window, FALSE), "min_window ", ""),
+                                 ifelse(coalesce(qc_noisy, FALSE), "noisy", ""))))
 gf_co2 <- res_co2$fluxes %>% transmute(
   closure_id = UniqueID,
   CO2_flux_goflux = best.flux, CO2_model = model, CO2_LM_flux = LM.flux, CO2_HM_flux = HM.flux,
   CO2_SE_goflux = pick_se(res_co2$fluxes), CO2_LM_r2 = LM.r2, CO2_LM_p = LM.p.val, CO2_g_factor = g.fact,
   CO2_C0 = C0, CO2_quality_check = quality.check,
-  CO2_sigma_mad_record = sigma_emp, CO2_sigma_allan = sigma_allan, CO2_MDF_record = MDF_emp)
+  CO2_sigma_mad_record = det.prec, CO2_MDF_record = det.MDF)
 
 write.csv(day_sigma, file.path(TAB_DIR, "goflux_precision_by_analyzer_day.csv"), row.names = FALSE)
 message("Per-day precision (median CH4 ppb): ",
@@ -142,7 +151,7 @@ out <- closures %>%
     CO2_below_MDF = ifelse(is.na(CO2_MDF), NA, abs(CO2_flux_goflux) < CO2_MDF),
     CH4_det_class = ifelse(is.na(CH4_MDF), NA_character_, ifelse(CH4_flux_goflux > CH4_MDF, "emission",
                            ifelse(CH4_flux_goflux < -CH4_MDF, "uptake", "below detection"))),
-    CH4_MDF_method = ifelse(is.na(CH4_MDF), NA_character_, "1.96 x MAD sigma (analyzer x day) / t x flux term"),
+    CH4_MDF_method = ifelse(is.na(CH4_MDF), NA_character_, "1.96 x second-difference sigma (goFlux empirical.prec; analyzer x day) / t x flux term"),
     CH4_MDF_wass90 = abs(qnorm(0.95) * CH4_sigma_mad / t_sec * flux_term),
     CH4_MDF_wass95 = CH4_MDF,
     CH4_MDF_wass99 = abs(qnorm(0.995) * CH4_sigma_mad / t_sec * flux_term),
@@ -154,7 +163,7 @@ out <- closures %>%
     # ~1 means the legacy pipeline used the same volume/moles as this run
     legacy_vol_ratio = ifelse(year < 2025 & fitted & !is.na(CH4_flux_legacy) & abs(CH4_LM_flux) > 0.05,
                               CH4_flux_legacy / CH4_LM_flux, NA_real_),
-    t_src = case_when(fitted ~ "trace (closure_seconds)", !is.na(window_start) ~ "field log only",
+    t_src = case_when(fitted ~ "trace (goFlux closure.time)", !is.na(window_start) ~ "field log only",
                       TRUE ~ "none"),
     # canonical flux for the analysis dataset: goFlux where a trace exists, legacy otherwise
     flux_source = ifelse(fitted, "goFlux", "legacy"),
@@ -181,10 +190,11 @@ out_csv <- out %>% mutate(across(where(function(v) inherits(v, "POSIXct")), fmt_
                           date = format(date, "%Y-%m-%d"))
 write.csv(out_csv, PATH_FITS, row.names = FALSE, na = "NA")
 saveRDS(list(traces = manID, closures = closures), PATH_TRACES)
-writeLines(fluxqc:::to_json(list(CH4 = res_ch4$settings, CO2 = res_co2$settings,
+writeLines(jsonlite::toJSON(list(CH4 = res_ch4$settings, CO2 = res_co2$settings,
                                  constants = list(SURFAREA_M2 = SURFAREA_M2, EXTRA_VOL_LGR_L = EXTRA_VOL_LGR_L, EXTRA_VOL_7810_L = EXTRA_VOL_7810_L,
                                                   SHOULDER_S = SHOULDER_S, DEADBAND_7810 = DEADBAND_7810, DEADBAND_LGR = DEADBAND_LGR,
-                                                  MIN_REMARK_S = MIN_REMARK_S, MIN_WINDOW_S = MIN_WINDOW_S, TZ = TZ))), PATH_SETTINGS)
+                                                  MIN_REMARK_S = MIN_REMARK_S, MIN_WINDOW_S = MIN_WINDOW_S, TZ = TZ)),
+                           auto_unbox = TRUE, pretty = TRUE, digits = NA, null = "null", force = TRUE), PATH_SETTINGS)
 log_step("7 fits", "closures fitted (goFlux best.flux, LM or HM)", sum(out$fitted),
          sprintf("HM selected for %d", sum(out$CH4_model %in% "HM")))
 log_step("7 fits", "measurements kept with their earlier linear flux (no raw record)", sum(out$in_legacy_dataset & !out$fitted))
@@ -247,7 +257,7 @@ message("Implied legacy/goFlux LM volume ratio (2023-24, |LM flux| > 0.05): medi
 review <- out %>%
   filter(fitted) %>%
   mutate(reasons = paste0(
-    ifelse(!is.na(qc_any) & qc_any, paste0("fluxqc: ", qc_note, "; "), ""),
+    ifelse(!is.na(qc_any) & qc_any, paste0("goFlux QC: ", qc_note, "; "), ""),
     ifelse(!is.na(CO2_flux_goflux) & CO2_flux_goflux <= 0, "CO2 flux <= 0; ", ""),
     ifelse(!is.na(fl_check) & fl_check == "bad", paste0("field log check = bad (", trimws(fl_notes), "); "), ""),
     ifelse(!is.na(legacy_vol_ratio) & (legacy_vol_ratio < 0.75 | legacy_vol_ratio > 1.33),

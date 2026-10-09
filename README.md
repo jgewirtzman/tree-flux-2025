@@ -43,7 +43,7 @@ bash scripts/run_pipeline.sh
 Every cleaning rule records how many measurements it touched in `data/final/flux_processing_log.csv`.
 
 1. `01_closure_table.R` — closures from the field logs (LGR/UGGA, Jun 2023–Mar 2025) and the tagged analyzer remarks (LI-7810, Apr–Oct 2025): the team's timing corrections, old wetland tags mapped to ForestGEO tags, unusable and duplicate entries removed, aborted starts and superseded redos removed, windows (closure + 20 s deadband to the logged end, ended early at a detected chamber opening), windows set by hand after inspection, chamber volume and met.
-2. `02_fit_fluxes.R` — goFlux linear and Hutchinson–Mosier fits, `best.flux` selection (Hüppi et al. 2018), fluxqc precision and screens. MDF = 1.96 σ / t × flux term, σ = analyzer precision on that day. Measurements without a raw record keep their earlier linear flux.
+2. `02_fit_fluxes.R` — goFlux linear and Hutchinson–Mosier fits, `best.flux` selection (Hüppi et al. 2018), goFlux precision (`empirical.prec`) and screens (`qc.flags`). MDF = 1.96 σ / t × flux term, σ = analyzer precision on that day. Measurements without a raw record keep their earlier linear flux.
 3. `03_trace_qc.R` — automated checks of every CO2 and CH4 trace; shortlist for inspection.
 4. `04_review_windows.R` — interactive review of the shortlist (run by hand; decisions go to `data/package/qc_decisions/manual_windows.csv`, applied by step 1).
 5. `05_deadband_sensitivity.R` — refits with 0–45 s deadbands (sensitivity check).
@@ -52,7 +52,7 @@ Every cleaning rule records how many measurements it touched in `data/final/flux
 ## Requirements
 
 Working directory: the project root. R ≥ 4.3 with
-`dplyr`, `tidyr`, `readr`, `lubridate`, `readxl`, `goFlux` (≥ 0.4.0), `fluxqc` (≥ 0.2.3, `remotes::install_github("jgewirtzman/fluxqc")`), `neonUtilities`, `plantecophys`, `lme4`, `lmerTest`, `performance`, `emmeans`, `RcppRoll`, `zoo`, `ggplot2`, `patchwork`, `cowplot`, `ggtext`, `scales`, `viridis`, `ggridges`, `ggpointdensity`, `magick`, `pheatmap`, `car`, `sf`, `terra`, `ggspatial`, `ggnewscale`, `ggrepel`, `officer`, `flextable`; for stage 0/7 also `EDIutils`, `amerifluxr`, `phenocamr`, `EMLassemblyline`.
+`dplyr`, `tidyr`, `readr`, `lubridate`, `readxl`, `goFlux` (fork, version 0.5.0.9001: `remotes::install_github("jgewirtzman/goFlux@v0.5.0.9001")`, doi:10.5281/zenodo.23254791), `neonUtilities`, `plantecophys`, `lme4`, `lmerTest`, `performance`, `emmeans`, `RcppRoll`, `zoo`, `ggplot2`, `patchwork`, `cowplot`, `ggtext`, `scales`, `viridis`, `ggridges`, `ggpointdensity`, `magick`, `pheatmap`, `car`, `sf`, `terra`, `ggspatial`, `ggnewscale`, `ggrepel`, `officer`, `flextable`; for stage 0/7 also `EDIutils`, `amerifluxr`, `phenocamr`, `EMLassemblyline`.
 
 ## Sites and species
 

@@ -48,6 +48,6 @@ Nothing in `data/` is tracked by git. Four folders, in the order data flow throu
 | `stem_ch4_flux.csv` | one row per measurement (1,637): flux, SE, MDF, detection class, QC flags, tree, analyzer, window, chamber, corrected sampling time |
 | `stem_ch4_flux_dictionary.csv` | column definitions and units |
 | `flux_processing_log.csv` | every cleaning rule and the number of records it touched |
-| `flux_processing_settings.json` | goFlux/fluxqc settings and constants |
+| `flux_processing_settings.json` | goFlux settings (version and commit) and constants |
 | `environment_hourly.csv` (+ `_variables.csv`) | hourly drivers on the EST clock (UTC−5) |
 | `tomography_classes.csv` | decay class and ERT PC1 per tree (reproduces the companion study) |

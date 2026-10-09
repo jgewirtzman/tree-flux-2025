@@ -14,7 +14,7 @@
 #   11 sampling time  field-log real time; closures logged without a time take the analyzer
 #                     clock minus that analyzer's offset; two AM/PM errors corrected;
 #                     sample_hour_est is the hour on the EST clock used by every driver
-#   12 QC flags       trace QC (03_trace_qc.R) and fluxqc screens joined; tree metadata
+#   12 QC flags       trace QC (03_trace_qc.R) and goFlux QC screens joined; tree metadata
 #                     checked against data/package/trees.csv
 #
 # Inputs : data/interim/flux_fits.csv, data/interim/flux_trace_qc.csv, data/package/trees.csv
@@ -50,10 +50,10 @@ df <- df %>% left_join(pooled, by = "inst_label") %>%
     closure_s_src = case_when(fitted ~ "trace", !is.na(t_sec_fl) ~ "field-log window",
                               TRUE ~ paste0("assumed ", unname(T_FALLBACK[inst_label]), " s")),
     instrument = coalesce(instrument, ifelse(inst_label == "LI-7810", "LI-7810", "LGR1")),
-    flux_term  = ifelse(fitted, flux_term, fluxqc::flux_term(Vtot_L, Pcham_kPa, Area_cm2, Tcham_C)),
+    flux_term  = ifelse(fitted, flux_term, goFlux::flux.term(Vtot_L, Pcham_kPa, Area_cm2, Tcham_C)),
     CH4_sigma_ppb = ifelse(fitted, CH4_sigma_mad, sigma_pooled_CH4),
     CO2_sigma_ppm = ifelse(fitted, CO2_sigma_mad, sigma_pooled_CO2),
-    sigma_src  = ifelse(fitted, "analyzer x day (whole-day record)", "analyzer median (no raw record)"),
+    sigma_src  = ifelse(fitted, "analyzer x day (closure windows, goFlux empirical.prec)", "analyzer median (no raw record)"),
     CH4_MDF = abs(qnorm(0.975) * CH4_sigma_ppb / closure_s * flux_term),
     CO2_MDF = abs(qnorm(0.975) * CO2_sigma_ppm / closure_s * flux_term),
     CH4_below_MDF = abs(CH4_flux_nmolpm2ps) < CH4_MDF,
@@ -168,11 +168,11 @@ CH4_below_MDF,,TRUE if |CH4 flux| < CH4_MDF (retained)
 CH4_det_class,,emission / uptake / below detection
 CO2_MDF,umol m-2 s-1,minimum detectable CO2 flux
 CO2_below_MDF,,TRUE if |CO2 flux| < CO2_MDF
-qc_c0,,fluxqc: starting concentration well above ambient
-qc_co2_tracer,,fluxqc: CO2 not increasing during the closure (possible poor seal)
-qc_convex,,fluxqc: concentration curve convex (non-diffusive shape)
-qc_noisy,,fluxqc: record noisier than the analyzer precision
-qc_note,,fluxqc screens that fired
+qc_c0,,goFlux QC: starting concentration well above ambient
+qc_co2_tracer,,goFlux QC: CO2 not clearly increasing during the closure (possible poor seal)
+qc_convex,,goFlux QC: concentration curve convex (non-diffusive shape)
+qc_noisy,,goFlux QC: record noisier than the analyzer precision
+qc_note,,goFlux QC screens that fired
 trace_window_problem,,trace QC: window problem (CO2 falling or dropping, flat start, overlap)
 trace_data_problem,,trace QC: data problem (CH4 step, gap, start transient, noise)
 trace_qc_reasons,,trace QC: all checks that fired

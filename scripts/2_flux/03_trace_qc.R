@@ -10,19 +10,19 @@
 #
 # Checks (per closure):
 #   window problems (candidates for manual re-windowing)
-#     co2_not_rising    CO2 slope <= 0 or rise < 3 sigma over the window (fluxqc co2_tracer)
+#     co2_not_rising    CO2 slope <= 0 or rise < 3 sigma over the window (goFlux co2.tracer)
 #     co2_drop_in_window CO2 peaks and then falls back toward ambient before the window ends
 #                       (chamber lifted / leak before the logged end time)
 #     flat_start        CO2 flat in the first quarter of the window, rising afterwards
 #                       (window starts before the chamber was sealed)
-#     rise_mismatch     automatic rise detection (fluxqc::find_rise on CO2 incl. context)
+#     rise_mismatch     automatic rise detection (goFlux::find.rise on CO2 incl. context)
 #                       covers < 70 % of the fitting window, or finds no rise at all
 #     overlap           window overlaps another closure's window on the same analyzer
 #   data problems (inspect; usually keep)
 #     ch4_step          a single CH4 step > 10 x the day's sigma and > 20 % of the CH4 change
 #                       (ebullition or analyzer glitch)
 #     gap               missing data > 5 s inside the window
-#     noisy / c0 / convex  from fluxqc (02_fit_fluxes.R)
+#     noisy / c0 / convex  from goFlux qc.flags (02_fit_fluxes.R)
 #     lm_hm_disagree    LM and HM fluxes differ in sign, or g-factor > 2
 #   other
 #     short_window / long_window  < 90 s or > 600 s
@@ -34,7 +34,9 @@
 #   outputs/figures/flux_processing/trace_qc/traces_all_<analyzer>_<year>.pdf   every closure, date order
 #   outputs/figures/trace_qc/traces_flagged.pdf                 flagged closures, worst first
 # ============================================================
-suppressPackageStartupMessages({ library(dplyr); library(fluxqc) })
+suppressPackageStartupMessages({ library(dplyr); library(goFlux) })
+# rough noise level of a trace for the screening thresholds below: MAD of first differences / sqrt(2)
+precision_mad <- function(x) { d <- diff(x[!is.na(x)]); if (length(d) < 2) NA_real_ else stats::mad(d, constant = 1.4826) / sqrt(2) }
 SCRIPT <- "03_trace_qc"
 source("scripts/2_flux/flux_settings.R")
 
@@ -93,7 +95,7 @@ check <- function(d, id) {
   out$max_gap_s <- max(diff(as.numeric(w$POSIX.time)))
   out$gap <- out$max_gap_s > 5
   # automatic rise detection on CO2 including the 120-s context
-  r <- tryCatch(find_rise(d$POSIX.time, d$CO2dry_ppm, rise.ppm = 6, rise.secs = 30, drop.ppm = 8,
+  r <- tryCatch(find.rise(d$POSIX.time, d$CO2dry_ppm, rise = 6, rise.secs = 30, drop = 8,
                           min.dur = 60, gap.secs = 12, min.n = 30), error = function(e) NULL)
   if (is.null(r)) { out$rise_found <- FALSE; out$rise_cover <- NA_real_; out$rise_start_offset_s <- NA_real_; out$rise_end_offset_s <- NA_real_ }
   else {
@@ -158,7 +160,7 @@ short <- f %>% filter(window_problem, in_legacy_dataset,
                         (co2_not_rising & rise_found %in% TRUE)) %>%
   arrange(desc(priority), date)
 # days where most closures have window problems point to a clock/timing error for the whole day:
-# fix with one offset for the day (fluxqc::find_clock_offset, checked by eye), not by clicking
+# fix with one offset for the day (goFlux::find.clock.offset, checked by eye), not by clicking
 days <- f %>% group_by(date, instrument) %>%
   summarise(n = n(), n_window_problem = sum(window_problem), n_co2_falling = sum(co2_falling %in% TRUE),
             frac = n_window_problem / n, .groups = "drop") %>%

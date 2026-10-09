@@ -30,9 +30,8 @@ suppressPackageStartupMessages({
   library(tidyr)
   library(lubridate)
   library(goFlux)
-  library(fluxqc)
 })
-stopifnot(packageVersion("fluxqc") >= "0.2.3")
+stopifnot(packageVersion("goFlux") >= "0.5.0.9001")   # jgewirtzman/goFlux fork (doi:10.5281/zenodo.23254791)
 
 SCRIPT <- "01_closure_table"
 source("scripts/2_flux/flux_settings.R")
@@ -366,35 +365,21 @@ segment_trace <- function(day, start, end, uid) {
 }
 
 # Clock check: the field logs record the LGR's own clock, so no shift is applied. A
-# fluxqc::find_clock_offset() pass was tried and rejected: comp_start marks the start of the
+# goFlux::find.clock.offset() pass was tried and rejected: comp_start marks the start of the
 # fitting segment (after the closure onset), so the onset score is not diagnostic here; the
 # CO2 traces show the rises inside the logged windows. Misaligned or disturbed windows are
-# left to the fluxqc/goFlux CO2 screens (co2_tracer), which flag them for review.
+# left to the goFlux CO2 screen (co2.tracer), which flags them for review.
 field_logs$clock_offset_s <- 0
 lgr_segments <- list(); lgr_meta <- list()
 
-# Analyzer precision per analyzer x field day, from the WHOLE day record (not just the closures):
-# MAD of first differences / sqrt(2) per constant-interval run (fluxqc::precision_mad_runs); the
-# dominant run is used. This follows the filtering paper (sigma once per analyzer x campaign) and
-# absorbs drift, analyzer swaps and logging-interval changes.
-day_sigma <- list()
-sigma_day <- function(x, instrument, date) {
-  one <- function(v) {
-    r <- suppressWarnings(fluxqc::precision_mad_runs(x[[v]], x$POSIX.time))
-    r <- r[which.max(r$n), ]
-    c(sigma = r$sigma, dt = r$dt_s, runs = nrow(suppressWarnings(fluxqc::precision_mad_runs(x[[v]], x$POSIX.time))))
-  }
-  a <- one("CH4dry_ppb"); b <- one("CO2dry_ppm")
-  data.frame(instrument = instrument, date = as.Date(date), n_rows = nrow(x),
-             CH4_sigma_day = a[["sigma"]], CO2_sigma_day = b[["sigma"]], dt_day = a[["dt"]], n_interval_runs = a[["runs"]])
-}
+# Analyzer precision per analyzer x field day: computed in Part 6b from the closure windows
+# (goFlux::empirical.prec, method "hadamard").
 field_logs$closure_id <- sprintf("LGR_%s_%s_%s", format(field_logs$date, "%Y%m%d"), field_logs$tree,
                                  gsub(":", "", field_logs$comp_start))
 day_keys <- unique(field_logs[!is.na(field_logs$trace_machine), c("date", "trace_machine")])
 for (k in seq_len(nrow(day_keys))) {
   day <- load_lgr_day(day_keys$date[k], day_keys$trace_machine[k])
   if (is.null(day)) next
-  day_sigma[[length(day_sigma) + 1]] <- sigma_day(day, day_keys$trace_machine[k], day_keys$date[k])
   rows <- which(field_logs$date == day_keys$date[k] & field_logs$trace_machine == day_keys$trace_machine[k])
   for (i in rows) {
     seg <- segment_trace(day, field_logs$comp_start_posix[i] + field_logs$deadband_s[i], field_logs$comp_end_posix[i],
@@ -428,10 +413,6 @@ li_raw$REMARK[is.na(li_raw$REMARK)] <- ""
 
 li_raw$instrument <- "LI-7810"
 li_raw$day <- as.Date(li_raw$POSIX.time, tz = TZ)
-for (dd in split(li_raw, li_raw$day)) {
-  dd <- dd[is.finite(dd$CH4dry_ppb) & is.finite(dd$CO2dry_ppm), ]
-  if (nrow(dd) > 100) day_sigma[[length(day_sigma) + 1]] <- sigma_day(dd, "LI-7810", dd$day[1])
-}
 
 # Remark runs: consecutive rows with the same non-empty REMARK and no gap > 5 s
 r <- li_raw$REMARK; nzr <- nz(r)
@@ -587,9 +568,37 @@ message("Geometry: Vtot missing for ", sum(is.na(closures$Vtot) & closures$has_t
 log_step("6 windows", "chamber air temperature and pressure from the hourly Fisher record (no met in the earlier dataset)", sum(need_met))
 log_step("6 windows", "closures with a raw trace but no chamber volume (not fitted)", sum(is.na(closures$Vtot) & closures$has_trace))
 
-# day_sigma: analyzer precision per analyzer x day, from the whole day record
+# ============================================================
+# PART 6b: ANALYZER PRECISION PER ANALYZER x FIELD DAY
+# ============================================================
+# goFlux::empirical.prec(method = "hadamard"): for each closure, the MAD-based SD of the second
+# differences of the concentration inside the fitting window, / sqrt(6); the median over the closures
+# of that analyzer and day (at the day's dominant logging interval). Second differences remove the
+# flux trend, so the estimate is not inflated by the rise itself; the earlier whole-day first-difference
+# estimator (fluxqc::precision_mad_runs) inflated sigma 1.2-2.3x.
+segs_all <- c(lgr_segments, li_segments)
+pd <- do.call(rbind, lapply(segs_all, function(s) data.frame(
+  UniqueID = s$UniqueID, flag = s$flag, POSIX.time = s$POSIX.time, CH4dry_ppb = s$CH4dry_ppb,
+  CO2dry_ppm = s$CO2dry_ppm, instrument = s$instrument,
+  date = as.Date(min(s$POSIX.time[s$flag == 1]), tz = TZ))))
+pd$inst_day <- paste(pd$instrument, pd$date, sep = "|")
+prec_day <- function(gas) {
+  r <- suppressWarnings(empirical.prec(pd, gas, method = "hadamard", by = "inst_day", warn = FALSE))
+  r %>% group_by(inst_day) %>% mutate(n_interval_runs = n()) %>%
+    slice_max(n.closures, n = 1, with_ties = FALSE) %>% ungroup()
+}
+p_ch4 <- prec_day("CH4dry_ppb"); p_co2 <- prec_day("CO2dry_ppm")
+day_sigma <- p_ch4 %>% transmute(inst_day, n_closures = n.closures, CH4_sigma_day = prec, dt_day = dt_s, n_interval_runs) %>%
+  left_join(p_co2 %>% transmute(inst_day, CO2_sigma_day = prec), by = "inst_day") %>%
+  mutate(instrument = sub("\\|.*", "", inst_day), date = as.Date(sub(".*\\|", "", inst_day))) %>%
+  select(instrument, date, n_closures, CH4_sigma_day, CO2_sigma_day, dt_day, n_interval_runs) %>% as.data.frame()
+message("Precision (goFlux empirical.prec, hadamard), median CH4 ppb by analyzer: ",
+        paste(sprintf("%s %.3f", names(tapply(day_sigma$CH4_sigma_day, day_sigma$instrument, median)),
+                      tapply(day_sigma$CH4_sigma_day, day_sigma$instrument, median)), collapse = "; "))
+
+# day_sigma: analyzer precision per analyzer x day, from the closure windows (Part 6b)
 saveRDS(list(closures = closures, field_logs = field_logs, runs = runs, lgr_segments = lgr_segments,
-             li_segments = li_segments, legacy = legacy, day_sigma = do.call(rbind, day_sigma)), PATH_CLOSURES)
+             li_segments = li_segments, legacy = legacy, day_sigma = day_sigma), PATH_CLOSURES)
 write_log()
 message("Wrote ", PATH_CLOSURES, ": ", nrow(closures), " closures (with trace: ", sum(closures$has_trace), ")")
 
