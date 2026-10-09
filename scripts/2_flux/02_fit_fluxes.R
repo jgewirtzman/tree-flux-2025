@@ -3,7 +3,7 @@
 #
 # Fits CH4 and CO2 fluxes to every closure with a raw trace: goFlux linear (LM) and
 # Hutchinson-Mosier (HM) models, best.flux selection with the Hueppi et al. (2018)
-# criteria (g.limit = 2), and goFlux QC screens (jgewirtzman/goFlux fork, doi:10.5281/zenodo.23254791).
+# criteria (g.limit = 2), and goFlux QC screens (jgewirtzman/goFlux fork, doi:10.5281/zenodo.23256675).
 #   MDF = 1.96 * sigma / t * flux.term (1.96: benchmark multiplier, not a calibrated 95 % test); sigma = analyzer precision on
 #   that day (goFlux empirical.prec, second differences inside the closure windows; 01_closure_table.R); t = closure
 #   length in seconds. Retain-and-flag: nothing is removed here.
@@ -23,7 +23,7 @@ suppressPackageStartupMessages({
   library(lubridate)
   library(goFlux)
 })
-stopifnot(packageVersion("goFlux") >= "0.5.0.9001")
+stopifnot(packageVersion("goFlux") >= "0.5.0.9002")
 SCRIPT <- "02_fit_fluxes"
 source("scripts/2_flux/flux_settings.R")
 
@@ -66,23 +66,11 @@ res_ch4 <- process.fluxes(manID, gastype = "CH4dry_ppb", auxfile = aux, by = "in
                           co2.flux.result = res_co2$fluxes,
                           # qc.ambient is computed but not used: the field-log windows begin after the
                           # closure onset, so the first seconds of a window are never at ambient by design
-                          qc = list(min.obs = 60))
+                          qc = list(min.obs = NULL, min.secs = 60))   # convex: quadratic test on the window (goFlux >= 0.5.0.9002)
 message("CH4 done in ", round(as.numeric(Sys.time() - t0, units = "mins"), 1), " min")
 message("Campaign sigma (ppb) by analyzer (goFlux det.prec): ",
         paste(capture.output(print(res_ch4$fluxes %>% group_by(instrument) %>%
           summarise(n = n(), sigma_ppb = round(median(det.prec), 3), .groups = "drop"))), collapse = "\n"))
-
-# Convex (accelerating) traces: goFlux qc.convex fires only when goFlux is run with k.min < 0, so
-# the screen is computed here as before: a quadratic in time fitted to the CH4 window, flagged when
-# the quadratic term has the sign of the net trend and p < 0.05.
-convex_flag <- manID %>% filter(flag == 1) %>% group_by(UniqueID) %>% group_modify(function(d, k) {
-  if (nrow(d) < 6) return(data.frame(qc_convex_local = NA))
-  co <- summary(lm(CH4dry_ppb ~ Etime + I(Etime^2), data = d))$coefficients
-  if (nrow(co) < 3) return(data.frame(qc_convex_local = NA))
-  net <- sign(coef(lm(CH4dry_ppb ~ Etime, data = d))[2])
-  data.frame(qc_convex_local = sign(co[3, 1]) == net && co[3, 4] < 0.05)
-}) %>% ungroup()
-res_ch4$fluxes <- res_ch4$fluxes %>% left_join(convex_flag, by = "UniqueID") %>% mutate(qc.convex = qc_convex_local)
 
 # closure length (goFlux closure.time: window span + one logging interval) and logging interval
 cs <- manID %>% filter(flag == 1) %>% group_by(UniqueID) %>%
@@ -106,7 +94,7 @@ gf_ch4 <- res_ch4$fluxes %>% transmute(
   CH4_sigma_mad_record = det.prec, CH4_MDF_record = det.MDF, CH4_sigma_closure = det.prec.closure,
   qc_c0 = qc.c0, qc_c0_ratio = qc.c0.ratio,
   qc_co2_tracer = !co2.tracer,                  # goFlux co2.tracer is TRUE when CO2 rises (pass); flag = not rising
-  qc_convex = qc.convex, qc_min_window = qc.min.obs, qc_noisy = qc.noisy, qc_noisy_ratio = qc.noisy.ratio) %>%
+  qc_convex = qc.convex, qc_min_window = qc.min.secs, qc_noisy = qc.noisy, qc_noisy_ratio = qc.noisy.ratio) %>%
   mutate(qc_any = coalesce(qc_c0, FALSE) | coalesce(qc_co2_tracer, FALSE) | coalesce(qc_convex, FALSE) |
                   coalesce(qc_min_window, FALSE) | coalesce(qc_noisy, FALSE),
          qc_note = trimws(paste0(ifelse(coalesce(qc_c0, FALSE), "c0 ", ""), ifelse(coalesce(qc_co2_tracer, FALSE), "co2_tracer ", ""),

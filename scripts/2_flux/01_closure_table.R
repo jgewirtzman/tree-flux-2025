@@ -31,7 +31,7 @@ suppressPackageStartupMessages({
   library(lubridate)
   library(goFlux)
 })
-stopifnot(packageVersion("goFlux") >= "0.5.0.9001")   # jgewirtzman/goFlux fork (doi:10.5281/zenodo.23254791)
+stopifnot(packageVersion("goFlux") >= "0.5.0.9002")   # jgewirtzman/goFlux fork (doi:10.5281/zenodo.23256675)
 
 SCRIPT <- "01_closure_table"
 source("scripts/2_flux/flux_settings.R")

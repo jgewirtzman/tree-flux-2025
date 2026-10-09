@@ -54,3 +54,12 @@ The flux scripts (`scripts/2_flux/`) now use only the goFlux fork, release v0.5.
 A data-based branch, used when the flagged dataframe is supplied, would restore it, keeping `HM.k < 0` as the fallback. The branch: `lm(conc ~ Etime + I(Etime^2))` inside the window; flag when the sign of the quadratic term equals the sign of the net slope and p < 0.05; at least 6 points.
 
 `process.fluxes(prec = NULL)` also warned on the LI-7810 group about the noise (lag-1 autocorrelation of second differences −0.42; d1c ratio 1.31).
+
+## Update 9 Oct 2026: v0.5.0.9002
+
+- Now on goFlux fork v0.5.0.9002.
+  - Commit: 006f625f9aaa8e42ab7be6afd27a00adce3da990.
+  - Zenodo: doi:10.5281/zenodo.23256675; all versions: doi:10.5281/zenodo.23254790.
+- `qc.convex` now runs fluxqc's quadratic test whenever the dataframe is supplied, so the local convex code was removed.
+- The minimum-window screen uses `qc.flags(min.secs = 60)`, the duration in seconds as in fluxqc, instead of `min.obs`.
+- Fluxes, MDF and detection classes are identical to v0.5.0.9001; only QC flags can change.
