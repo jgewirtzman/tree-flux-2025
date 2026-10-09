@@ -7,7 +7,7 @@
 #
 #   9  selection      measurements of the study design (the earlier dataset's 1,640);
 #                     closures excluded after inspection removed
-#   10 detection      MDF = 1.96 * sigma / t * flux.term (95 %, two-sided); sigma = analyzer
+#   10 detection      MDF = 1.96 * sigma / t * flux.term (1.96: benchmark multiplier, not a calibrated 95 % test); sigma = analyzer
 #                     precision on that day; for measurements without a raw record the
 #                     analyzer's median precision and the logged window length.
 #                     Retain-and-flag: below-MDF fluxes are kept and flagged.
@@ -163,7 +163,7 @@ CO2_model,,model selected for CO2
 CH4_sigma_ppb,ppb,analyzer CH4 precision used for the MDF
 CO2_sigma_ppm,ppm,analyzer CO2 precision used for the MDF
 sigma_src,,source of the precision
-CH4_MDF,nmol m-2 s-1,minimum detectable CH4 flux (95 %, two-sided)
+CH4_MDF,nmol m-2 s-1,minimum detectable CH4 flux: 1.96 x analyzer precision / closure time x flux term (1.96 is a benchmark multiplier on concentration noise; not a calibrated 95 % detection test)
 CH4_below_MDF,,TRUE if |CH4 flux| < CH4_MDF (retained)
 CH4_det_class,,emission / uptake / below detection
 CO2_MDF,umol m-2 s-1,minimum detectable CO2 flux

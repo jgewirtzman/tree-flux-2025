@@ -4,7 +4,7 @@
 # Fits CH4 and CO2 fluxes to every closure with a raw trace: goFlux linear (LM) and
 # Hutchinson-Mosier (HM) models, best.flux selection with the Hueppi et al. (2018)
 # criteria (g.limit = 2), and fluxqc precision, minimum detectable flux and QC screens.
-#   MDF = 1.96 * sigma / t * flux.term (95 %, two-sided); sigma = analyzer precision on
+#   MDF = 1.96 * sigma / t * flux.term (1.96: benchmark multiplier, not a calibrated 95 % test); sigma = analyzer precision on
 #   that day (MAD of first differences over the whole day record / sqrt 2); t = closure
 #   length in seconds. Retain-and-flag: nothing is removed here.
 # Measurements without a raw record keep the flux of the earlier processing.
