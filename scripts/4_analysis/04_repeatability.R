@@ -384,7 +384,7 @@ fig_zscore_tracks <- ggplot(
   facet_wrap(~ facet_label_z, ncol = 3, scales = "free_y") +
   labs(
     x = NULL,
-    y = "Tree (ForestGEO tag)"
+    y = "Tree ID"
   ) +
   theme_minimal(base_size = 11) +
   theme(
@@ -392,8 +392,8 @@ fig_zscore_tracks <- ggplot(
     panel.grid.major.y = element_blank(),
     panel.grid.minor = element_blank(),
     axis.text.x = element_text(size = 8, color = "grey30", angle = 45, hjust = 1),
-    axis.text.y = element_text(size = 5.5, color = "grey35"),
-    axis.title.y = element_text(size = 9, color = "grey30"),
+    axis.text.y = element_text(size = 5.5, color = "grey35", face = "italic"),
+    axis.title.y = element_text(size = 9, color = "grey30", face = "italic"),
     axis.ticks = element_blank(),
     strip.background = element_blank(),
     strip.text = element_markdown(size = 10, lineheight = 1.1, color = "grey20"),
