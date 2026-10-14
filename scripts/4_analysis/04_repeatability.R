@@ -341,10 +341,12 @@ fluxes_zscore <- fluxes_zscore %>%
   ) %>%
   ungroup()
 
-# X-axis labels
-n_breaks <- 7
-break_idx <- unique(round(seq(1, length(all_dates), length.out = n_breaks)))
-break_labs <- format(all_dates[break_idx], "%b '%y")
+# X axis: sampling dates in order, evenly spaced (not calendar time). Years are labelled at the
+# middle of their run of sampling dates, with thin lines at the year boundaries.
+yr <- as.integer(format(all_dates, "%Y"))
+break_idx <- tapply(seq_along(all_dates), yr, function(i) mean(range(i)))
+break_labs <- names(break_idx)
+year_bounds <- which(diff(yr) != 0) + 0.5
 
 # Plot
 fig_zscore_tracks <- ggplot(
@@ -356,6 +358,7 @@ fig_zscore_tracks <- ggplot(
     size = z_score_abs
   )
 ) +
+  geom_vline(xintercept = year_bounds, colour = "grey75", linewidth = 0.3) +
   # Subtle connecting lines
   geom_line(
     aes(group = factor(Tree), color = mean_zscore), 
@@ -383,15 +386,16 @@ fig_zscore_tracks <- ggplot(
   ) +
   facet_wrap(~ facet_label_z, ncol = 3, scales = "free_y") +
   labs(
-    x = NULL,
+    x = "Sampling date (in order)",
     y = "Tree ID"
   ) +
   theme_minimal(base_size = 11) +
   theme(
-    panel.grid.major.x = element_line(color = "grey92", linewidth = 0.25),
+    panel.grid.major.x = element_blank(),
+    axis.title.x = element_text(size = 9, color = "grey30"),
     panel.grid.major.y = element_blank(),
     panel.grid.minor = element_blank(),
-    axis.text.x = element_text(size = 8, color = "grey30", angle = 45, hjust = 1),
+    axis.text.x = element_text(size = 8, color = "grey30"),
     axis.text.y = element_text(size = 5.5, color = "grey35", face = "italic"),
     axis.title.y = element_text(size = 9, color = "grey30", face = "italic"),
     axis.ticks = element_blank(),

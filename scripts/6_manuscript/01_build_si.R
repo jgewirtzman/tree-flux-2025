@@ -66,7 +66,7 @@ add_figure <- function(path, title, caption, key, w = 6.5, h = NULL) {
   items[[length(items) + 1]] <<- data.frame(key = paste0("F:", key), item = sprintf("Figure S%d", fig_n), title = title, source = path)
 }
 
-AUTHORS <- "Jonathan Gewirtzman¹˒²˒³, Naomi Hegwood⁴, Hannah Burrows⁵˒⁶, Maxwell P. Lutz⁴, Grace E. Thompson⁴˒⁷, Bethany Duncan⁸, Masako Yang⁹, Samuel Jurado¹, Mark A. Bradford¹˒¹⁰, Robert E. Marra¹¹, Jaclyn Hatala Matthes⁴"
+AUTHORS <- "Jonathan Gewirtzman¹˒²˒³, Naomi Hegwood⁴, Hannah Burrows⁵˒⁶, Maxwell P. Lutz⁴, Grace E. Thompson⁴˒⁷, Bethany Duncan⁸˒⁹, Masako Yang¹⁰, Samuel Jurado¹, Mark A. Bradford¹˒¹¹, Robert E. Marra¹², Jaclyn Hatala Matthes⁴"
 AFFIL <- c("¹ Yale School of the Environment, Yale University, New Haven, Connecticut, USA",
            "² Department of Earth System Science, Stanford University, Stanford, California, USA",
            "³ Department of Ecology and Evolution, University of Chicago, Chicago, Illinois, USA",
@@ -75,9 +75,10 @@ AFFIL <- c("¹ Yale School of the Environment, Yale University, New Haven, Conne
            "⁶ Department of Astronomy and Astrophysics, University of Chicago, Chicago, Illinois, USA",
            "⁷ Department of Natural Resources and the Environment, University of Connecticut, Storrs, Connecticut, USA",
            "⁸ Fu Foundation School of Engineering and Applied Science, Columbia University, New York, New York, USA",
-           "⁹ Harvard College, Harvard University, Cambridge, Massachusetts, USA",
-           "¹⁰ The Forest School, Yale School of the Environment, Yale University, New Haven, Connecticut, USA",
-           "¹¹ Department of Plant Pathology and Ecology, The Connecticut Agricultural Experiment Station, New Haven, Connecticut, USA")
+           "⁹ Department of Civil and Environmental Engineering, Louisiana State University, Baton Rouge, Louisiana, USA",
+           "¹⁰ Harvard College, Harvard University, Cambridge, Massachusetts, USA",
+           "¹¹ The Forest School, Yale School of the Environment, Yale University, New Haven, Connecticut, USA",
+           "¹² Department of Plant Pathology and Ecology, The Connecticut Agricultural Experiment Station, New Haven, Connecticut, USA")
 P0 <- update(PP, padding.bottom = 0)
 doc <- doc %>% par_(ftext("Journal of Geophysical Research: Biogeosciences", ti), fp_p = update(PP, padding.bottom = 12)) %>%
   par_(ftext("Supporting Information for", tb), fp_p = P0) %>%
