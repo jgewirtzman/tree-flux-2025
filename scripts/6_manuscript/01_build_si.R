@@ -33,9 +33,9 @@ lbl <- function(doc, label, rest, keep = FALSE) par_(doc, ftext(label, tb), ftex
                                                        fp_p = update(PP, keep_with_next = keep))
 items <- list(); tab_n <- 0; fig_n <- 0
 # Stable keys -> SI numbers (the manuscript cites items by key)
-TAB_KEYS <- c("decay_key", "decay_corr", "wet_comp", "slopes", "upland", "coefs", "diagnostics")
+TAB_KEYS <- c("decay_key", "decay_corr", "diagnostics", "slopes", "coefs", "wet_comp", "upland")   # order of first citation in the main text
 FIG_KEYS <- c("site_map", "drivers", "tree_effects", "pred_by_site", "generalists")
-TXT_KEYS <- c("flux", "models", "tomo")
+TXT_KEYS <- c("flux", "tomo", "models")   # order of first citation in the main text
 lab <- c(setNames(paste0("S", seq_along(TAB_KEYS)), paste0("T:", TAB_KEYS)),
          setNames(paste0("S", seq_along(FIG_KEYS)), paste0("F:", FIG_KEYS)),
          setNames(paste0("S", seq_along(TXT_KEYS)), paste0("X:", TXT_KEYS)))
@@ -139,45 +139,8 @@ add_table(s4, "Wood-condition metrics against stem CH₄ flux, by species and si
   "Each cell: the change in CH₄ flux (nmol m⁻² s⁻¹) per SD of the metric within the group, with its p-value, in a mixed model of every measurement with random intercepts for tree and sampling date (Kenward–Roger degrees of freedom; the tree is the unit of replication), and the range of that change when each tree is omitted in turn (LOO). The species-adjusted rows fit all species at a site with species as a fixed effect. SoT structural loss: % of the cross-section in non-brown (low-velocity) classes; ERT CV: heterogeneity of resistivity; ERT index: first principal component of eight ERT metrics standardized within species (Thompson et al. 2026). –: no variation among trees. * p < 0.10 (with ten trees per species, the threshold used for these tests).",
   "scripts/4_analysis/07_decay_definitions.R", "decay_corr")
 
-# S7 wetland model comparison (shared observations)
-wc <- rd(file.path(MC, "wetland_model_comparison_common_rows.csv")) %>%
-  transmute(Model = model, n, `Parameters (fixed)` = k_fixed, `Marginal R² (%)` = f2(100 * R2_marginal, 1), AIC = f2(AIC, 1), `ΔAIC` = f2(dAIC, 1), BIC = f2(BIC, 1), `ΔBIC` = f2(dBIC, 1))
-add_table(wc, "Wetland model comparison on the observations with every driver available.",
-  "All models include random intercepts for tree and sampling date. The extended model adds the predictors selected in 5_models/01_wetland_model.R (each improved the core model by likelihood-ratio test and ΔAIC < −2); the core model was retained because the extended model has a higher BIC.",
-  file.path(MC, "wetland_model_comparison_common_rows.csv"), "wet_comp")
-
-# S8 species-specific slopes: wetland core (all obs), wetland extended (shared obs), upland Model B
-sl_core <- rd(file.path(MN, "species_slopes_wetland_core.csv")) %>% mutate(model = "Wetland core (all observations)")
-sl_ext <- rd(file.path(MC, "wetland_species_slopes_core_vs_extended.csv")) %>% filter(model == "extended (shared rows)") %>%
-  mutate(species = sp_full[species], model = "Wetland extended (shared observations)")
-sl_upA <- rd(file.path(MN, "species_slopes_upland_A.csv")) %>% mutate(model = "Upland Model A")
-sl_upB <- rd(file.path(MN, "species_slopes_upland_B.csv")) %>% mutate(model = "Upland Model B")
-sl <- bind_rows(sl_core, sl_ext, sl_upA, sl_upB) %>%
-  mutate(effect = ifelse(grepl(":", term), "Temperature × moisture", ifelse(grepl("^TS", term), "Temperature", "Water table or soil water")),
-         cell = sprintf("%.3f ± %.3f%s", estimate, se, star(p))) %>%
-  select(Model = model, Species = species, effect, cell) %>% pivot_wider(names_from = effect, values_from = cell)
-add_table(sl, "Species-specific standardized effects of temperature and water table or soil water content (asinh(flux / 0.1) scale).",
-  "Species-specific slope = reference coefficient + species interaction, ± SE; Satterthwaite t-tests. * p < 0.05; ** p < 0.01; *** p < 0.001. Upland Model A uses upland soil temperature and shallow soil water content (1-h windows); Model B uses the wetland predictors and windows for direct comparison.",
-  "species_slopes_*.csv; wetland_species_slopes_core_vs_extended.csv", "slopes")
-
-# S9 upland models
-ve <- rd(file.path(MC, "variance_explained.csv")); ab <- rd(file.path(MC, "upland_A_vs_B_common_rows.csv"))
-sp_only <- ve %>% filter(model == "species only") %>% select(model_set, r2_sp = R2_marginal)
-up <- ve %>% filter(model_set %in% c("upland_A", "upland_B"), model == "final") %>% left_join(sp_only, by = "model_set") %>%
-  transmute(Model = ifelse(model_set == "upland_A", "A (upland drivers, 1 h)", "B (wetland drivers and windows)"), n,
-            `Marginal R² (%)` = f2(100 * R2_marginal, 1), `Species only (%)` = f2(100 * r2_sp, 1),
-            `AIC, all observations` = f2(AIC, 1)) %>%
-  mutate(`AIC, shared observations` = f2(ab$AIC, 1), `n shared` = ab$n)
-add_table(up, "Upland models.", "AIC is comparable only on the shared observations.", file.path(MC, "variance_explained.csv"), "upland")
-
-# S10 all coefficients
-co <- bind_rows(lapply(c(wetland_core = "Wetland core", upland_A = "Upland A", upland_B = "Upland B"), function(x) x) %>%
-  { mapply(function(k, lab) rd(file.path(MN, paste0("coefficients_", k, ".csv"))) %>% mutate(Model = lab), names(.), ., SIMPLIFY = FALSE) }) %>%
-  transmute(Model, Term = term_lab(term), Estimate = f2(estimate, 3), SE = f2(se, 3), df = f2(df, 1), t = f2(t, 2), p = fp(p))
-add_table(co, "Fixed-effect coefficients of the final models (asinh(flux / 0.1) scale; standardized predictors).",
-  "Reference species: N. sylvatica (wetland) and T. canadensis (upland). Satterthwaite degrees of freedom.", "outputs/tables/manuscript/coefficients_*.csv", "coefs")
-
 # S11 diagnostics: variance explained, out-of-sample, accuracy and bias
+ve <- rd(file.path(MC, "variance_explained.csv"))
 oos <- rd(file.path(MC, "out_of_sample.csv")); acc <- rd(file.path(MC, "accuracy_bias.csv")); ts <- rd(file.path(MC, "temperature_vs_season.csv"))
 lab_ms <- c(wetland = "Wetland core", upland_A = "Upland A", upland_B = "Upland B")
 dg <- ve %>% filter(model %in% c("species only", "final")) %>% select(model_set, model, R2_marginal) %>%
@@ -197,6 +160,44 @@ dg <- as.data.frame(t(dg[, -1])) %>% setNames(dg$Model) %>% tibble::rownames_to_
 add_table(dg, "Model diagnostics.",
   "Marginal R² (Nakagawa). Out-of-sample predictions include the tree random effect (dates omitted) or fixed effects only (trees omitted). Bias = mean(predicted − observed). The back-transformed mean ratio shows the underestimate of mean flux from sinh(predicted mean); the smeared ratio applies Duan's (1983) correction. 2025 test restricted to observations within the 2023–24 predictor range.",
   "outputs/tables/model_checks/", "diagnostics", widths = c(1.9, rep(1.53, 3)))
+
+# S8 species-specific slopes: wetland core (all obs), wetland extended (shared obs), upland Model B
+sl_core <- rd(file.path(MN, "species_slopes_wetland_core.csv")) %>% mutate(model = "Wetland core (all observations)")
+sl_ext <- rd(file.path(MC, "wetland_species_slopes_core_vs_extended.csv")) %>% filter(model == "extended (shared rows)") %>%
+  mutate(species = sp_full[species], model = "Wetland extended (shared observations)")
+sl_upA <- rd(file.path(MN, "species_slopes_upland_A.csv")) %>% mutate(model = "Upland Model A")
+sl_upB <- rd(file.path(MN, "species_slopes_upland_B.csv")) %>% mutate(model = "Upland Model B")
+sl <- bind_rows(sl_core, sl_ext, sl_upA, sl_upB) %>%
+  mutate(effect = ifelse(grepl(":", term), "Temperature × moisture", ifelse(grepl("^TS", term), "Temperature", "Water table or soil water")),
+         cell = sprintf("%.3f ± %.3f%s", estimate, se, star(p))) %>%
+  select(Model = model, Species = species, effect, cell) %>% pivot_wider(names_from = effect, values_from = cell)
+add_table(sl, "Species-specific standardized effects of temperature and water table or soil water content (asinh(flux / 0.1) scale).",
+  "Species-specific slope = reference coefficient + species interaction, ± SE; Satterthwaite t-tests. * p < 0.05; ** p < 0.01; *** p < 0.001. Upland Model A uses upland soil temperature and shallow soil water content (1-h windows); Model B uses the wetland predictors and windows for direct comparison.",
+  "species_slopes_*.csv; wetland_species_slopes_core_vs_extended.csv", "slopes")
+
+# S10 all coefficients
+co <- bind_rows(lapply(c(wetland_core = "Wetland core", upland_A = "Upland A", upland_B = "Upland B"), function(x) x) %>%
+  { mapply(function(k, lab) rd(file.path(MN, paste0("coefficients_", k, ".csv"))) %>% mutate(Model = lab), names(.), ., SIMPLIFY = FALSE) }) %>%
+  transmute(Model, Term = term_lab(term), Estimate = f2(estimate, 3), SE = f2(se, 3), df = f2(df, 1), t = f2(t, 2), p = fp(p))
+add_table(co, "Fixed-effect coefficients of the final models (asinh(flux / 0.1) scale; standardized predictors).",
+  "Reference species: N. sylvatica (wetland) and T. canadensis (upland). Satterthwaite degrees of freedom.", "outputs/tables/manuscript/coefficients_*.csv", "coefs")
+
+# S7 wetland model comparison (shared observations)
+wc <- rd(file.path(MC, "wetland_model_comparison_common_rows.csv")) %>%
+  transmute(Model = model, n, `Parameters (fixed)` = k_fixed, `Marginal R² (%)` = f2(100 * R2_marginal, 1), AIC = f2(AIC, 1), `ΔAIC` = f2(dAIC, 1), BIC = f2(BIC, 1), `ΔBIC` = f2(dBIC, 1))
+add_table(wc, "Wetland model comparison on the observations with every driver available.",
+  "All models include random intercepts for tree and sampling date. The extended model adds the predictors selected in 5_models/01_wetland_model.R (each improved the core model by likelihood-ratio test and ΔAIC < −2); the core model was retained because the extended model has a higher BIC.",
+  file.path(MC, "wetland_model_comparison_common_rows.csv"), "wet_comp")
+
+# S9 upland models
+ve <- rd(file.path(MC, "variance_explained.csv")); ab <- rd(file.path(MC, "upland_A_vs_B_common_rows.csv"))
+sp_only <- ve %>% filter(model == "species only") %>% select(model_set, r2_sp = R2_marginal)
+up <- ve %>% filter(model_set %in% c("upland_A", "upland_B"), model == "final") %>% left_join(sp_only, by = "model_set") %>%
+  transmute(Model = ifelse(model_set == "upland_A", "A (upland drivers, 1 h)", "B (wetland drivers and windows)"), n,
+            `Marginal R² (%)` = f2(100 * R2_marginal, 1), `Species only (%)` = f2(100 * r2_sp, 1),
+            `AIC, all observations` = f2(AIC, 1)) %>%
+  mutate(`AIC, shared observations` = f2(ab$AIC, 1), `n shared` = ab$n)
+add_table(up, "Upland models.", "AIC is comparable only on the shared observations.", file.path(MC, "variance_explained.csv"), "upland")
 
 doc <- doc %>% body_add_break()
 
