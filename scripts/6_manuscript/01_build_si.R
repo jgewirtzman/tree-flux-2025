@@ -116,8 +116,7 @@ st <- rd(file.path(T_, "stand_context.csv")); tot <- rd(file.path(T_, "stand_tot
 t1 <- st %>% transmute(Site = ifelse(site == "Wetland", "Wetland (BGS)", "Upland (EMS)"), Species = species, n = n_trees,
                        `DBH, mean (range), cm` = sprintf("%.1f (%.1f–%.1f)", dbh_mean_cm, dbh_min_cm, dbh_max_cm),
                        `Stand DBH quartiles, cm` = sprintf("%d / %d / %d", stand_dbh_p25_cm, stand_dbh_p50_cm, stand_dbh_p75_cm),
-                       `Live basal area, % (near study trees)` = ifelse(is.na(pct_live_basal_area_near_trees), as.character(pct_live_basal_area),
-                                                                     sprintf("%d (%d)", pct_live_basal_area, pct_live_basal_area_near_trees)))
+                       `Live basal area, %` = as.character(pct_live_basal_area))
 write.csv(t1, file.path(OUT, "table1.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 write.csv(tot, file.path(OUT, "table1_totals.csv"), row.names = FALSE)
 
