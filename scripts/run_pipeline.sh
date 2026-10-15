@@ -4,7 +4,10 @@
 #
 #   bash scripts/run_pipeline.sh                 # stages 1-6
 #   bash scripts/run_pipeline.sh 2 4             # only stages 2 and 4
-#   SKIP_FIT=1 bash scripts/run_pipeline.sh      # reuse data/interim/flux_fits.csv (the fit takes ~20 min)
+#   SKIP_FIT=1 bash scripts/run_pipeline.sh      # reuse the closures and flux fits (the fit takes ~10 min)
+#   DRIVERS=published bash scripts/run_pipeline.sh   # stage 1 from the data package: use the archived hourly
+#                                                # drivers (environment_hourly.csv) instead of rebuilding them
+#                                                # from AmeriFlux, NEON, PhenoCam and the HF archive
 #
 # Before the first run: get the data package into data/package/ and the public data into
 # data/external/ (scripts/0_data/, see README.md). Stage 0 is not run here.
@@ -12,7 +15,7 @@
 # Logs: outputs/logs/<script>.log; one line per script in outputs/logs/STATUS.txt.
 cd "$(dirname "$0")/.."
 export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8   # non-ASCII plot labels (°C, ×) need a UTF-8 locale
-LOG=outputs/logs; mkdir -p "$LOG" data/interim data/final; : > "$LOG/STATUS.txt"
+LOG=outputs/logs; mkdir -p "$LOG" outputs/tables outputs/figures outputs/models outputs/manuscript data/interim data/final; : > "$LOG/STATUS.txt"
 
 stage1=(1_environment/01_met_hydro.R 1_environment/02_soil_moisture.R 1_environment/03_neon_xha.R 1_environment/04_hourly_drivers.R)
 stage2=(2_flux/01_closure_table.R 2_flux/02_fit_fluxes.R 2_flux/03_trace_qc.R 2_flux/05_deadband_sensitivity.R 2_flux/06_flux_dataset.R)
@@ -27,6 +30,11 @@ stage6=(6_manuscript/01_build_si.R)
 stages=("$@"); [ ${#stages[@]} -eq 0 ] && stages=(1 2 3 4 5 6)
 steps=()
 for s in "${stages[@]}"; do
+  if [ "$s" = 1 ] && [ "${DRIVERS:-}" = published ]; then
+    src=data/package/published_final/environment_hourly.csv
+    [ -f "$src" ] || { echo "FAILED: $src not found (scripts/0_data/02_download_data_package.R)"; exit 1; }
+    cp "$src" data/final/environment_hourly.csv; echo "stage 1: archived drivers copied from $src" | tee -a "$LOG/STATUS.txt"; continue
+  fi
   eval "list=(\"\${stage$s[@]}\")"
   for f in "${list[@]}"; do
     if [ "${SKIP_FIT:-0}" = "1" ] && { [ "$f" = 2_flux/01_closure_table.R ] || [ "$f" = 2_flux/02_fit_fluxes.R ]; }; then continue; fi

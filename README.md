@@ -31,7 +31,7 @@ Run everything after stage 0:
 bash scripts/run_pipeline.sh
 ```
 
-`bash scripts/run_pipeline.sh 4 5` runs selected stages; `SKIP_FIT=1` skips steps 1–2 of stage 2 and reuses the closures and flux fits (the goFlux fit takes ~20 min). Logs go to `outputs/logs/`.
+`DRIVERS=published bash scripts/run_pipeline.sh` skips rebuilding the environmental drivers and uses the hourly drivers archived in the data package (`environment_hourly.csv`), so stages 2–6 need only the data package plus the ForestGEO census and GIS layers (stand table and site map; see `data/README.md`); `bash scripts/run_pipeline.sh 4 5` runs selected stages; `SKIP_FIT=1` skips steps 1–2 of stage 2 and reuses the closures and flux fits (the goFlux fit takes ~20 min). Logs go to `outputs/logs/`.
 
 ### Stage 0: getting the data
 
