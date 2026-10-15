@@ -4,12 +4,12 @@
 # species, total live basal area, and the DBH of the study trees.
 #   Wetland (Black Gum Swamp): June 2025 variable-radius (prism) survey, 40 plots inside the
 #     swamp outline; basal-area factor 10 ft2/acre = 2.2957 m2/ha per tallied stem (from the
-#     survey workbook, Matthes_Lab/bgs-VRP-sampling/VRP-sampling.xlsx). Basal-area share =
+#     field survey workbook). Basal-area share =
 #     tally share; DBH quartiles weight each stem by its expansion factor (proportional to 1/DBH^2).
 #     Shares are also given for the plots within 75 m of the study trees.
 #   Upland (EMS): 2019 Harvard Forest ForestGEO census (HF253 v6; Orwig, Foster & Ellison 2024),
 #     live stems, whole 35-ha plot.
-# Method follows the companion tomography study (Tree-Tomography/analysis/revision/scripts/stand_context.R).
+# Method follows the companion tomography study (Thompson et al. 2026; Tree-Tomography repository).
 # Outputs: outputs/tables/stand_context.csv, outputs/tables/table1_study_trees.csv,
 #          outputs/tables/stand_totals.csv
 # ============================================================

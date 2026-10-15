@@ -46,7 +46,7 @@ fluxes <- read_csv(PATHS$flux, show_col_types = FALSE) %>%
   filter(!is.na(PLOT)) %>%
   # Add derived columns
   mutate(
-    date = as.Date(datetime_posx),
+    date = as.Date(date),
     location = factor(
       ifelse(PLOT == "BGS", "Wetland", "Upland"),
       levels = c("Wetland", "Upland")

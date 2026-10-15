@@ -1,9 +1,8 @@
 # ============================================================
-# 03_trace_qc.R  (flux step 3 of 6)
+# 03_trace_qc.R  (flux step 3 of 5)
 #
-# Automated red-flag checks on every fitted closure, plus CO2 and CH4 trace
-# plots for all closures, so manual window selection (click-peak) is needed
-# only for a short list.
+# Automated red-flag checks on every fitted measurement, plus CO2 and CH4 trace
+# plots of all measurements. The flags are carried into the final dataset.
 #
 # Uses the traces saved by 02_fit_fluxes.R (fitting window flag = 1,
 # with 120 s of context on either side) and its closure table.
@@ -111,9 +110,9 @@ check <- function(d, id) {
 message("Checking ", length(sp), " closures ...")
 chk <- bind_rows(lapply(names(sp), function(id) check(sp[[id]], id)))
 
-f <- g %>% select(closure_id, date, Tree, SPECIES, location, instrument, in_legacy_dataset, t_sec,
+f <- g %>% select(closure_id, date, Tree, SPECIES, location, instrument, t_sec,
                   CH4_flux_goflux, CH4_LM_flux, CH4_HM_flux, CH4_model, CH4_g_factor, CH4_MDF, CH4_below_MDF,
-                  CO2_flux_goflux, CO2_LM_r2, qc_c0, qc_co2_tracer, qc_convex, qc_noisy, qc_noisy_ratio, fl_check, fl_notes) %>%
+                  CO2_flux_goflux, CO2_LM_r2, qc_c0, qc_co2_tracer, qc_convex, qc_noisy, qc_noisy_ratio) %>%
   left_join(chk, by = "closure_id") %>% left_join(win %>% select(closure_id, overlap), by = "closure_id") %>%
   mutate(
     month = as.integer(substr(date, 6, 7)), growing = month %in% 5:10,
@@ -126,11 +125,8 @@ f <- g %>% select(closure_id, date, Tree, SPECIES, location, instrument, in_lega
     lm_hm_disagree = (sign(CH4_LM_flux) != sign(CH4_HM_flux) & abs(CH4_LM_flux) > coalesce(CH4_MDF, 0)) | coalesce(CH4_g_factor, 0) > 2,
     short_window = t_sec < 90, long_window = t_sec > 600,
     # the automatic rise detector proved unreliable on inspection; it is reported but not used
-    legacy_disagree = in_legacy_dataset & !is.na(CH4_flux_goflux) &
-      abs(CH4_flux_goflux - g$CH4_flux_legacy[match(closure_id, g$closure_id)]) >
-        pmax(0.5, 0.5 * abs(g$CH4_flux_legacy[match(closure_id, g$closure_id)])),
     window_problem = co2_not_rising | coalesce(co2_falling, FALSE) | coalesce(co2_drop_in_window, FALSE) |
-      coalesce(elevated_decline, FALSE) | coalesce(legacy_disagree, FALSE) |
+      coalesce(elevated_decline, FALSE) |
       coalesce(flat_start, FALSE) | coalesce(overlap, FALSE),
     data_problem = coalesce(ch4_step, FALSE) | coalesce(gap, FALSE) | coalesce(qc_noisy, FALSE) |
       coalesce(start_transient, FALSE),
@@ -138,25 +134,24 @@ f <- g %>% select(closure_id, date, Tree, SPECIES, location, instrument, in_lega
       ifelse(co2_not_rising, "CO2 not rising (growing season);", ifelse(co2_not_rising_any, "CO2 flat (dormant);", "")), ifelse(coalesce(co2_drop_in_window, FALSE), "CO2 drops before window end;", ""),
       ifelse(coalesce(co2_falling, FALSE), "CO2 falling throughout;", ""),
       ifelse(coalesce(elevated_decline, FALSE), "CH4 declining from elevated start (not flushed);", ""),
-      ifelse(coalesce(legacy_disagree, FALSE), "differs from legacy flux by >50%;", ""),
       ifelse(coalesce(flat_start, FALSE), "flat start;", ""), ifelse(coalesce(rise_mismatch, FALSE), "auto-rise mismatch;", ""),
       ifelse(coalesce(overlap, FALSE), "overlaps another window;", ""), ifelse(coalesce(ch4_step, FALSE), "CH4 step;", ""),
       ifelse(coalesce(gap, FALSE), "data gap;", ""), ifelse(coalesce(start_transient, FALSE), "start transient;", ""), ifelse(coalesce(qc_noisy, FALSE), "noisy;", ""),
       ifelse(coalesce(qc_c0, FALSE), "C0 high;", ""), ifelse(coalesce(lm_hm_disagree, FALSE), "LM/HM disagree;", ""),
-      ifelse(short_window, "short window;", ""), ifelse(fl_check %in% "bad", "field log 'bad';", ""))),
+      ifelse(short_window, "short window;", ""))),
     reasons = gsub("\\s+", " ", reasons),
     # effect on the result: does the flag touch a flux that matters? (above detection, in the analysis set)
     priority = 3 * window_problem + 2 * data_problem + coalesce(lm_hm_disagree, FALSE) +
-      2 * (!coalesce(CH4_below_MDF, TRUE)) + in_legacy_dataset)
+      2 * (!coalesce(CH4_below_MDF, TRUE)))
 write.csv(f, PATH_TRACE_QC, row.names = FALSE)
-log_step("8 trace QC", "fitted closures with a window problem flagged for inspection", sum(f$window_problem & f$in_legacy_dataset))
-log_step("8 trace QC", "fitted closures with a data problem flagged (CH4 step, gap, noise, start transient)", sum(f$data_problem & f$in_legacy_dataset))
+log_step("8 trace QC", "fitted closures with a window problem flagged for inspection", sum(f$window_problem))
+log_step("8 trace QC", "fitted closures with a data problem flagged (CH4 step, gap, noise, start transient)", sum(f$data_problem))
 
 # click-peak shortlist: window problems where a better window plausibly exists
 # (a CO2 rise is visible in the trace or context) and the flux is in the analysis set
-short <- f %>% filter(window_problem, in_legacy_dataset,
+short <- f %>% filter(window_problem,
                       co2_drop_in_window %in% TRUE | flat_start %in% TRUE | overlap %in% TRUE | co2_falling %in% TRUE |
-                        elevated_decline %in% TRUE | legacy_disagree %in% TRUE |
+                        elevated_decline %in% TRUE |
                         (co2_not_rising & rise_found %in% TRUE)) %>%
   arrange(desc(priority), date)
 # days where most closures have window problems point to a clock/timing error for the whole day:
@@ -173,12 +168,12 @@ write.csv(short, file.path(TAB_DIR, "trace_qc_clickpeak_shortlist.csv"), row.nam
 log_step("8 trace QC", "closures on the shortlist for inspection", nrow(short))
 write_log()
 
-summ <- f %>% summarise(closures = n(), in_analysis = sum(in_legacy_dataset),
-  across(c(co2_not_rising, co2_falling, co2_drop_in_window, elevated_decline, legacy_disagree, flat_start, rise_mismatch, overlap, start_transient, ch4_step, gap, qc_noisy, qc_c0,
+summ <- f %>% summarise(closures = n(), in_analysis = n(),
+  across(c(co2_not_rising, co2_falling, co2_drop_in_window, elevated_decline, flat_start, rise_mismatch, overlap, start_transient, ch4_step, gap, qc_noisy, qc_c0,
            lm_hm_disagree, short_window, window_problem, data_problem), ~ sum(.x %in% TRUE)))
 print(t(summ))
-message("Window problems among analysis-set closures: ", sum(f$window_problem & f$in_legacy_dataset),
-        " (above MDF: ", sum(f$window_problem & f$in_legacy_dataset & !f$CH4_below_MDF %in% TRUE), ")")
+message("Window problems among analysis-set closures: ", sum(f$window_problem),
+        " (above MDF: ", sum(f$window_problem & !f$CH4_below_MDF %in% TRUE), ")")
 message("Click-peak shortlist: ", nrow(short), " closures -> outputs/tables/trace_qc_clickpeak_shortlist.csv")
 
 # ---------------- plots ----------------

@@ -3,8 +3,8 @@
 #
 # Decay classes for the 60 stem-flux trees, reproduced exactly from the
 # companion tomography paper (Thompson et al., "Internal decay in living
-# trees: a quantitative tomography framework...";
-# Tomography/Tree-Tomography/code/final_phase_and_scans.R):
+# trees: a quantitative tomography framework..."; code/final_phase_and_scans.R in the
+# Tree-Tomography repository):
 #   - ERT axis: PC1 of 8 ERT metrics (mean, median, sd, cv, gini, entropy,
 #     cma, radialgradient), each z-scored within species, PCA fitted on the
 #     57 main-study trees with SoT; PC1 oriented so high = wetter/anomalous

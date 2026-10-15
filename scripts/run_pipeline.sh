@@ -8,7 +8,7 @@
 #
 # Before the first run: get the data package into data/package/ and the public data into
 # data/external/ (scripts/0_data/, see README.md). Stage 0 is not run here.
-# Not run here: 2_flux/04_review_windows.R (interactive) and 7_publish/ (EDI upload).
+# Not run here: 7_publish/ (data package build).
 # Logs: outputs/logs/<script>.log; one line per script in outputs/logs/STATUS.txt.
 cd "$(dirname "$0")/.."
 export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8   # non-ASCII plot labels (°C, ×) need a UTF-8 locale

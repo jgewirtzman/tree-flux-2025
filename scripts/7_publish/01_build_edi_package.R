@@ -31,7 +31,6 @@ unlink(PACKAGE_DIR, recursive = TRUE); dir.create(PACKAGE_DIR, recursive = TRUE,
 tables <- c(
   stem_ch4_flux.csv                 = file.path(FINAL, "stem_ch4_flux.csv"),
   stem_ch4_flux_dictionary.csv      = file.path(FINAL, "stem_ch4_flux_dictionary.csv"),
-  flux_processing_log.csv           = file.path(FINAL, "flux_processing_log.csv"),
   environment_hourly.csv            = file.path(FINAL, "environment_hourly.csv"),
   environment_hourly_dictionary.csv = file.path(META, "dictionaries", "environment_hourly.csv"),
   tomography_classes.csv            = file.path(FINAL, "tomography_classes.csv"),
@@ -40,14 +39,12 @@ tables <- c(
   tomography_results_compiled.csv   = file.path(PKG, "tomography", "tomography_results_compiled.csv"),
   ERT_application_results.csv       = file.path(PKG, "tomography", "ERT_application_results.csv"),
   Tree_ID_info.csv                  = file.path(PKG, "tomography", "Tree_ID_info.csv"),
-  manual_windows.csv                = file.path(PKG, "qc_decisions", "manual_windows.csv"),
-  "HF_2023-2025_tree_flux_v1.csv"   = file.path(PKG, "previous_processing", "HF_2023-2025_tree_flux_v1.csv"),
+  measurements.csv                  = file.path(PKG, "measurements.csv"),
   BGS_VRP_2025.csv                  = file.path(PKG, "stand", "BGS_VRP_2025.csv"))
 stopifnot(all(file.exists(tables)))
 stopifnot(file.copy(tables, file.path(PACKAGE_DIR, names(tables)), overwrite = TRUE))
 # The pipeline writes these local/EST times as "YYYY-MM-DDThh:mm:ssZ"; the "Z" is not UTC.
 # The published copies use "YYYY-MM-DD hh:mm:ss" (the pipeline's own files are unchanged).
-# HF_2023-2025_tree_flux_v1.csv is primary data read by the pipeline and keeps its format.
 untz <- function(file, col) {   # text substitution, so no other value or quote changes
   p <- file.path(PACKAGE_DIR, file); x <- readLines(p, encoding = "UTF-8")
   n <- sum(!is.na(read.csv(p, check.names = FALSE)[[col]]))
@@ -55,15 +52,12 @@ untz <- function(file, col) {   # text substitution, so no other value or quote 
   stopifnot(sum(lengths(regmatches(x, gregexpr(pat, x)))) == n)   # only that column has the pattern
   writeLines(gsub(pat, "\\1 \\2", x), p, useBytes = TRUE)
 }
-untz("stem_ch4_flux.csv", "datetime_posx"); untz("environment_hourly.csv", "datetime")
-dd <- file.path(PACKAGE_DIR, "stem_ch4_flux_dictionary.csv")
-writeLines(sub("(local wall clock; the trailing Z is not UTC)", "(local wall clock)", readLines(dd), fixed = TRUE), dd)
+untz("environment_hourly.csv", "datetime")
 
 table_info <- rbind(
   c("Stem CH4 and CO2 flux, one row per measurement",
-    "Final stem flux dataset: 1,637 closed-chamber measurements on 60 trees, June 2023-October 2025, recalculated from the raw 1-Hz analyzer records with goFlux, with minimum detectable flux, detection flags and quality-control flags (goFlux screens and trace checks), sampling times, chamber volume and meteorology used in the calculation. Fluxes below the detection limit are retained. Column definitions also in stem_ch4_flux_dictionary.csv."),
+    "Final stem flux dataset: 1,872 closed-chamber measurements on 60 trees, June 2023-October 2025, recalculated from the raw 1-Hz analyzer records with goFlux, with minimum detectable flux, detection flags and quality-control flags (goFlux screens and trace checks), sampling times, chamber volume and meteorology used in the calculation. Fluxes below the detection limit are retained. Column definitions also in stem_ch4_flux_dictionary.csv."),
   c("Data dictionary of the stem flux dataset", "Column, unit and definition of every column of stem_ch4_flux.csv."),
-  c("Flux processing log", "Every cleaning rule applied in building stem_ch4_flux.csv from the raw records and field logs, in order, with the number of records it affected."),
   c("Hourly environmental drivers",
     "Hourly meteorology, water level, soil temperature and moisture, ecosystem fluxes, tower gas mole fractions and canopy phenology at Harvard Forest from January 2023 (EST, UTC-5), compiled from the Harvard Forest Data Archive (HF001, HF070), AmeriFlux (US-Ha1, US-Ha2), NEON (HARV) and PhenoCam (harvardems2). Includes values derived from NEON provisional data (July-December 2025). Source of every column in environment_hourly_dictionary.csv."),
   c("Data dictionary of the hourly environmental drivers", "Column, unit, definition and source dataset of every column of environment_hourly.csv."),
@@ -73,9 +67,8 @@ table_info <- rbind(
   c("Tomography metrics (compiled)", "Eight ERT resistivity metrics and SoT solid and damaged percentages for each tomogram."),
   c("ERT image analysis results", "Eight ERT resistivity metrics for each ERT image, as exported by the ERT image analysis application (Tree-Tomography repository)."),
   c("Tomography tree table", "SoT results for each tree of the tomography study: DBH, crack detected, percent solid and damaged wood."),
-  c("Fitting windows set or excluded on inspection", "Decision for each of the 55 measurements inspected individually: kept as fitted, refitted over a manually chosen window (start and end given), or excluded."),
-  c("Earlier processed flux dataset",
-    "Earlier version of the stem flux dataset (linear fits over the logged windows). Read by the processing for curated tree IDs and meteorology, and the source of the fluxes of the 99 measurements without an archived raw record; superseded by stem_ch4_flux.csv for all other measurements."),
+  c("Measurements",
+    "The study's 1,872 measurements: tree, plot, date, analyzer, chamber closure and opening times on the analyzer clock (after the field team's timing corrections), deadband, sampling time on the local clock, and the air temperature and pressure at the time of measurement. With the raw analyzer records, the input of the flux calculation."),
   c("Prism survey of Black Gum Swamp, June 2025", "Variable-radius (prism, BAF 10 ft2/acre) survey of 40 systematic points in Black Gum Swamp: species, DBH and status of each tallied stem."))
 stopifnot(nrow(table_info) == length(tables))
 
@@ -91,17 +84,14 @@ zip_dir <- function(dir, zipname, drop = character(0)) {
   zip(file.path(old, PACKAGE_DIR, zipname), f, flags = "-q")
   message("  ", zipname, ": ", length(f), " files")
 }
-zip_dir(file.path(PKG, "field_logs"), "field_logs.zip")
 zip_dir(file.path(PKG, "analyzer_raw", "lgr"), "analyzer_raw_lgr.zip")
 zip_dir(file.path(PKG, "analyzer_raw", "li7810"), "analyzer_raw_li7810.zip")
 zip_dir(file.path(PKG, "tomography", "images"), "tomography_images.zip",
         drop = c("dummy_file.jpg", "labtest.jpg", "Icon\r", ".DS_Store"))   # not tree tomograms
 
 other_info <- rbind(
-  c("field_logs.zip", "Field logs",
-    "Field datasheets and logs as recorded (LGR period, June 2023-March 2025): date, tree, analyzer, closure start and end times, notes; and the team's timing corrections for summer 2024 (Timing Updates.xlsx). CSV and Excel files."),
   c("analyzer_raw_lgr.zip", "LGR/UGGA raw 1-Hz records",
-    "Raw 1-Hz records of the Los Gatos Research GLA131 analyzers (folders by analyzer unit), June 2023-March 2025, as written by the instruments."),
+    "Raw 1-Hz records of the Los Gatos Research GLA131 analyzers, June 2023-March 2025, as written by the instruments: one file per analyzer file, LGRn/YYYY-MM-DD/micro_YYYY-MM-DD_fNNNN.txt (.txt.zip where the analyzer compressed it). Where the lab folders held several copies of a file (copies taken during the day, duplicates), the most complete copy is kept; every other copy was a subset of it."),
   c("analyzer_raw_li7810.zip", "LI-7810 raw 1-Hz records",
     "Raw 1-Hz records of the LI-COR LI-7810 analyzer, April-October 2025, with tagged remarks marking each measurement, as written by the instrument."),
   c("tomography_images.zip", "Tomography images",

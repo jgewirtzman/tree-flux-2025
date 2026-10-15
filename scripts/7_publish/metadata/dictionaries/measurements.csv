@@ -1,0 +1,12 @@
+column,unit,description
+measurement_id,,unique measurement ID: analyzer_date_tree_start (LGR/UGGA) or LI7810_date_tree_n (LI-7810)
+Tree,,ForestGEO tag of the tree (see trees.csv)
+PLOT,,"plot code as recorded: BGS (wetland); EMS or E5 (upland trees in ForestGEO sub-plot E5)"
+date,,measurement date (local)
+analyzer,,"LGR1 or LGR3 (Los Gatos Research GLA131, raw files in analyzer_raw_lgr.zip) or LI-7810 (analyzer_raw_li7810.zip)"
+closure_start,,chamber closed (analyzer clock; local)
+closure_end,,chamber opened (analyzer clock; local)
+deadband_s,s,seconds discarded after chamber closure before the fit (0 where the start of the record was set on inspection)
+sample_time_local,,sampling time (start of the measurement; America/New_York wall clock)
+air_temp_C,degC,air temperature at the time of measurement (Fisher Meteorological Station)
+pressure_kPa,kPa,air pressure at the time of measurement (Fisher Meteorological Station)

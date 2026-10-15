@@ -69,7 +69,7 @@ flux_check <- read_csv(PATHS$flux, show_col_types = FALSE)
 # Get upland flux period
 upland_flux <- flux_check %>% 
   filter(location == SITE_FILTER) %>%
-  mutate(datetime = as.POSIXct(datetime_posx))
+  mutate(datetime = as.POSIXct(sample_time_local, tz = "America/New_York"))
 
 cat(SITE_FILTER, "flux data range:\n")
 cat("  From:", as.character(min(upland_flux$datetime)), "\n")

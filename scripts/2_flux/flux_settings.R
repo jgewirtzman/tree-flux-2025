@@ -5,14 +5,11 @@
 
 # ---- inputs (data package) ----------------------------------------------------
 PKG             <- "data/package"
-PATH_V1         <- file.path(PKG, "previous_processing", "HF_2023-2025_tree_flux_v1.csv")
-PATH_FIELD_LOGS <- file.path(PKG, "field_logs")
+PATH_MEASUREMENTS <- file.path(PKG, "measurements.csv")   # one row per measurement: tree, analyzer, closure times, met
 PATH_VOLUMES    <- file.path(PKG, "chamber_volumes.csv")
 PATH_LGR        <- file.path(PKG, "analyzer_raw", "lgr")
 PATH_LI7810     <- file.path(PKG, "analyzer_raw", "li7810")
-PATH_MANUAL     <- file.path(PKG, "qc_decisions", "manual_windows.csv")
 PATH_TREES      <- file.path(PKG, "trees.csv")
-PATH_MET        <- file.path("data", "interim", "wtd_met.csv")          # 1_environment/01_met_hydro.R
 
 # ---- intermediate and final outputs -------------------------------------------
 INTERIM         <- file.path("data", "interim")
@@ -23,7 +20,7 @@ PATH_TRACES     <- file.path(INTERIM, "flux_traces.rds")        # 02 -> 03, 04, 
 PATH_TRACE_QC   <- file.path(INTERIM, "flux_trace_qc.csv")      # 03 -> 06
 PATH_FLUX       <- file.path(FINAL, "stem_ch4_flux.csv")        # 06 -> analyses
 PATH_SETTINGS   <- file.path(FINAL, "flux_processing_settings.json")
-PATH_LOG        <- file.path(FINAL, "flux_processing_log.csv")
+PATH_LOG        <- file.path(INTERIM, "flux_processing_log.csv")   # local record of the processing steps
 TAB_DIR         <- file.path("outputs", "tables", "flux_processing")
 FIG_DIR         <- file.path("outputs", "figures", "flux_processing")
 for (d in c(INTERIM, FINAL, TAB_DIR, FIG_DIR)) dir.create(d, recursive = TRUE, showWarnings = FALSE)
@@ -38,11 +35,7 @@ AREA_CM2      <- SURFAREA_M2 * 1e4    # goFlux wants cm2
 EXTRA_VOL_LGR_L  <- 0.028
 EXTRA_VOL_7810_L <- 0.028
 SHOULDER_S    <- 120                  # s of trace kept outside the window (flag = 0), for plots/QC context
-DEADBAND_7810 <- 20                   # s dropped after the LI-7810 REMARK starts
-DEADBAND_LGR  <- 20                   # s dropped after the field-log start (chamber closure); same for both
-                                      # analyzers; removes the placement transient (05_deadband_sensitivity.R)
-MIN_REMARK_S  <- 90                   # LI-7810 remarks shorter than this are aborted starts
-MIN_WINDOW_S  <- 30                   # windows shorter than this are not fitted
+DEADBAND_S    <- 20                   # s dropped after chamber closure (measurements.csv deadband_s; 05_deadband_sensitivity.R)
 PREC_LGR      <- c(CO2 = 0.35, CH4 = 0.9, H2O = 100)   # datasheet 1-s precision, GLA131 (ppm, ppb, ppm)
 PREC_7810     <- c(CO2 = 3.5,  CH4 = 0.6, H2O = 45)    # LI-7810 (goFlux default)
 
@@ -52,7 +45,7 @@ nz <- function(x) !is.na(x) & nchar(trimws(as.character(x))) > 0
 # ---- processing log -------------------------------------------------------------
 # Every cleaning rule records how many records it touched. Each script writes its own
 # part to data/interim/flux_log_<script>.csv; 06_flux_dataset.R combines them into
-# data/final/flux_processing_log.csv.
+# data/interim/flux_processing_log.csv (a local record; not published).
 FLUX_LOG <- data.frame(script = character(), step = character(), rule = character(),
                        n_records = integer(), detail = character())
 log_step <- function(step, rule, n, detail = "") {

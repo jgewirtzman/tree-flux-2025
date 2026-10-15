@@ -26,7 +26,7 @@ fluxes <- read_csv(PATHS$flux, show_col_types = FALSE) %>%
   ungroup() %>%
   filter(!is.na(PLOT)) %>%
   mutate(
-    date = as.Date(datetime_posx),
+    date = as.Date(date),
     location = ifelse(PLOT == "BGS", "Wetland", "Upland")
   )
 

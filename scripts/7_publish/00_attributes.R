@@ -27,8 +27,8 @@ units <- c("nmol m-2 s-1" = "nanomolePerMeterSquaredPerSecond", "umol m-2 s-1" =
 # date and time columns: format strings by column name (BGS_VRP_2025 date: YYYYMMDD)
 DT <- c(date = "YYYY-MM-DD", DATE = "YYYY-MM-DD", gps_date = "YYYY-MM-DD", sample_time_local = "YYYY-MM-DD hh:mm:ss",
         sample_hour_est = "YYYY-MM-DD hh:mm:ss", window_start = "YYYY-MM-DD hh:mm:ss", window_end = "YYYY-MM-DD hh:mm:ss",
-        start = "YYYY-MM-DD hh:mm:ss", end = "YYYY-MM-DD hh:mm:ss", datetime_posx = "YYYY-MM-DD hh:mm:ss",
-        datetime = "YYYY-MM-DD hh:mm:ss")   # published copies (01_build_edi_package.R drops the T and Z)
+        closure_start = "YYYY-MM-DD hh:mm:ss", closure_end = "YYYY-MM-DD hh:mm:ss",
+        datetime = "YYYY-MM-DD hh:mm:ss")   # environment_hourly published copy: 01_build_edi_package.R drops the T and Z
 # identifiers stored as numbers
 IDS <- c("Tree", "tree", "Tag", "Old tag", "tree_id", "...1", "OLD_TAG")
 
@@ -58,7 +58,6 @@ dict <- function(name) read.csv(file.path(META, "dictionaries", paste0(name, ".c
 TABLES <- c(
   stem_ch4_flux                = "data/final/stem_ch4_flux.csv",
   stem_ch4_flux_dictionary     = "data/final/stem_ch4_flux_dictionary.csv",
-  flux_processing_log          = "data/final/flux_processing_log.csv",
   environment_hourly           = "data/final/environment_hourly.csv",
   environment_hourly_dictionary = file.path(META, "dictionaries", "environment_hourly.csv"),
   tomography_classes           = "data/final/tomography_classes.csv",
@@ -67,20 +66,17 @@ TABLES <- c(
   tomography_results_compiled  = "data/package/tomography/tomography_results_compiled.csv",
   ERT_application_results      = "data/package/tomography/ERT_application_results.csv",
   Tree_ID_info                 = "data/package/tomography/Tree_ID_info.csv",
-  manual_windows               = "data/package/qc_decisions/manual_windows.csv",
-  "HF_2023-2025_tree_flux_v1"  = "data/package/previous_processing/HF_2023-2025_tree_flux_v1.csv",
+  measurements                 = "data/package/measurements.csv",
   BGS_VRP_2025                 = "data/package/stand/BGS_VRP_2025.csv")
 
 meta <- dict("dictionary_meta")
 for (nm in names(TABLES)) {
   dd <- switch(nm,
-    stem_ch4_flux = transform(read.csv("data/final/stem_ch4_flux_dictionary.csv", stringsAsFactors = FALSE),
-                              description = sub("(local wall clock; the trailing Z is not UTC)", "(local wall clock)", description, fixed = TRUE)),
+    stem_ch4_flux = read.csv("data/final/stem_ch4_flux_dictionary.csv", stringsAsFactors = FALSE),
     stem_ch4_flux_dictionary = meta[meta$column != "source", ],
     environment_hourly_dictionary = meta,
     dict(nm))
   write_attr(TABLES[[nm]], dd, nm,
              date_fmt = if (nm == "BGS_VRP_2025") c(date = "YYYYMMDD")
-                        else if (nm == "HF_2023-2025_tree_flux_v1") replace(DT, "datetime_posx", "YYYY-MM-DDThh:mm:ssZ")
                         else if (grepl("dictionary", nm)) character(0) else DT)
 }

@@ -3,8 +3,7 @@
 #
 # Every number quoted in the manuscript text, computed in one place from
 # the analysis dataset and the saved models, with the sample sizes,
-# confidence intervals and standard errors requested by co-authors
-# (docs/comment_tracker.md: Bradford #16/#17/#19/#27/#30/#31/#36/#40).
+# confidence intervals and standard errors.
 #
 # Run after 4_analysis/ and 5_models/01-06.
 #
@@ -45,7 +44,6 @@ dd <- sort(unique(d$date)); d$round <- cumsum(c(TRUE, diff(dd) > 7))[match(d$dat
 say("=== DATA ===")
 say(sprintf("Observations: %d; trees: %d; dates %s to %s; sampling rounds (>7 d apart): %d",
             nrow(d), n_distinct(d$Tree), min(d$date), max(d$date), max(d$round)))
-say(sprintf("Flux source: %s", paste(names(table(d$flux_source)), table(d$flux_source), sep = " = ", collapse = ", ")))
 say(sprintf("Analyzer: %s", paste(names(table(d$inst_label)), table(d$inst_label), sep = " = ", collapse = ", ")))
 
 # tree-cluster bootstrap CI for a site mean (observations are nested in trees)

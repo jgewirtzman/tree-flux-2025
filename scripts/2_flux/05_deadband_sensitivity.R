@@ -1,11 +1,11 @@
 # ============================================================
-# 05_deadband_sensitivity.R  (flux step 5 of 6; sensitivity check, not used downstream)
+# 05_deadband_sensitivity.R  (flux step 4 of 5; sensitivity check, not used downstream)
 #
 # How sensitive are the fluxes to the deadband (seconds discarded after
 # chamber closure)? Refits every closure with goFlux (LM/HM, best.flux) for
 # deadbands of 0, 10, 20, 30 and 45 s measured from chamber closure:
-#   closure = field-log start (UGGA) or start of the tagged remark (LI-7810);
-#   the adopted windows start 20 s after closure for both analyzers
+#   closure = closure_start of measurements.csv; the adopted windows start 20 s after closure
+#   (0 s where the start was set on inspection; those are left out here)
 # Uses the traces saved by 02_fit_fluxes.R (window +/- 120 s context).
 #
 # Output: outputs/tables/flux_processing/deadband_sensitivity.csv (per closure x deadband)
@@ -17,9 +17,10 @@ source("scripts/2_flux/flux_settings.R")
 tr <- readRDS(PATH_TRACES)
 traces <- tr$traces
 g <- read.csv(PATH_FITS, stringsAsFactors = FALSE) %>%
-  filter(fitted) %>% select(closure_id, instrument, location, SPECIES, in_legacy_dataset, date)
+  filter(fitted) %>% select(closure_id, instrument, location, SPECIES, date, db_adopted = deadband_s)
 DB <- c(0, 10, 20, 30, 45)
-traces$closure <- traces$start.time - 20   # both analyzers now use a 20-s deadband after closure
+traces <- traces[traces$UniqueID %in% g$closure_id[g$db_adopted == DEADBAND_S], ]
+traces$closure <- traces$start.time - DEADBAND_S
 traces$closure <- as.POSIXct(traces$closure, origin = "1970-01-01", tz = attr(traces$POSIX.time, "tzone"))
 res <- list()
 for (db in DB) {
@@ -37,7 +38,7 @@ for (db in DB) {
 res <- bind_rows(res) %>% left_join(g, by = "closure_id")
 write.csv(res, file.path(TAB_DIR, "deadband_sensitivity.csv"), row.names = FALSE)
 base <- res %>% filter(deadband_s == 0) %>% select(closure_id, flux0 = flux, LM0 = LM)
-s <- res %>% left_join(base, by = "closure_id") %>% filter(in_legacy_dataset) %>%
+s <- res %>% left_join(base, by = "closure_id") %>% 
   mutate(inst = ifelse(instrument == "LI-7810", "LI-7810", "LGR/UGGA")) %>%
   group_by(inst, location, deadband_s) %>%
   summarise(n = n(), mean_flux = mean(flux), median_flux = median(flux),
@@ -47,6 +48,6 @@ s <- res %>% left_join(base, by = "closure_id") %>% filter(in_legacy_dataset) %>
             .groups = "drop")
 write.csv(s, file.path(TAB_DIR, "deadband_sensitivity_summary.csv"), row.names = FALSE)
 options(width = 180); print(as.data.frame(s %>% mutate(across(where(is.numeric), ~ signif(.x, 3)))))
-bg <- res %>% filter(SPECIES == "bg", in_legacy_dataset) %>% group_by(deadband_s) %>%
+bg <- res %>% filter(SPECIES == "bg") %>% group_by(deadband_s) %>%
   summarise(nyssa_mean = mean(flux), n = n())
 print(as.data.frame(bg))

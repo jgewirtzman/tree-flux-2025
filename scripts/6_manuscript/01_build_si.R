@@ -32,7 +32,7 @@ txt <- function(doc, x) par_(doc, ftext(x, tx))
 lbl <- function(doc, label, rest, keep = FALSE) par_(doc, ftext(label, tb), ftext(paste0(" ", rest), tx),
                                                        fp_p = update(PP, keep_with_next = keep))
 items <- list(); tab_n <- 0; fig_n <- 0
-# Stable keys -> SI numbers (the manuscript cites items by key; see manuscript_work/edit_manuscript.py)
+# Stable keys -> SI numbers (the manuscript cites items by key)
 TAB_KEYS <- c("decay_key", "decay_corr", "wet_comp", "slopes", "upland", "coefs", "diagnostics")
 FIG_KEYS <- c("site_map", "drivers", "tree_effects", "pred_by_site", "generalists")
 TXT_KEYS <- c("flux", "models", "tomo")
