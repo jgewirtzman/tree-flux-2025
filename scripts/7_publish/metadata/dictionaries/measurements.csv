@@ -1,7 +1,7 @@
 column,unit,description
 measurement_id,,unique measurement ID: analyzer_date_tree_start (LGR/UGGA) or LI7810_date_tree_n (LI-7810)
-Tree,,ForestGEO tag of the tree (see trees.csv)
-PLOT,,"plot code as recorded: BGS (wetland); EMS or E5 (upland trees in ForestGEO sub-plot E5)"
+Tree,,tag number of the tree (see trees.csv)
+PLOT,,"plot code as recorded: BGS (wetland); EMS or E5 (upland trees in plot E5)"
 date,,measurement date (local)
 analyzer,,"LGR1 or LGR3 (Los Gatos Research GLA131, raw files in analyzer_raw_lgr.zip) or LI-7810 (analyzer_raw_li7810.zip)"
 closure_start,,chamber closed (analyzer clock; local)

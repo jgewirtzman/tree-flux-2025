@@ -4,7 +4,7 @@
 # the folder the pipeline reads) plus the derived datasets (data/final/): the stem flux
 # dataset with its dictionary and settings, the hourly environmental
 # drivers with their dictionary, and the tomography decay classes. The tomography metrics and
-# tomograms are a separate dataset (scripts/7_publish/tomography/). Tables are copied as
+# tomograms are a separate dataset (built by data_package/ of the Tree-Tomography repository). Tables are copied as
 # they are; folders of raw files are zipped. Writes EML with EMLassemblyline from the
 # templates written by 00_attributes.R (text in scripts/7_publish/metadata/).
 #
@@ -60,7 +60,7 @@ table_info <- rbind(
     "Hourly meteorology, water level, soil temperature and moisture, ecosystem fluxes, tower gas mole fractions and canopy phenology at Harvard Forest from January 2023 (EST, UTC-5), compiled from the Harvard Forest Data Archive (HF001, HF070), AmeriFlux (US-Ha1, US-Ha2), NEON (HARV) and PhenoCam (harvardems2). Includes values derived from NEON provisional data (July-December 2025). Source of every column in environment_hourly_dictionary.csv."),
   c("Data dictionary of the hourly environmental drivers", "Column, unit, definition and source dataset of every column of environment_hourly.csv."),
   c("Tomography decay classes", "Decay class of each study tree from sonic (SoT) and electrical resistance (ERT) tomography, with the ERT principal-component score and threshold and the SoT structural loss used to assign it (classification of Thompson et al. 2026)."),
-  c("Study trees", "The 60 study trees: ForestGEO tag, site, plot, species, DBH, microtopography (wetland) and GPS location."),
+  c("Study trees", "The 60 study trees: tag, site, plot, species, DBH, microtopography (wetland) and GPS location."),
   c("Chamber volumes", "Collar depths (four interior points), collar, cap and tubing volumes of each tree's chamber."),
   c("Measurements",
     "The study's 1,872 measurements: tree, plot, date, analyzer, chamber closure and opening times on the analyzer clock (after the field team's timing corrections), deadband, sampling time on the local clock, and the air temperature and pressure at the time of measurement. With the raw analyzer records, the input of the flux calculation."),

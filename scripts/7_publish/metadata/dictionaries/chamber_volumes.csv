@@ -1,7 +1,7 @@
 column,unit,description
-Plot,,plot code: BGS (wetland) or ForestGEO sub-plot code (upland: C1-H1)
-Tag,,ForestGEO tag of the tree
-Old tag,,earlier field tag of wetland trees (mapped to the ForestGEO tag in processing)
+Plot,,plot code: BGS (wetland) or upland plot code (C1-H1)
+Tag,,tag number of the tree
+Old tag,,earlier field tag of wetland trees (mapped to the current tag in processing)
 depth1,cm,collar depth at interior point 1
 depth2,cm,collar depth at interior point 2
 depth3,cm,collar depth at interior point 3

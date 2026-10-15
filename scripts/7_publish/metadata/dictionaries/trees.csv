@@ -1,5 +1,5 @@
 column,unit,description
-Tree,,ForestGEO tag of the tree
+Tree,,tag number of the tree
 site,,Wetland (Black Gum Swamp) or Upland (EMS)
 plot,,plot code: BGS or EMS
 species,,"species code: bg Nyssa sylvatica; hem Tsuga canadensis; rm Acer rubrum; ro Quercus rubra"

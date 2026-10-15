@@ -1,5 +1,5 @@
 column,unit,description
-tree,,ForestGEO tag of the tree
+tree,,tag number of the tree
 species,,"species code: bg Nyssa sylvatica; hem Tsuga canadensis; rm Acer rubrum; ro Quercus rubra"
 site,,Wetland (Black Gum Swamp) or Upland (EMS)
 ert_pc1,,"first principal component of the eight ERT metrics, each standardized within species (higher = lower and more heterogeneous resistivity, i.e. wetter or anomalous)"

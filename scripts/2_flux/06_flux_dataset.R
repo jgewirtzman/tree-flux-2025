@@ -56,7 +56,7 @@ tq <- read.csv(PATH_TRACE_QC, stringsAsFactors = FALSE) %>%
 df <- df %>% left_join(tq, by = "closure_id")
 trees <- read.csv(PATH_TREES, stringsAsFactors = FALSE)
 k <- match(df$Tree, trees$Tree)
-# PLOT keeps the field coding (upland trees in the ForestGEO sub-plot E5 are coded "E5"); site and species must agree
+# PLOT keeps the field coding (upland trees in plot E5 are coded "E5"); site and species must agree
 bad <- is.na(k) | df$SPECIES != trees$species[k] | df$location != trees$site[k]
 if (any(bad)) { print(df[bad, c("closure_id", "Tree", "SPECIES", "PLOT", "location")]); stop("tree metadata disagree with trees.csv") }
 log_step("QC flags", "measurements whose tree, species and site agree with trees.csv", nrow(df))
@@ -79,9 +79,9 @@ message("Wrote ", PATH_FLUX, ": ", nrow(fin), " measurements, ", ncol(fin), " co
 dict_txt <- '
 column,unit,description
 measurement_id,,unique measurement ID: analyzer_date_tree_start (LGR/UGGA or LI-7810)
-Tree,,ForestGEO tag of the tree (see trees.csv)
+Tree,,tag number of the tree (see trees.csv)
 location,,site: Wetland (Black Gum Swamp) or Upland (EMS)
-PLOT,,plot code as recorded: BGS (wetland); EMS or E5 (upland trees in ForestGEO sub-plot E5)
+PLOT,,plot code as recorded: BGS (wetland); EMS or E5 (upland trees in plot E5)
 SPECIES,,species code: bg Nyssa sylvatica; hem Tsuga canadensis; rm Acer rubrum; ro Quercus rubra
 species_label,,species name
 DBH,cm,stem diameter at breast height

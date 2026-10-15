@@ -2,7 +2,7 @@
 # 02_download_data_package.R
 # Download the two published data packages (stem flux; tomography) and unpack them into
 # data/package/, the layout the pipeline reads (built for publication by
-# scripts/7_publish/01_build_edi_package.R and tomography/01_build_tomo_package.R):
+# scripts/7_publish/01_build_edi_package.R and data_package/ of the Tree-Tomography repository):
 #
 #   data/package/
 #     trees.csv                        study trees: tag, site, species, DBH, microtopography, GPS
