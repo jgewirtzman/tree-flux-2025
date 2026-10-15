@@ -247,8 +247,8 @@ if (file.exists(ec)) {
                              paste(sprintf("%s r = %.2f (p = %.3g, n = %d)", x$group, x$r, x$p, x$n), collapse = "; ")))
   }
 }
-cvs <- read_csv(file.path("data", "package", "tomography", "tomography_results_compiled.csv"), show_col_types = FALSE) %>%
-  mutate(tree = as.character(tree)) %>% inner_join(tc %>% mutate(tree = as.character(tree)), by = "tree")
+cvs <- read_csv(file.path("data", "package", "tomography", "ERT_application_results.csv"), show_col_types = FALSE) %>%
+  rename(ert_cv = cv) %>% mutate(tree = as.character(tree)) %>% inner_join(tc %>% mutate(tree = as.character(tree)), by = "tree")
 for (s in c("Wetland", "Upland")) say(sprintf("ERT CV %s: %.3f ± %.3f (n = %d)", s,
   mean(cvs$ert_cv[cvs$site == s]), sd(cvs$ert_cv[cvs$site == s]), sum(cvs$site == s)))
 

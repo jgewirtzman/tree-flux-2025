@@ -38,7 +38,6 @@ unz <- function(zip, to) { dir.create(to, recursive = TRUE, showWarnings = FALSE
 place <- list(
   "trees.csv" = PKG, "chamber_volumes.csv" = PKG,
   "measurements.csv" = PKG,
-  "tomography_results_compiled.csv" = file.path(PKG, "tomography"),
   "ERT_application_results.csv" = file.path(PKG, "tomography"),
   "Tree_ID_info.csv" = file.path(PKG, "tomography"),
   "BGS_editable.geojson" = file.path(PKG, "gps"), "EMS_trees_editable.geojson" = file.path(PKG, "gps"),

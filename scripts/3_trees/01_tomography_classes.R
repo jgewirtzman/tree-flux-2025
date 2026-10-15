@@ -11,9 +11,8 @@
 #   - threshold: study-set mean of PC1 (anomalous moisture = PC1 > mean)
 #   - SoT axis: structural loss (percent non-brown) > 1 %
 #   - classes: I No Decay, II Incipient, III Active, IV Cavity
-# SoT values are taken from the tomography study's tree table (Tree_ID_info.csv), which is
-# upstream of tomography_results_compiled.csv (tree 433 differs: 16 % there vs 0 % in the
-# compiled file). Both tables are in data/package/tomography/.
+# SoT values are taken from the tomography dataset's tree table (Tree_ID_info.csv) and ERT
+# metrics from ERT_application_results.csv, both in data/package/tomography/.
 #
 # Output: data/final/tomography_classes.csv
 # ============================================================

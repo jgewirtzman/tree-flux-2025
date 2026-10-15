@@ -15,7 +15,7 @@
 #     (mean/median load negatively, cv/gini load positively)
 #
 # Required external data:
-#   - tomography_results_compiled.csv
+#   - ERT_application_results.csv (ERT metrics per tomogram, tomography dataset)
 #   - data/package/trees.csv (for Nyssa identification)
 #   - ERT image directory
 #   - Sonic image directory
@@ -42,7 +42,7 @@ suppressPackageStartupMessages({
 # ============================================================
 
 PATHS <- list(
-  tomography = "data/package/tomography/tomography_results_compiled.csv",
+  tomography = "data/package/tomography/ERT_application_results.csv",
   hummock = "data/package/trees.csv",
   flux = "data/final/stem_ch4_flux.csv",
   ert_images = "data/package/tomography/images/ERT_absolute",
@@ -68,7 +68,9 @@ message("Loading data...")
 if (!file.exists(PATHS$tomography)) stop("Tomography data not found: ", PATHS$tomography)
 if (!file.exists(PATHS$flux)) stop("Flux data not found: ", PATHS$flux)
 
-tomography <- read_csv(PATHS$tomography, show_col_types = FALSE)
+tomography <- read_csv(PATHS$tomography, show_col_types = FALSE) %>%
+  rename_with(~ paste0("ert_", sub("radialgradient", "radialgradiant", .x)),
+              c(mean, median, sd, cv, gini, entropy, cma, radialgradient))
 
 if (file.exists(PATHS$hummock)) {
   hummock <- read_csv(PATHS$hummock, show_col_types = FALSE) %>% transmute(tree = Tree, Species = species)
@@ -228,7 +230,7 @@ tomo_classes <- read_csv("data/final/tomography_classes.csv", show_col_types = F
             decay_phase = decay_class)
 tomo_flux <- tomo_flux %>%
   left_join(tomo_classes, by = "tree") %>%
-  mutate(sot_damaged = sot_structural_loss,   # upstream SoT value (tree 433: 16 %)
+  mutate(sot_damaged = sot_structural_loss,   # SoT structural loss from the tree table
          decay_phase_short = str_extract(decay_phase, "^[IV]+"))
 
 message("\n  Decay phase distribution:")

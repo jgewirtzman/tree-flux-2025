@@ -23,8 +23,16 @@
 # ============================================================
 suppressPackageStartupMessages({ library(dplyr); library(tidyr); library(lme4) })
 
+# ERT metrics per tomogram (tomography dataset), with the metric names used below
+read_ert <- function(f) {
+  x <- read.csv(f, stringsAsFactors = FALSE, check.names = FALSE)
+  m <- c("mean", "median", "sd", "cv", "gini", "entropy", "cma", "radialgradient")
+  stopifnot(all(m %in% names(x)))
+  names(x)[match(m, names(x))] <- paste0("ert_", sub("radialgradient", "radialgradiant", m))
+  x
+}
 tc <- read.csv("data/final/tomography_classes.csv", stringsAsFactors = FALSE)
-ert <- read.csv("data/package/tomography/tomography_results_compiled.csv", stringsAsFactors = FALSE, fileEncoding = "UTF-8-BOM")
+ert <- read_ert("data/package/tomography/ERT_application_results.csv")
 fx <- read.csv("data/final/stem_ch4_flux.csv", stringsAsFactors = FALSE) %>%
   filter(!is.na(PLOT), !is.na(CH4_flux_nmolpm2ps)) %>%
   group_by(Tree) %>% mutate(SPECIES = first(na.omit(SPECIES))) %>% ungroup() %>%

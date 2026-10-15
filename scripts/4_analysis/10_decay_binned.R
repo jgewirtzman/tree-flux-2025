@@ -19,8 +19,16 @@ suppressPackageStartupMessages({ library(dplyr) })
 set.seed(42)
 NPERM <- 2000
 
+# ERT metrics per tomogram (tomography dataset), with the metric names used below
+read_ert <- function(f) {
+  x <- read.csv(f, stringsAsFactors = FALSE, check.names = FALSE)
+  m <- c("mean", "median", "sd", "cv", "gini", "entropy", "cma", "radialgradient")
+  stopifnot(all(m %in% names(x)))
+  names(x)[match(m, names(x))] <- paste0("ert_", sub("radialgradient", "radialgradiant", m))
+  x
+}
 tc  <- read.csv("data/final/tomography_classes.csv", stringsAsFactors = FALSE)
-ert <- read.csv("data/package/tomography/tomography_results_compiled.csv", stringsAsFactors = FALSE, fileEncoding = "UTF-8-BOM")
+ert <- read_ert("data/package/tomography/ERT_application_results.csv")
 fx  <- read.csv("data/final/stem_ch4_flux.csv", stringsAsFactors = FALSE)
 zs  <- function(x, g) ave(x, g, FUN = function(v) (v - mean(v, na.rm = TRUE)) / sd(v, na.rm = TRUE))
 trees <- ert %>% transmute(tree = as.character(tree), ert_cv, ert_mean, ert_cma) %>%
