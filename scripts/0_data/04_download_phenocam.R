@@ -1,5 +1,5 @@
 # ============================================================
-# 05_download_phenocam.R
+# 04_download_phenocam.R
 # Download PhenoCam GCC/NDVI data for Harvard Forest EMS
 #
 # Downloads: harvardems2 camera, deciduous broadleaf ROI

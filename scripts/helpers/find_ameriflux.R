@@ -25,7 +25,7 @@ find_ameriflux <- function(site_id, base_dir = AMERIFLUX_DIR) {
     stop("No AmeriFlux CSV found for site ", site_id,
          " in ", base_dir,
          "\n  Expected pattern: AMF_", site_id, "_BASE-BADM_*/AMF_", site_id, "_BASE_*.csv",
-         "\n  Run scripts/0_data/03_download_ameriflux.R first.")
+         "\n  Run scripts/0_data/02_download_ameriflux.R first.")
   }
   if (length(csvs) > 1) {
     message("Multiple AmeriFlux versions found for ", site_id, ", using newest: ", basename(csvs[length(csvs)]))

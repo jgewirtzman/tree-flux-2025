@@ -28,7 +28,7 @@
 #
 # Outputs
 #   data/interim/flux_trace_qc.csv             one row per closure, all checks (joined to the
-#                                              final dataset by 06_flux_dataset.R)
+#                                              final dataset by 05_flux_dataset.R)
 #   outputs/tables/flux_processing/trace_qc_clickpeak_shortlist.csv  closures for inspection
 #   outputs/figures/flux_processing/trace_qc/traces_all_<analyzer>_<year>.pdf   every closure, date order
 #   outputs/figures/trace_qc/traces_flagged.pdf                 flagged closures, worst first

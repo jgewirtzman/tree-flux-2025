@@ -25,7 +25,7 @@ BASELINE_END <- as.Date("2024-12-31")
 
 message("Downloading NEON soil water content data...")
 
-# Local download from scripts/0_data/04_download_neon.R (RELEASE-2026 through
+# Local download from scripts/0_data/03_download_neon.R (RELEASE-2026 through
 # 2025-06, provisional after); falls back to a live download if it is absent.
 LOCAL_SWC <- "data/external/neon/DP1.00094.001"
 fts <- list.files(LOCAL_SWC, pattern = "^filesToStack", full.names = TRUE)

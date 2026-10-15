@@ -1,5 +1,5 @@
 # ============================================================
-# 05_deadband_sensitivity.R  (flux step 4 of 5; sensitivity check, not used downstream)
+# 04_deadband_sensitivity.R  (flux step 4 of 5; sensitivity check, not used downstream)
 #
 # How sensitive are the fluxes to the deadband (seconds discarded after
 # chamber closure)? Refits every closure with goFlux (LM/HM, best.flux) for
@@ -12,7 +12,7 @@
 #         outputs/tables/flux_processing/deadband_sensitivity_summary.csv
 # ============================================================
 suppressPackageStartupMessages({ library(dplyr); library(goFlux) })
-SCRIPT <- "05_deadband_sensitivity"
+SCRIPT <- "04_deadband_sensitivity"
 source("scripts/2_flux/flux_settings.R")
 tr <- readRDS(PATH_TRACES)
 traces <- tr$traces

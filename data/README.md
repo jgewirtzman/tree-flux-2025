@@ -4,7 +4,7 @@ Nothing in `data/` is tracked by git. Four folders, in the order data flow throu
 
 | Folder | Contents | Made by |
 |---|---|---|
-| `package/` | the study's own primary data, as recorded; published as the data package | `scripts/0_data/02_download_data_package.R` |
+| `package/` | the study's own primary data, as recorded; published as the data package | `scripts/0_data/01_download_data_package.R` |
 | `external/` | public data from other providers | `scripts/0_data/03-05`, `1_environment/01_met_hydro.R`, by hand (below) |
 | `interim/` | intermediate files | stages 1–2 |
 | `final/` | compiled datasets read by every analysis | stages 1–3 |
@@ -23,16 +23,16 @@ Nothing in `data/` is tracked by git. Four folders, in the order data flow throu
 | `tomography/` | from the tomography dataset (Harvard Forest Data Archive): `ERT_application_results.csv` (ERT metrics per tomogram), `Tree_ID_info.csv` (SoT results per tree) and `images/` (`ERT_absolute`, `ERT_normalized`, `SoT` tomograms) |
 | `gps/` | GPS points of the study trees (`BGS_editable.geojson`, 2025-04-17; `EMS_trees_editable.geojson`, 2026-01-16); `trees.csv` positions come from these |
 | `stand/` | `BGS_VRP_2025.csv` (June 2025 prism survey of the swamp, BAF 10 ft²/acre, 40 plots), `Black_Gum_Swamp.kmz` (swamp outline) |
-| `published_final/` | the derived datasets as published in the package (written by `02_download_data_package.R`; the pipeline rebuilds them in `data/final/`, so they are for comparison only) |
+| `published_final/` | the derived datasets as published in the package (written by `01_download_data_package.R`; the pipeline rebuilds them in `data/final/`, so they are for comparison only) |
 
 ## `external/` — public data
 
 | Path | Source | How to get it |
 |---|---|---|
-| `ameriflux/` | AmeriFlux BASE: US-Ha1 (v28-5), US-Ha2 (v17-5), US-xHA (v11-5) | `0_data/03_download_ameriflux.R`, or download from ameriflux.lbl.gov |
-| `neon/` | NEON HARV, RELEASE-2026 + provisional: DP1.00001, 00005, 00040, 00041, 00046, 00094, DP4.00200 | `0_data/04_download_neon.R` (`NEON_TOKEN`) |
+| `ameriflux/` | AmeriFlux BASE: US-Ha1 (v28-5), US-Ha2 (v17-5), US-xHA (v11-5) | `0_data/02_download_ameriflux.R`, or download from ameriflux.lbl.gov |
+| `neon/` | NEON HARV, RELEASE-2026 + provisional: DP1.00001, 00005, 00040, 00041, 00046, 00094, DP4.00200 | `0_data/03_download_neon.R` (`NEON_TOKEN`) |
 | `hf_archive/` | Harvard Forest Data Archive: HF001 table hf001-10 (Fisher met, 15 min), HF070 table hf070-04 (hydrology incl. BGS/BVS wells, 15 min) | `1_environment/01_met_hydro.R` downloads the newest revision if absent |
-| `phenocam/` | PhenoCam harvardems2 NDVI | `0_data/05_download_phenocam.R` |
+| `phenocam/` | PhenoCam harvardems2 NDVI | `0_data/04_download_phenocam.R` |
 | `gis/` | Harvard Forest GIS (HF000): `elevation_ned/` (30-m DEM, MA State Plane), `elevation_contours.geojson`, `tracts.*`, `stands_1986_93.*`; US Census `cb_2018_us_state_500k.zip` | by hand from the Harvard Forest GIS archive and census.gov |
 | `forestgeo/hf253-06-stems-2019.csv` | Harvard Forest ForestGEO census, 2019 (HF253 v6) | by hand from the Harvard Forest Data Archive (HF253) |
 

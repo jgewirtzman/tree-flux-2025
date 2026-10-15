@@ -1,5 +1,5 @@
 # ============================================================
-# 04_download_neon.R
+# 03_download_neon.R
 # NEON Harvard Forest (HARV) products for 2023-01 to 2025-12, the latest
 # release (RELEASE-2026, through 2025-06) plus provisional data after it.
 #

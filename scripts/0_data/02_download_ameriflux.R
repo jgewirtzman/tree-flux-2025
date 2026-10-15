@@ -1,5 +1,5 @@
 # ============================================================
-# 03_download_ameriflux.R
+# 02_download_ameriflux.R
 # Download AmeriFlux BASE data for Harvard Forest towers
 #
 # Downloads: US-Ha1 (EMS), US-Ha2 (hemlock), US-xHA (wetland)

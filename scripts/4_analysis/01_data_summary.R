@@ -5,7 +5,7 @@
 # analyzer; flux distributions; detection against the MDF; analyzer precision;
 # model selection and QC flags.
 #
-# Input : data/final/stem_ch4_flux.csv (scripts/2_flux/06_flux_dataset.R)
+# Input : data/final/stem_ch4_flux.csv (scripts/2_flux/05_flux_dataset.R)
 # Output: outputs/tables/flux_data_summary.csv     counts, detection and fit statistics
 #         outputs/tables/flux_by_species_site.csv  flux distribution by site x species
 #         outputs/tables/detection_by_analyzer.csv precision, MDF and detection by analyzer

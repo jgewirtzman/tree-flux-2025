@@ -11,7 +11,7 @@
 # The package is published through the Harvard Forest Data Archive (knb-lter-hfr, on EDI):
 # hand data/edi/package/ to the HF archivist, who assigns the package ID and DOI. The ID
 # below is a placeholder; when the ID is issued, set it here and in
-# scripts/0_data/02_download_data_package.R.
+# scripts/0_data/01_download_data_package.R.
 # Output: data/edi/package/
 # Requires: EMLassemblyline. Run 00_attributes.R first.
 # ============================================================

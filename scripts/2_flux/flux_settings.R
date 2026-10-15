@@ -35,7 +35,7 @@ AREA_CM2      <- SURFAREA_M2 * 1e4    # goFlux wants cm2
 EXTRA_VOL_LGR_L  <- 0.028
 EXTRA_VOL_7810_L <- 0.028
 SHOULDER_S    <- 120                  # s of trace kept outside the window (flag = 0), for plots/QC context
-DEADBAND_S    <- 20                   # s dropped after chamber closure (measurements.csv deadband_s; 05_deadband_sensitivity.R)
+DEADBAND_S    <- 20                   # s dropped after chamber closure (measurements.csv deadband_s; 04_deadband_sensitivity.R)
 PREC_LGR      <- c(CO2 = 0.35, CH4 = 0.9, H2O = 100)   # datasheet 1-s precision, GLA131 (ppm, ppb, ppm)
 PREC_7810     <- c(CO2 = 3.5,  CH4 = 0.6, H2O = 45)    # LI-7810 (goFlux default)
 
@@ -44,7 +44,7 @@ nz <- function(x) !is.na(x) & nchar(trimws(as.character(x))) > 0
 
 # ---- processing log -------------------------------------------------------------
 # Every cleaning rule records how many records it touched. Each script writes its own
-# part to data/interim/flux_log_<script>.csv; 06_flux_dataset.R combines them into
+# part to data/interim/flux_log_<script>.csv; 05_flux_dataset.R combines them into
 # data/interim/flux_processing_log.csv (a local record; not published).
 FLUX_LOG <- data.frame(script = character(), step = character(), rule = character(),
                        n_records = integer(), detail = character())

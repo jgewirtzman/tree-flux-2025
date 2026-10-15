@@ -318,7 +318,7 @@ stem_flux_raw <- read_csv(PATHS$flux, show_col_types = FALSE)
 
 stem_flux <- stem_flux_raw %>%
   mutate(
-    datetime = as.POSIXct(format(as.POSIXct(sample_hour_est, tz = "UTC"), "%Y-%m-%d %H:%M:%S"), tz = "UTC"),  # EST hour of sampling (2_flux/06_flux_dataset.R)
+    datetime = as.POSIXct(format(as.POSIXct(sample_hour_est, tz = "UTC"), "%Y-%m-%d %H:%M:%S"), tz = "UTC"),  # EST hour of sampling (2_flux/05_flux_dataset.R)
     site = location,  # Already has "Wetland"/"Upland"
     Tree = as.factor(Tree),
     species = as.factor(SPECIES),

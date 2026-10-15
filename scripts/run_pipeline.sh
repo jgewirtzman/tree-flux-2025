@@ -18,7 +18,7 @@ export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8   # non-ASCII plot labels (°C, ×) n
 LOG=outputs/logs; mkdir -p "$LOG" outputs/tables outputs/figures outputs/models outputs/manuscript data/interim data/final; : > "$LOG/STATUS.txt"
 
 stage1=(1_environment/01_met_hydro.R 1_environment/02_soil_moisture.R 1_environment/03_neon_xha.R 1_environment/04_hourly_drivers.R)
-stage2=(2_flux/01_closure_table.R 2_flux/02_fit_fluxes.R 2_flux/03_trace_qc.R 2_flux/05_deadband_sensitivity.R 2_flux/06_flux_dataset.R)
+stage2=(2_flux/01_closure_table.R 2_flux/02_fit_fluxes.R 2_flux/03_trace_qc.R 2_flux/04_deadband_sensitivity.R 2_flux/05_flux_dataset.R)
 stage3=(3_trees/01_tomography_classes.R 3_trees/02_stand_context.R)
 stage4=(4_analysis/01_data_summary.R 4_analysis/02_flux_timeseries.R 4_analysis/03_flux_by_species.R 4_analysis/04_repeatability.R
         4_analysis/05_window_screening.R 4_analysis/06_tomography_flux.R 4_analysis/07_decay_definitions.R 4_analysis/08_site_map.R
@@ -32,7 +32,7 @@ steps=()
 for s in "${stages[@]}"; do
   if [ "$s" = 1 ] && [ "${DRIVERS:-}" = published ]; then
     src=data/package/published_final/environment_hourly.csv
-    [ -f "$src" ] || { echo "FAILED: $src not found (scripts/0_data/02_download_data_package.R)"; exit 1; }
+    [ -f "$src" ] || { echo "FAILED: $src not found (scripts/0_data/01_download_data_package.R)"; exit 1; }
     cp "$src" data/final/environment_hourly.csv; echo "stage 1: archived drivers copied from $src" | tee -a "$LOG/STATUS.txt"; continue
   fi
   eval "list=(\"\${stage$s[@]}\")"

@@ -65,7 +65,7 @@ if (!is.null(wnd)) { t <- pick(wnd, "2DWSD_30|twoDWSD_30"); log_release("DP1.000
 
 # ---- eddy-covariance bundle ----
 ec_dir <- list.files(file.path(NEON, "DP4.00200.001"), pattern = "^filesToStack", full.names = TRUE)
-if (!length(ec_dir)) stop("NEON DP4.00200.001 not found in data/external/neon; run scripts/0_data/04_download_neon.R")
+if (!length(ec_dir)) stop("NEON DP4.00200.001 not found in data/external/neon; run scripts/0_data/03_download_neon.R")
 if (length(ec_dir)) {
   # stackEddy reads 36 monthly HDF5 files; cache the extracted tables so reruns are fast
   CACHE <- "data/interim/neon_ec_extract.rds"

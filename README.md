@@ -35,8 +35,8 @@ bash scripts/run_pipeline.sh
 
 ### Stage 0: getting the data
 
-- **Our data** (`data/package/`): `0_data/02_download_data_package.R` downloads the published package (Harvard Forest Data Archive, knb-lter-hfr) and unpacks it.
-- **Public data** (`data/external/`): `03_download_ameriflux.R` (US-Ha1, US-Ha2, US-xHA BASE), `04_download_neon.R` (NEON HARV, RELEASE-2026 + provisional; a NEON API token in `NEON_TOKEN` is optional and speeds up the download), `05_download_phenocam.R`. The Harvard Forest Fisher met and hydrology tables (HF001, HF070) are downloaded by `1_environment/01_met_hydro.R` when they are not already in `data/external/hf_archive/`. GIS layers and the ForestGEO census: see `data/README.md`.
+- **Our data** (`data/package/`): `0_data/01_download_data_package.R` downloads the published package (Harvard Forest Data Archive, knb-lter-hfr) and unpacks it.
+- **Public data** (`data/external/`): `02_download_ameriflux.R` (US-Ha1, US-Ha2, US-xHA BASE), `03_download_neon.R` (NEON HARV, RELEASE-2026 + provisional; a NEON API token in `NEON_TOKEN` is optional and speeds up the download), `04_download_phenocam.R`. The Harvard Forest Fisher met and hydrology tables (HF001, HF070) are downloaded by `1_environment/01_met_hydro.R` when they are not already in `data/external/hf_archive/`. GIS layers and the ForestGEO census: see `data/README.md`.
 
 ### Stage 2: from raw records to the flux dataset
 
@@ -45,13 +45,21 @@ Inputs: the raw analyzer records and `data/package/measurements.csv` (one row pe
 1. `01_closure_table.R` — each measurement's window (closure + deadband to the chamber opening, ended early at a detected chamber opening), its trace from the raw 1-Hz record, chamber volume, and the analyzer precision per analyzer and day (`goFlux::empirical.prec`).
 2. `02_fit_fluxes.R` — goFlux linear and Hutchinson–Mosier fits, `best.flux` selection (Hüppi et al. 2018) and screens (`qc.flags`). MDF = 1.96 σ / t × flux term, σ = analyzer precision on that day.
 3. `03_trace_qc.R` — automated checks of every CO2 and CH4 trace (flags carried into the dataset).
-4. `05_deadband_sensitivity.R` — refits with 0–45 s deadbands (sensitivity check).
-5. `06_flux_dataset.R` — final dataset: detection limits, sampling campaigns, QC flags; checked against `trees.csv`.
+4. `04_deadband_sensitivity.R` — refits with 0–45 s deadbands (sensitivity check).
+5. `05_flux_dataset.R` — final dataset: detection limits, sampling campaigns, QC flags; checked against `trees.csv`.
 
 ## Requirements
 
-Working directory: the project root. R ≥ 4.3 with
-`tidyverse` (`dplyr`, `tidyr`, `readr`, `stringr`, `tibble`, `ggplot2`), `lubridate`, `jsonlite`, `goFlux` (fork, version 0.5.0.9002: `remotes::install_github("jgewirtzman/goFlux@v0.5.0.9002")`, doi:10.5281/zenodo.23256675), `neonUtilities`, `plantecophys`, `lme4`, `lmerTest`, `performance`, `emmeans`, `RcppRoll`, `zoo`, `patchwork`, `cowplot`, `ggtext`, `scales`, `png`, `magick`, `pheatmap`, `car`, `sf`, `terra`, `ggspatial`, `ggnewscale`, `ggrepel`, `officer`, `flextable`; for stage 0/7 also `EDIutils`, `amerifluxr`, `phenocamr`, `EMLassemblyline`.
+Working directory: the project root. The results were produced with R 4.4.3 and these package versions:
+
+- **Flux calculation:** `goFlux` 0.5.0.9002 (fork: `remotes::install_github("jgewirtzman/goFlux@v0.5.0.9002")`, doi:10.5281/zenodo.23256675), `jsonlite` 2.0.0
+- **Data handling:** `tidyverse` 2.0.0 (`dplyr` 1.2.0, `tidyr` 1.3.2, `readr` 2.2.0, `stringr` 1.6.0, `tibble` 3.3.1, `ggplot2` 4.0.2), `lubridate` 1.9.5, `zoo` 1.8.15, `RcppRoll` 0.3.1
+- **Environmental data:** `neonUtilities` 3.0.2, `plantecophys` 1.4.6
+- **Models:** `lme4` 1.1-35.5, `lmerTest` 3.1-3, `performance` 0.12.4, `emmeans` 1.10.6, `car` 3.1-3
+- **Figures:** `patchwork` 1.3.2, `cowplot` 1.1.3, `ggtext` 0.1.2, `scales` 1.4.0, `png` 0.1.8, `magick` 2.9.0, `pheatmap` 1.0.12, `ggnewscale` 0.5.2, `ggrepel` 0.9.6
+- **Maps:** `sf` 1.0-24, `terra` 1.8-60, `ggspatial` 1.1.9
+- **Supporting Information:** `officer` 0.6.7, `flextable` 0.9.7
+- **Stage 0 and 7 only:** `EDIutils` 2.0.0, `EMLassemblyline` 3.6.0, `amerifluxr`, `phenocamr`
 
 ## Sites and species
 

@@ -135,7 +135,7 @@ if (!wtd_pred_ems %in% names(met) && !is.na(wtd_window_ems) && wtd_var_ems %in% 
 # Process flux data
 flux_processed <- flux_data %>%
   mutate(
-    datetime = as.POSIXct(format(as.POSIXct(sample_hour_est, tz = "UTC"), "%Y-%m-%d %H:%M:%S"), tz = "UTC"),  # EST hour of sampling (2_flux/06_flux_dataset.R)
+    datetime = as.POSIXct(format(as.POSIXct(sample_hour_est, tz = "UTC"), "%Y-%m-%d %H:%M:%S"), tz = "UTC"),  # EST hour of sampling (2_flux/05_flux_dataset.R)
     site = location,
     Tree = as.factor(Tree),
     species = as.factor(SPECIES),

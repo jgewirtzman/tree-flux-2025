@@ -1,5 +1,5 @@
 # ============================================================
-# 06_flux_dataset.R  (flux step 5 of 5)
+# 05_flux_dataset.R  (flux step 5 of 5)
 #
 # Compiles the final stem flux dataset used by every analysis and published with
 # the data package: one row per measurement, final flux, uncertainty, detection
@@ -16,7 +16,7 @@
 #          data/final/stem_ch4_flux_dictionary.csv  column definitions and units
 # ============================================================
 suppressPackageStartupMessages({ library(dplyr); library(lubridate) })
-SCRIPT <- "06_flux_dataset"
+SCRIPT <- "05_flux_dataset"
 source("scripts/2_flux/flux_settings.R")
 
 g <- read.csv(PATH_FITS, stringsAsFactors = FALSE)
@@ -141,7 +141,7 @@ dict$unit[!nzchar(dict$unit)] <- NA   # NA = no unit
 write.csv(dict[match(names(fin), dict$column), ], file.path(FINAL, "stem_ch4_flux_dictionary.csv"), row.names = FALSE, na = "NA")
 
 write_log()
-logs <- c("01_closure_table", "02_fit_fluxes", "03_trace_qc", "06_flux_dataset")   # local record (data/interim)
+logs <- c("01_closure_table", "02_fit_fluxes", "03_trace_qc", "05_flux_dataset")   # local record (data/interim)
 all_log <- bind_rows(lapply(logs, function(s) read.csv(file.path(INTERIM, paste0("flux_log_", s, ".csv")), stringsAsFactors = FALSE)))
 write.csv(all_log, PATH_LOG, row.names = FALSE)
 message("Wrote ", PATH_LOG, " (", nrow(all_log), " rules)")
