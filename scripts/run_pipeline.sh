@@ -4,7 +4,7 @@
 #
 #   bash scripts/run_pipeline.sh                 # stages 1-6
 #   bash scripts/run_pipeline.sh 2 4             # only stages 2 and 4
-#   SKIP_FIT=1 bash scripts/run_pipeline.sh      # reuse the closures and flux fits (the fit takes ~10 min)
+#   SKIP_FIT=1 bash scripts/run_pipeline.sh      # reuse the closures and flux fits (the fit takes ~6 min)
 #   DRIVERS=published bash scripts/run_pipeline.sh   # stage 1 from the data package: use the archived hourly
 #                                                # drivers (environment_hourly.csv) instead of rebuilding them
 #                                                # from AmeriFlux, NEON, PhenoCam and the HF archive

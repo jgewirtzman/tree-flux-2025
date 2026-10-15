@@ -31,12 +31,12 @@ Run everything after stage 0:
 bash scripts/run_pipeline.sh
 ```
 
-`DRIVERS=published bash scripts/run_pipeline.sh` skips rebuilding the environmental drivers and uses the hourly drivers archived in the data package (`environment_hourly.csv`), so stages 2–6 need only the data package plus the ForestGEO census and GIS layers (stand table and site map; see `data/README.md`); `bash scripts/run_pipeline.sh 4 5` runs selected stages; `SKIP_FIT=1` skips steps 1–2 of stage 2 and reuses the closures and flux fits (the goFlux fit takes ~20 min). Logs go to `outputs/logs/`.
+`DRIVERS=published bash scripts/run_pipeline.sh` skips rebuilding the environmental drivers and uses the hourly drivers archived in the data package (`environment_hourly.csv`), so stages 2–6 need only the data package plus the ForestGEO census and GIS layers (stand table and site map; see `data/README.md`); `bash scripts/run_pipeline.sh 4 5` runs selected stages; `SKIP_FIT=1` skips steps 1–2 of stage 2 and reuses the closures and flux fits (the goFlux fit takes ~6 min; a full run takes ~25 min). Logs go to `outputs/logs/`.
 
 ### Stage 0: getting the data
 
 - **Our data** (`data/package/`): `0_data/02_download_data_package.R` downloads the published package (Harvard Forest Data Archive, knb-lter-hfr) and unpacks it.
-- **Public data** (`data/external/`): `03_download_ameriflux.R` (US-Ha1, US-Ha2, US-xHA BASE), `04_download_neon.R` (NEON HARV, RELEASE-2026 + provisional; needs a NEON token in `NEON_TOKEN`), `05_download_phenocam.R`. The Harvard Forest Fisher met and hydrology tables (HF001, HF070) are downloaded by `1_environment/01_met_hydro.R` when they are not already in `data/external/hf_archive/`. GIS layers and the ForestGEO census: see `data/README.md`.
+- **Public data** (`data/external/`): `03_download_ameriflux.R` (US-Ha1, US-Ha2, US-xHA BASE), `04_download_neon.R` (NEON HARV, RELEASE-2026 + provisional; a NEON API token in `NEON_TOKEN` is optional and speeds up the download), `05_download_phenocam.R`. The Harvard Forest Fisher met and hydrology tables (HF001, HF070) are downloaded by `1_environment/01_met_hydro.R` when they are not already in `data/external/hf_archive/`. GIS layers and the ForestGEO census: see `data/README.md`.
 
 ### Stage 2: from raw records to the flux dataset
 
@@ -51,7 +51,7 @@ Inputs: the raw analyzer records and `data/package/measurements.csv` (one row pe
 ## Requirements
 
 Working directory: the project root. R ≥ 4.3 with
-`tidyverse` (`dplyr`, `tidyr`, `readr`, `stringr`, `tibble`, `ggplot2`), `lubridate`, `readxl`, `jsonlite`, `goFlux` (fork, version 0.5.0.9002: `remotes::install_github("jgewirtzman/goFlux@v0.5.0.9002")`, doi:10.5281/zenodo.23256675), `neonUtilities`, `plantecophys`, `lme4`, `lmerTest`, `performance`, `emmeans`, `RcppRoll`, `zoo`, `patchwork`, `cowplot`, `ggtext`, `scales`, `png`, `magick`, `pheatmap`, `car`, `sf`, `terra`, `ggspatial`, `ggnewscale`, `ggrepel`, `officer`, `flextable`; for stage 0/7 also `EDIutils`, `amerifluxr`, `phenocamr`, `EMLassemblyline`.
+`tidyverse` (`dplyr`, `tidyr`, `readr`, `stringr`, `tibble`, `ggplot2`), `lubridate`, `jsonlite`, `goFlux` (fork, version 0.5.0.9002: `remotes::install_github("jgewirtzman/goFlux@v0.5.0.9002")`, doi:10.5281/zenodo.23256675), `neonUtilities`, `plantecophys`, `lme4`, `lmerTest`, `performance`, `emmeans`, `RcppRoll`, `zoo`, `patchwork`, `cowplot`, `ggtext`, `scales`, `png`, `magick`, `pheatmap`, `car`, `sf`, `terra`, `ggspatial`, `ggnewscale`, `ggrepel`, `officer`, `flextable`; for stage 0/7 also `EDIutils`, `amerifluxr`, `phenocamr`, `EMLassemblyline`.
 
 ## Sites and species
 
@@ -66,4 +66,4 @@ BGS = Black Gum Swamp (wetland); EMS = Environmental Measurement Station (upland
 
 ## Citation and license
 
-Code: MIT (`LICENSE`). Cite the archived release (Zenodo DOI; see `CITATION.cff`), the paper, and the data package in the Harvard Forest Data Archive.
+Code: MIT (`LICENSE`); the Figure 7 illustration in `figures_static/` is not covered (see `figures_static/README.md`). Cite the archived release (Zenodo DOI; see `CITATION.cff`), the paper, and the two datasets in the Harvard Forest Data Archive (stem flux; tomography).

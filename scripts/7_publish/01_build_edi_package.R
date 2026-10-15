@@ -101,7 +101,7 @@ eml <- make_eml(
   path = TEMPLATE_DIR,
   data.path = PACKAGE_DIR,
   eml.path = PACKAGE_DIR,
-  dataset.title = "Stem methane and carbon dioxide fluxes, environmental drivers and internal wood condition of upland and wetland trees at Harvard Forest 2023-2025",
+  dataset.title = "Stem methane and carbon dioxide fluxes and environmental drivers of upland and wetland trees at Harvard Forest 2023-2025",
   temporal.coverage = c("2023-06-29", "2025-10-31"),
   maintenance.description = "Completed. Data collection ended October 2025.",
   data.table = names(tables),

@@ -1,5 +1,5 @@
 # ============================================================
-# 106_compare_ems_models.R
+# 05_compare_upland_models.R
 # 
 # Compare EMS model variants:
 #   A: Instantaneous (TS_Ha1 × NEON_SWC_shallow, 1h)

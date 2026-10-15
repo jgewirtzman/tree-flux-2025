@@ -1,5 +1,5 @@
 # ============================================================
-# 105b_ems_model_bgs_drivers.R
+# 03_upland_model_B.R
 # 
 # EMS (Upland) CH4 flux modeling - EXACT BGS CORE DRIVERS
 #

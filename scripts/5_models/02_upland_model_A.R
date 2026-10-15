@@ -1,5 +1,5 @@
 # ============================================================
-# 105a_ems_model_instantaneous.R
+# 02_upland_model_A.R
 # 
 # EMS (Upland) CH4 flux modeling - INSTANTANEOUS CORE PREDICTORS
 #

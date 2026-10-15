@@ -92,8 +92,8 @@ doc <- doc %>% par_(ftext("", tx), fp_p = P0) %>%
   par_(ftext(sprintf("Figures S1 to S%d", length(FIG_KEYS)), tx), fp_p = P0) %>%
   par_(ftext(sprintf("Tables S1 to S%d", length(TAB_KEYS)), tx), fp_p = PP) %>%
   par_(ftext("Introduction", tb), fp_p = update(PP, padding.top = 12)) %>%
-  txt(paste("This file gives details of the flux calculation and quality control (Text S1), model selection and diagnostics (Text S2)",
-            "and the tomography procedures (Text S3), with supporting tables and figures. Every item is produced by the archived",
+  txt(paste("This file gives details of the flux calculation and quality control (Text S1), the tomography procedures (Text S2)",
+            "and model selection and diagnostics (Text S3), with supporting tables and figures. Every item is produced by the archived",
             "analysis code from the published data package (see Open Research in the main text).")) %>%
   body_add_break()
 

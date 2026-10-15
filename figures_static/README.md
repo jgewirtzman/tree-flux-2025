@@ -5,4 +5,4 @@
 | `fig7_conceptual_model.tif` | Figure 7, conceptual model of stem CH₄ flux mechanisms across hydrologic settings (300 dpi, CMYK for print) |
 | `fig7_conceptual_model_rgb.jpg` | Figure 7, sRGB export of the same figure (300 dpi) |
 
-Illustration by Debbie Maizels, Zoobotanica Scientific Illustration.
+Illustration by Debbie Maizels, Zoobotanica Scientific Illustration. The illustration is not covered by the repository's MIT license; contact the authors before reusing it.

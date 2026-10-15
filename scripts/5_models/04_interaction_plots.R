@@ -1,10 +1,10 @@
 # ============================================================
-# 107_interaction_plot_by_site.R
+# 04_interaction_plots.R
 # 
 # Temperature × Water Table interaction plots by site
 # Using CORE models (TS × WTD × species only) from:
-#   - BGS (Wetland): 104_bgs_model_complete.R
-#   - EMS (Upland): 105b_ems_model_bgs_drivers.R
+#   - BGS (Wetland): 01_wetland_model.R
+#   - EMS (Upland): 03_upland_model_B.R
 #
 # Both use: asinh(CH4*1000) ~ TS_Ha2 * bvs_wtd_cm * species + (1|Tree)
 # ============================================================

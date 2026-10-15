@@ -15,13 +15,13 @@ Nothing in `data/` is tracked by git. Four folders, in the order data flow throu
 
 | Path | Description |
 |---|---|
-| `trees.csv` | the 60 study trees: ForestGEO tag, site, plot, species, DBH, microtopography (wetland), GPS position (BGS survey 2025-04-17, EMS 2026-01-16) |
+| `trees.csv` | the 60 study trees: tag, site, plot, species, DBH, microtopography (wetland), GPS position (BGS survey 2025-04-17, EMS 2026-01-16) |
 | `chamber_volumes.csv` | measured collar depths and collar + cap + tubing volume per tree; old wetland tags (1–32) |
 | `analyzer_raw/lgr/LGR{1,2,3}/` | LGR microportable GLA131 (UGGA) 1-Hz day files, May 2023–Apr 2025 |
 | `analyzer_raw/li7810/` | LI-COR LI-7810 (SN TG10-01861) 1-Hz day files, 2025; closures tagged in the REMARK field |
 | `measurements.csv` | one row per measurement (1,872): tree, plot, date, analyzer, chamber closure and opening times on the analyzer clock, deadband, sampling time, air temperature and pressure — with the raw records, the input of stage 2 |
-| `tomography/` | `tomography_results_compiled.csv` (ERT and sonic metrics), `ERT_application_results.csv` and `Tree_ID_info.csv` (companion tomography study, Thompson et al. 2026), `images/` (ERT and sonic cross-sections) |
-| `gps/` | original GPS survey exports of the study trees (Avenza; BGS 2025-04-17, EMS 2026-01-16); `trees.csv` positions come from these |
+| `tomography/` | from the tomography dataset (Harvard Forest Data Archive): `ERT_application_results.csv` (ERT metrics per tomogram), `Tree_ID_info.csv` (SoT results per tree) and `images/` (`ERT_absolute`, `ERT_normalized`, `SoT` tomograms) |
+| `gps/` | GPS points of the study trees (`BGS_editable.geojson`, 2025-04-17; `EMS_trees_editable.geojson`, 2026-01-16); `trees.csv` positions come from these |
 | `stand/` | `BGS_VRP_2025.csv` (June 2025 prism survey of the swamp, BAF 10 ft²/acre, 40 plots), `Black_Gum_Swamp.kmz` (swamp outline) |
 | `published_final/` | the derived datasets as published in the package (written by `02_download_data_package.R`; the pipeline rebuilds them in `data/final/`, so they are for comparison only) |
 

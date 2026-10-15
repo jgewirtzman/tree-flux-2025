@@ -1,10 +1,10 @@
 # ============================================================
-# 104_bgs_model_complete.R
+# 01_wetland_model.R
 # 
 # Complete BGS CH4 flux modeling pipeline
 #
 # Requires outputs from:
-#   - 103_rolling_windows.R: figures/rolling_correlations/best_windows_by_variable.csv
+#   - 4_analysis/05_window_screening.R: outputs/figures/rolling_correlations/best_windows_by_variable.csv
 #   - Data files:
 #     - data/final/environment_hourly.csv (environmental)
 #     - data/final/stem_ch4_flux.csv (CH4 flux)
@@ -19,7 +19,7 @@
 #   7. Visualization (effect sizes + interaction plots)
 #
 # Final model:
-#   asinh(CH4*1000) ~ TS_Ha2 * bvs_wtd_cm * species + SWC_Ha2 + (1|Tree)
+#   asinh(CH4 flux / 0.1) ~ TS_Ha2 (66 h) * bvs_wtd_cm (183 h) * species + (1|Tree) + (1|date)
 # ============================================================
 
 suppressPackageStartupMessages({
