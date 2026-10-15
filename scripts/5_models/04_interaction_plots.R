@@ -284,11 +284,11 @@ generate_predictions <- function(model, scaling, site_data, site_name,
       pred_df$se_asinh <- sqrt(diag(mm %*% vcov_mat %*% t(mm)))
       
       # Back-transform: sinh(asinh_value) gives nmol directly
-      pred_df$fit_nmol <- sinh(pred_df$fit_asinh)
+      pred_df$fit_nmol <- 0.1 * sinh(pred_df$fit_asinh)
       
       # Back-transform CI bounds (delta method approximation)
-      pred_df$lwr_nmol <- sinh(pred_df$fit_asinh - 1.96 * pred_df$se_asinh)
-      pred_df$upr_nmol <- sinh(pred_df$fit_asinh + 1.96 * pred_df$se_asinh)
+      pred_df$lwr_nmol <- 0.1 * sinh(pred_df$fit_asinh - 1.96 * pred_df$se_asinh)
+      pred_df$upr_nmol <- 0.1 * sinh(pred_df$fit_asinh + 1.96 * pred_df$se_asinh)
       
       pred_df$temp_unscaled <- temp_range_unscaled
       pred_df$wtd_unscaled <- wtd_quantiles_unscaled[i]

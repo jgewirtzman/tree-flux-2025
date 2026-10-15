@@ -231,7 +231,7 @@ stem_flux <- stem_flux_raw %>%
   # tree's mean. The correlation then measures how flux tracks a driver over time
   # within trees (the variation the models' drivers explain), not differences
   # among trees or species, and is not dominated by a few very large fluxes.
-  mutate(CH4_flux = asinh(CH4_flux)) %>%
+  mutate(CH4_flux = asinh(CH4_flux / 0.1)) %>%   # arcsinh(flux / s), s = 0.1 nmol m-2 s-1 (typical MDF)
   group_by(ID) %>% mutate(CH4_flux = CH4_flux - mean(CH4_flux, na.rm = TRUE)) %>% ungroup()
 
 message("  Stem flux: ", nrow(stem_flux), " observations")

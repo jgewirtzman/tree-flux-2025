@@ -670,7 +670,7 @@ model_data_unscaled <- model_data
 
 # Total variance for R²
 # Selection uses the same response scale as the final model: asinh(flux in nmol m-2 s-1)
-model_data_scaled <- model_data_scaled %>% mutate(CH4_flux_umol = CH4_flux, CH4_flux = asinh(CH4_flux * 1000), date = factor(as.Date(datetime)))
+model_data_scaled <- model_data_scaled %>% mutate(CH4_flux_umol = CH4_flux, CH4_flux = asinh(CH4_flux * 1000 / 0.1), date = factor(as.Date(datetime)))
 var_total <- var(model_data_scaled$CH4_flux)
 
 # ============================================================
@@ -1165,7 +1165,7 @@ model_data_unscaled <- model_data
 zs <- function(x) (x - mean(x, na.rm = TRUE)) / sd(x, na.rm = TRUE)
 model_data_scaled <- model_data %>%
   mutate(across(any_of(unique(c(final_preds, all_pred_names))), zs),
-         CH4_flux_umol = CH4_flux, CH4_flux_asinh = asinh(CH4_flux * 1000), CH4_flux = CH4_flux_asinh,
+         CH4_flux_umol = CH4_flux, CH4_flux_asinh = asinh(CH4_flux * 1000 / 0.1), CH4_flux = CH4_flux_asinh,
          date = factor(as.Date(datetime)))
 cat("Final-model data:", nrow(model_data_scaled), "observations,", n_distinct(model_data_scaled$Tree), "trees,",
     as.character(min(as.Date(model_data_scaled$datetime))), "to", as.character(max(as.Date(model_data_scaled$datetime))), "\n")
@@ -1454,7 +1454,7 @@ for (sp in species_levels) {
     }
     
     pred_df$fit_asinh <- predict(m_final, newdata = pred_df, re.form = NA)
-    pred_df$fit <- sinh(pred_df$fit_asinh) / 1000  # back-transform
+    pred_df$fit <- 0.1 * sinh(pred_df$fit_asinh) / 1000  # back-transform
     
     pred_df$temp_unscaled <- temp_unscaled
     pred_df$swc_percentile <- wtd_percentiles[i]

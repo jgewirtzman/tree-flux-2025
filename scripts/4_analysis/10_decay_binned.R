@@ -26,7 +26,7 @@ zs  <- function(x, g) ave(x, g, FUN = function(v) (v - mean(v, na.rm = TRUE)) / 
 trees <- ert %>% transmute(tree = as.character(tree), ert_cv, ert_mean, ert_cma) %>%
   inner_join(tc %>% mutate(tree = as.character(tree)), by = "tree") %>%
   inner_join(fx %>% group_by(tree = as.character(Tree)) %>%
-               summarise(y = mean(asinh(CH4_flux_nmolpm2ps)), SPECIES = first(SPECIES), site = first(location), .groups = "drop"),
+               summarise(y = mean(asinh(CH4_flux_nmolpm2ps / 0.1)), SPECIES = first(SPECIES), site = first(location), .groups = "drop"),
              by = c("tree", "site")) %>%
   mutate(ert_cv_z = zs(ert_cv, SPECIES), ert_mean_z = zs(ert_mean, SPECIES), sot_loss = sqrt(sot_structural_loss),
          decay_any = decay_class != "I: No Decay", moisture_anom = ert_pc1 > ert_pc1_threshold)

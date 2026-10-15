@@ -13,8 +13,6 @@
 #      seasonal cycle; does temperature explain flux beyond its seasonal cycle?
 #   5. Response-transformation sensitivity of the species-specific terms
 #   6. Upland Model A vs Model B on the observations both can use
-#   7. Window screening null: date-block permutation of max |r| over all windows
-#      (accounts for searching 112 windows and for shared sampling dates)
 #
 # Outputs: outputs/tables/model_checks/*.csv and model_checks_summary.txt
 # ============================================================
@@ -108,15 +106,16 @@ for (k in names(MODELS)) {
   # accuracy and bias: asinh scale and back-transformed to nmol m-2 s-1 (sinh), in-sample
   # (fixed + tree effects) and leave-one-date-out; mean bias = mean(predicted - observed);
   # the back-transformed mean ratio shows the retransformation bias of sinh(mean asinh)
+  bt <- function(z) 0.1 * sinh(z)   # back-transform of arcsinh(flux / 0.1) to nmol m-2 s-1
   acc <- function(obs, pred, label) {
     ok <- is.finite(obs) & is.finite(pred); o <- obs[ok]; pr <- pred[ok]
     tibble(model_set = k, prediction = label, n = sum(ok),
            rmse_asinh = sqrt(mean((pr - o)^2)), mae_asinh = mean(abs(pr - o)), bias_asinh = mean(pr - o),
-           rmse_nmol = sqrt(mean((sinh(pr) - sinh(o))^2)), mae_nmol = mean(abs(sinh(pr) - sinh(o))),
-           bias_nmol = mean(sinh(pr) - sinh(o)), mean_obs_nmol = mean(sinh(o)), mean_pred_nmol = mean(sinh(pr)),
-           ratio_mean_pred_obs = mean(sinh(pr)) / mean(sinh(o)),
+           rmse_nmol = sqrt(mean((bt(pr) - bt(o))^2)), mae_nmol = mean(abs(bt(pr) - bt(o))),
+           bias_nmol = mean(bt(pr) - bt(o)), mean_obs_nmol = mean(bt(o)), mean_pred_nmol = mean(bt(pr)),
+           ratio_mean_pred_obs = mean(bt(pr)) / mean(bt(o)),
            # Duan smearing: average the back-transform over the in-sample residual distribution
-           ratio_mean_smeared_obs = mean(vapply(pr, function(z) mean(sinh(z + res_in)), numeric(1))) / mean(sinh(o)))
+           ratio_mean_smeared_obs = mean(vapply(pr, function(z) mean(bt(z + res_in)), numeric(1))) / mean(bt(o)))
   }
   res_in <- residuals(m)
   acc_rows[[k]] <- bind_rows(
@@ -155,8 +154,8 @@ for (k in names(MODELS)) {
   }
 
   # ---- 5. transformation sensitivity ----
-  flux_nmol <- sinh(d$CH4_flux_asinh)
-  tf <- list(`asinh(flux) [main]` = asinh(flux_nmol), `asinh(flux/0.1), more log-like` = asinh(flux_nmol / 0.1),
+  flux_nmol <- 0.1 * sinh(d$CH4_flux_asinh)
+  tf <- list(`asinh(flux/0.1) [main]` = asinh(flux_nmol / 0.1), `asinh(flux), more linear` = asinh(flux_nmol),
              `asinh(flux/10), more linear` = asinh(flux_nmol / 10),
              `rank-normal` = qnorm((rank(flux_nmol) - 0.5) / length(flux_nmol)))
   for (nm in names(tf)) {
@@ -179,7 +178,7 @@ write_csv(bind_rows(seas_rows), file.path(OUT, "temperature_vs_season.csv"))
 tr_tab <- bind_rows(tr_rows); write_csv(tr_tab, file.path(OUT, "transformation_sensitivity.csv"))
 say("\nTransformation sensitivity (terms whose p < 0.05 status differs from the main asinh scale):")
 tw <- tr_tab %>% mutate(sig = p < 0.05) %>% group_by(model_set, term) %>%
-  summarise(main = sig[transform == "asinh(flux) [main]"], differs = paste(transform[sig != main], collapse = "; "), .groups = "drop") %>%
+  summarise(main = sig[transform == "asinh(flux/0.1) [main]"], differs = paste(transform[sig != main], collapse = "; "), .groups = "drop") %>%
   filter(differs != "")
 if (nrow(tw)) for (i in seq_len(nrow(tw))) say(sprintf("  %s  %s (main: %s) differs under: %s", tw$model_set[i], tw$term[i],
                                                        ifelse(tw$main[i], "p<0.05", "n.s."), tw$differs[i])) else say("  none")
@@ -195,42 +194,6 @@ write_csv(ab, file.path(OUT, "upland_A_vs_B_common_rows.csv"))
 say(sprintf("\nUpland models on the %d observations both can use: A AIC %.1f, R2m %.1f%%; B AIC %.1f, R2m %.1f%%",
             length(key), ab$AIC[1], 100 * ab$R2_marginal[1], ab$AIC[2], 100 * ab$R2_marginal[2]))
 
-# ---- 7. window screening null (date-block permutation of max |r| over windows) ----
-a <- read_csv("data/final/environment_hourly.csv", show_col_types = FALSE) %>%
-  mutate(datetime = as.POSIXct(datetime, tz = "UTC")) %>% arrange(datetime)
-stopifnot(all(diff(as.numeric(a$datetime)) == 3600))
-fl <- read_csv("data/final/stem_ch4_flux.csv", show_col_types = FALSE) %>%
-  mutate(datetime = as.POSIXct(format(as.POSIXct(sample_hour_est, tz = "UTC"), "%Y-%m-%d %H:%M:%S"), tz = "UTC"),
-         date = as.Date(datetime), y = asinh(CH4_flux_nmolpm2ps)) %>%
-  group_by(Tree) %>% mutate(y = y - mean(y)) %>% ungroup()        # as in 4_analysis/05_window_screening.R
-W <- seq(3, 14 * 24, by = 3)
-rmw <- function(x, w) { m <- roll_mean(x, n = w, align = "right", fill = NA, na.rm = TRUE)
-  ok <- roll_sum(as.numeric(!is.na(x)), n = w, align = "right", fill = NA) >= 0.5 * w; m[!ok %in% TRUE] <- NA; m }
-perm_rows <- list()
-for (k in names(MODELS)) {
-  M <- MODELS[[k]]; pr <- preds_of(fits[[k]]$m); vars <- unique(sub("_raw_\\d+h$", "", pr[grepl("_raw_\\d+h$", pr)]))  # raw-mode drivers
-  f <- fl %>% filter(location == M$site); idx <- match(f$datetime, a$datetime); ud <- unique(f$date)
-  for (v in vars) {
-    if (!v %in% names(a)) next
-    X <- sapply(W, function(w) rmw(a[[v]], w))
-    rr <- suppressWarnings(cor(f$y, X[idx, ], use = "pairwise.complete.obs"))[1, ]
-    obs <- max(abs(rr), na.rm = TRUE); best <- W[which.max(abs(rr))]
-    nulls <- replicate(500, {
-      mp <- setNames(sample(ud), as.character(ud))
-      sh <- as.numeric(difftime(mp[as.character(f$date)], f$date, units = "hours"))
-      j <- idx + sh; j[j < 1 | j > nrow(X)] <- NA
-      max(abs(suppressWarnings(cor(f$y, X[j, ], use = "pairwise.complete.obs"))), na.rm = TRUE)
-    })
-    near <- range(W[abs(rr) >= obs - 0.02], na.rm = TRUE)
-    perm_rows[[length(perm_rows) + 1]] <- tibble(model_set = k, variable = v, best_window_h = best, max_abs_r = obs,
-      r_range_over_windows = sprintf("%.2f to %.2f", min(rr, na.rm = TRUE), max(rr, na.rm = TRUE)),
-      windows_within_0.02_h = sprintf("%d-%d", near[1], near[2]),
-      null_median = median(nulls), null_95 = quantile(nulls, 0.95), p_perm = (1 + sum(nulls >= obs)) / (1 + length(nulls)))   # permutation p with the +1 correction (minimum 1/(N+1))
-    say(sprintf("Window screening %s %s: best %d h, max|r| = %.2f; windows within 0.02 of the best: %d-%d h; date-permutation p = %.3f",
-                k, v, best, obs, near[1], near[2], mean(nulls >= obs)))
-  }
-}
-write_csv(bind_rows(perm_rows) %>% distinct(variable, best_window_h, .keep_all = TRUE), file.path(OUT, "window_permutation.csv"))
 # ---- 8. wetland: core vs alternative and extended models on shared observations ----
 # (the alternatives use drivers with different data coverage, e.g. tower latent heat ends
 #  in Dec 2024, so they are compared on the observations every model can use)

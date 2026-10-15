@@ -192,11 +192,8 @@ dg <- ve %>% filter(model %in% c("species only", "final")) %>% select(model_set,
             `Temperature explained by season (%)` = f2(100 * R2_temperature_by_season, 0),
             `p, temperature departure from season` = fp(departure_LRT_p))
 dg <- as.data.frame(t(dg[, -1])) %>% setNames(dg$Model) %>% tibble::rownames_to_column("Diagnostic")
-wpn <- rd(file.path(MC, "window_permutation.csv")) %>% group_by(model_set) %>%
-  summarise(w = paste(sprintf("%s: best %d h, |r| %.2f, p %s", variable, best_window_h, max_abs_r, fp(p_perm)), collapse = "; "), .groups = "drop")
-dg <- rbind(dg, c(Diagnostic = "Window screening, date-permutation test", setNames(wpn$w[match(c("wetland", "upland_A", "upland_B"), wpn$model_set)], names(dg)[-1])))
 add_table(dg, "Model diagnostics.",
-  "Marginal R² (Nakagawa). Out-of-sample predictions include the tree random effect (dates omitted) or fixed effects only (trees omitted). Bias = mean(predicted − observed). The back-transformed mean ratio shows the underestimate of mean flux from sinh(predicted mean); the smeared ratio applies Duan's (1983) correction. 2025 test restricted to observations within the 2023–24 predictor range. Window screening: maximum |r| over all windows (3 h–14 d) for each model driver against 500 permutations in which environmental records were reassigned among sampling dates and the search repeated.",
+  "Marginal R² (Nakagawa). Out-of-sample predictions include the tree random effect (dates omitted) or fixed effects only (trees omitted). Bias = mean(predicted − observed). The back-transformed mean ratio shows the underestimate of mean flux from sinh(predicted mean); the smeared ratio applies Duan's (1983) correction. 2025 test restricted to observations within the 2023–24 predictor range.",
   "outputs/tables/model_checks/", "diagnostics", widths = c(1.9, rep(1.53, 3)))
 
 doc <- doc %>% body_add_break()

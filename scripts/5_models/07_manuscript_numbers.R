@@ -38,7 +38,7 @@ d <- read.csv(file.path("data", "final", "stem_ch4_flux.csv"), stringsAsFactors 
   mutate(location = ifelse(PLOT == "BGS", "Wetland", "Upland"), date = as.Date(date),
          species_full = dplyr::recode(SPECIES, bg = "N. sylvatica", hem = "T. canadensis", rm = "A. rubrum", ro = "Q. rubra"),
          month = as.integer(format(date, "%m")), year = as.integer(format(date, "%Y")),
-         flux = CH4_flux_nmolpm2ps, asinh_flux = asinh(flux))   # flux already in nmol m-2 s-1: the model scale
+         flux = CH4_flux_nmolpm2ps, asinh_flux = asinh(flux / 0.1))   # flux already in nmol m-2 s-1: the model scale
 dd <- sort(unique(d$date)); d$round <- cumsum(c(TRUE, diff(dd) > 7))[match(d$date, dd)]
 
 say("=== DATA ===")

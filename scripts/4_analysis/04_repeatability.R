@@ -61,7 +61,7 @@ fluxes <- read_csv(PATHS$flux, show_col_types = FALSE) %>%
       TRUE ~ SPECIES
     ),
     facet_label = paste(location, "-", species_full),
-    flux_asinh = asinh(CH4_flux_nmolpm2ps)   # all repeatability statistics use the model scale
+    flux_asinh = asinh(CH4_flux_nmolpm2ps / 0.1)   # all repeatability statistics use the model scale
   )
 
 message("  Loaded ", nrow(fluxes), " observations")
@@ -509,7 +509,7 @@ tree_effects %>%
 # Output: outputs/tables/synchrony_by_group.csv (read by 5_models/07_manuscript_numbers.R)
 # ============================================================
 sync_one <- function(d) {
-  d$y <- asinh(d$CH4_flux_nmolpm2ps)
+  d$y <- asinh(d$CH4_flux_nmolpm2ps / 0.1)
   m <- lmer(y ~ 1 + (1 | Tree) + (1 | date), data = d)
   v <- as.data.frame(VarCorr(m)); s <- setNames(v$vcov, v$grp)
   m0 <- lmer(y ~ 1 + (1 | Tree), data = d, REML = FALSE)
