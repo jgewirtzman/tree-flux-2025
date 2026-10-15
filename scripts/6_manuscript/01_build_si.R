@@ -7,6 +7,7 @@
 # file written by them; nothing is typed by hand except captions and the decay-class key.
 # Run after the full pipeline (scripts/run_pipeline.sh calls it last).
 # ============================================================
+invisible(Sys.setlocale("LC_CTYPE", "en_US.UTF-8"))   # superscripts, subscripts and dashes in the text need a UTF-8 locale
 suppressPackageStartupMessages({ library(officer); library(flextable); library(dplyr); library(tidyr) })
 OUT <- "outputs/manuscript"; dir.create(OUT, showWarnings = FALSE, recursive = TRUE)
 T_ <- "outputs/tables"; MC <- file.path(T_, "model_checks"); MN <- file.path(T_, "manuscript"); FIG <- "outputs/figures"
