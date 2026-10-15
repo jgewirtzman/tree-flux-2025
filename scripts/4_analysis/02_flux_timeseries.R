@@ -74,12 +74,12 @@ species_colors <- c(
   "T. canadensis" = "#C9D6A4"
 )
 
-# Custom asinh transform for better outlier handling
+# y axis on the model scale: asinh(flux / 0.1), linear within one typical detection limit (0.1 nmol m-2 s-1) of zero
 asinh_trans <- function() {
   scales::trans_new(
     name = "asinh",
-    transform = asinh,
-    inverse = sinh
+    transform = function(x) asinh(x / 0.1),
+    inverse = function(y) 0.1 * sinh(y)
   )
 }
 
@@ -110,7 +110,7 @@ p <- ggplot() +
   scale_shape_manual(values = c("Above MDF" = 16, "Below MDF" = 1), name = NULL) +
   scale_y_continuous(
     trans = asinh_trans(),
-    breaks = c(-1, 0, 1, 2, 5, 10, 20, 50, 100)
+    breaks = c(-1, -0.1, 0, 0.1, 1, 10, 100), labels = c("-1", "-0.1", "0", "0.1", "1", "10", "100")
   ) +
   scale_fill_manual(values = species_colors) +
   scale_color_manual(values = species_colors) +

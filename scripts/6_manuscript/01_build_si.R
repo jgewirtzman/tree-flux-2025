@@ -149,13 +149,14 @@ add_table(wc, "Wetland model comparison on the observations with every driver av
 sl_core <- rd(file.path(MN, "species_slopes_wetland_core.csv")) %>% mutate(model = "Wetland core (all observations)")
 sl_ext <- rd(file.path(MC, "wetland_species_slopes_core_vs_extended.csv")) %>% filter(model == "extended (shared rows)") %>%
   mutate(species = sp_full[species], model = "Wetland extended (shared observations)")
+sl_upA <- rd(file.path(MN, "species_slopes_upland_A.csv")) %>% mutate(model = "Upland Model A")
 sl_upB <- rd(file.path(MN, "species_slopes_upland_B.csv")) %>% mutate(model = "Upland Model B")
-sl <- bind_rows(sl_core, sl_ext, sl_upB) %>%
-  mutate(effect = ifelse(grepl(":", term), "Temperature × water table", ifelse(grepl("^TS", term), "Temperature", "Water table")),
+sl <- bind_rows(sl_core, sl_ext, sl_upA, sl_upB) %>%
+  mutate(effect = ifelse(grepl(":", term), "Temperature × moisture", ifelse(grepl("^TS", term), "Temperature", "Water table or soil water")),
          cell = sprintf("%.3f ± %.3f%s", estimate, se, star(p))) %>%
   select(Model = model, Species = species, effect, cell) %>% pivot_wider(names_from = effect, values_from = cell)
-add_table(sl, "Species-specific standardized effects of temperature and water table (asinh scale).",
-  "Species-specific slope = reference coefficient + species interaction, ± SE; Satterthwaite t-tests. * p < 0.05; ** p < 0.01; *** p < 0.001. Upland Model B uses the wetland predictors and windows for direct comparison.",
+add_table(sl, "Species-specific standardized effects of temperature and water table or soil water content (asinh(flux / 0.1) scale).",
+  "Species-specific slope = reference coefficient + species interaction, ± SE; Satterthwaite t-tests. * p < 0.05; ** p < 0.01; *** p < 0.001. Upland Model A uses upland soil temperature and shallow soil water content (1-h windows); Model B uses the wetland predictors and windows for direct comparison.",
   "species_slopes_*.csv; wetland_species_slopes_core_vs_extended.csv", "slopes")
 
 # S9 upland models
@@ -172,7 +173,7 @@ add_table(up, "Upland models.", "AIC is comparable only on the shared observatio
 co <- bind_rows(lapply(c(wetland_core = "Wetland core", upland_A = "Upland A", upland_B = "Upland B"), function(x) x) %>%
   { mapply(function(k, lab) rd(file.path(MN, paste0("coefficients_", k, ".csv"))) %>% mutate(Model = lab), names(.), ., SIMPLIFY = FALSE) }) %>%
   transmute(Model, Term = term_lab(term), Estimate = f2(estimate, 3), SE = f2(se, 3), df = f2(df, 1), t = f2(t, 2), p = fp(p))
-add_table(co, "Fixed-effect coefficients of the final models (asinh scale; standardized predictors).",
+add_table(co, "Fixed-effect coefficients of the final models (asinh(flux / 0.1) scale; standardized predictors).",
   "Reference species: N. sylvatica (wetland) and T. canadensis (upland). Satterthwaite degrees of freedom.", "outputs/tables/manuscript/coefficients_*.csv", "coefs")
 
 # S11 diagnostics: variance explained, out-of-sample, accuracy and bias
