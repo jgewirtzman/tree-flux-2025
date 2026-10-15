@@ -57,6 +57,7 @@ DRAFT_*
 
 # EDI data package (one-time build/upload, not needed in repo)
 data/edi/
+data/edi_tomo/
 manuscript_work/
 
 # Static figures are tracked
@@ -64,4 +65,5 @@ manuscript_work/
 !figures_static/*.tif
 !figures_static/*.jpg
 !scripts/7_publish/metadata/dictionaries/*.csv
+!scripts/7_publish/tomography/metadata/dictionaries/*.csv
 dev/

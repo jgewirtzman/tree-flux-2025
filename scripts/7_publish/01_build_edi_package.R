@@ -2,8 +2,9 @@
 # 01_build_edi_package.R
 # Assemble the data package for publication: the study's primary data (data/package/,
 # the folder the pipeline reads) plus the derived datasets (data/final/): the stem flux
-# dataset with its dictionary, processing log and settings, the hourly environmental
-# drivers with their dictionary, and the tomography decay classes. Tables are copied as
+# dataset with its dictionary and settings, the hourly environmental
+# drivers with their dictionary, and the tomography decay classes. The tomography metrics and
+# tomograms are a separate dataset (scripts/7_publish/tomography/). Tables are copied as
 # they are; folders of raw files are zipped. Writes EML with EMLassemblyline from the
 # templates written by 00_attributes.R (text in scripts/7_publish/metadata/).
 #
@@ -36,9 +37,6 @@ tables <- c(
   tomography_classes.csv            = file.path(FINAL, "tomography_classes.csv"),
   trees.csv                         = file.path(PKG, "trees.csv"),
   chamber_volumes.csv               = file.path(PKG, "chamber_volumes.csv"),
-  tomography_results_compiled.csv   = file.path(PKG, "tomography", "tomography_results_compiled.csv"),
-  ERT_application_results.csv       = file.path(PKG, "tomography", "ERT_application_results.csv"),
-  Tree_ID_info.csv                  = file.path(PKG, "tomography", "Tree_ID_info.csv"),
   measurements.csv                  = file.path(PKG, "measurements.csv"),
   BGS_VRP_2025.csv                  = file.path(PKG, "stand", "BGS_VRP_2025.csv"))
 stopifnot(all(file.exists(tables)))
@@ -64,9 +62,6 @@ table_info <- rbind(
   c("Tomography decay classes", "Decay class of each study tree from sonic (SoT) and electrical resistance (ERT) tomography, with the ERT principal-component score and threshold and the SoT structural loss used to assign it (classification of Thompson et al. 2026)."),
   c("Study trees", "The 60 study trees: ForestGEO tag, site, plot, species, DBH, microtopography (wetland) and GPS location."),
   c("Chamber volumes", "Collar depths (four interior points), collar, cap and tubing volumes of each tree's chamber."),
-  c("Tomography metrics (compiled)", "Eight ERT resistivity metrics and SoT solid and damaged percentages for each tomogram."),
-  c("ERT image analysis results", "Eight ERT resistivity metrics for each ERT image, as exported by the ERT image analysis application (Tree-Tomography repository)."),
-  c("Tomography tree table", "SoT results for each tree of the tomography study: DBH, crack detected, percent solid and damaged wood."),
   c("Measurements",
     "The study's 1,872 measurements: tree, plot, date, analyzer, chamber closure and opening times on the analyzer clock (after the field team's timing corrections), deadband, sampling time on the local clock, and the air temperature and pressure at the time of measurement. With the raw analyzer records, the input of the flux calculation."),
   c("Prism survey of Black Gum Swamp, June 2025", "Variable-radius (prism, BAF 10 ft2/acre) survey of 40 systematic points in Black Gum Swamp: species, DBH and status of each tallied stem."))
@@ -86,16 +81,12 @@ zip_dir <- function(dir, zipname, drop = character(0)) {
 }
 zip_dir(file.path(PKG, "analyzer_raw", "lgr"), "analyzer_raw_lgr.zip")
 zip_dir(file.path(PKG, "analyzer_raw", "li7810"), "analyzer_raw_li7810.zip")
-zip_dir(file.path(PKG, "tomography", "images"), "tomography_images.zip",
-        drop = c("dummy_file.jpg", "labtest.jpg", "Icon\r", ".DS_Store"))   # not tree tomograms
 
 other_info <- rbind(
   c("analyzer_raw_lgr.zip", "LGR/UGGA raw 1-Hz records",
     "Raw 1-Hz records of the Los Gatos Research GLA131 analyzers, June 2023-March 2025, as written by the instruments: one file per analyzer file, LGRn/YYYY-MM-DD/micro_YYYY-MM-DD_fNNNN.txt (.txt.zip where the analyzer compressed it). Where the lab folders held several copies of a file (copies taken during the day, duplicates), the most complete copy is kept; every other copy was a subset of it."),
   c("analyzer_raw_li7810.zip", "LI-7810 raw 1-Hz records",
     "Raw 1-Hz records of the LI-COR LI-7810 analyzer, April-October 2025, with tagged remarks marking each measurement, as written by the instrument."),
-  c("tomography_images.zip", "Tomography images",
-    "Tomograms of each study tree at breast height: ERTs_Absolute (electrical resistance tomography, absolute resistivity scale) and CH4_PITs (sonic tomography). File names are tree_date (e.g. 412_22vii24 = tree 412, 22 July 2024). JPEG."),
   c("flux_processing_settings.json", "Flux processing settings",
     "All settings of the flux processing (deadband, analyzer volumes and precision settings, screening thresholds), as used to build stem_ch4_flux.csv. JSON."),
   c("Black_Gum_Swamp.kmz", "Black Gum Swamp outline", "Outline of Black Gum Swamp. KMZ (Google Earth)."),

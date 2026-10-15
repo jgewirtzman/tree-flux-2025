@@ -1,5 +1,5 @@
 column,unit,description
-filename,,ERT image file (tree_date; in tomography_images.zip/ERTs_Absolute)
+filename,,ERT image file (tree_date; in tomograms_study_trees.zip/ERT_absolute)
 tree,,ForestGEO tag of the tree
 ert_mean,ohm m,mean electrical resistivity across the cross-section
 ert_median,ohm m,median electrical resistivity

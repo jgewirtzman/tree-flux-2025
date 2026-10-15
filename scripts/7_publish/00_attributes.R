@@ -63,9 +63,6 @@ TABLES <- c(
   tomography_classes           = "data/final/tomography_classes.csv",
   trees                        = "data/package/trees.csv",
   chamber_volumes              = "data/package/chamber_volumes.csv",
-  tomography_results_compiled  = "data/package/tomography/tomography_results_compiled.csv",
-  ERT_application_results      = "data/package/tomography/ERT_application_results.csv",
-  Tree_ID_info                 = "data/package/tomography/Tree_ID_info.csv",
   measurements                 = "data/package/measurements.csv",
   BGS_VRP_2025                 = "data/package/stand/BGS_VRP_2025.csv")
 

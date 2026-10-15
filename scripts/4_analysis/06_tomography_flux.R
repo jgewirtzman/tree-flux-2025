@@ -45,8 +45,8 @@ PATHS <- list(
   tomography = "data/package/tomography/tomography_results_compiled.csv",
   hummock = "data/package/trees.csv",
   flux = "data/final/stem_ch4_flux.csv",
-  ert_images = "data/package/tomography/images/ERTs_Absolute",
-  sonic_images = "data/package/tomography/images/CH4_PITs"
+  ert_images = "data/package/tomography/images/ERT_absolute",
+  sonic_images = "data/package/tomography/images/SoT"
 )
 
 OUTPUT_DIR <- "outputs/figures/tomography"

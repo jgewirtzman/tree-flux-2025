@@ -18,7 +18,7 @@ Scripts run in numbered stages; within a stage, in numbered order.
 |---|---|---|---|
 | 0 | `scripts/0_data/` | get the data (not run by the pipeline) | `data/package/`, `data/external/` |
 | 1 | `scripts/1_environment/` | met and water table, soil moisture, NEON tower variables → hourly drivers | `data/final/environment_hourly.csv` |
-| 2 | `scripts/2_flux/` | raw analyzer records + field logs → fluxes, detection limits, QC flags | `data/final/stem_ch4_flux.csv` (+ dictionary, processing log, settings) |
+| 2 | `scripts/2_flux/` | raw analyzer records + measurement times → fluxes, detection limits, QC flags | `data/final/stem_ch4_flux.csv` (+ dictionary, settings) |
 | 3 | `scripts/3_trees/` | tomography decay classes; stand composition | `data/final/tomography_classes.csv`, Table 1 inputs |
 | 4 | `scripts/4_analysis/` | descriptive analyses, figures and SI figures | `outputs/figures/`, `outputs/tables/` |
 | 5 | `scripts/5_models/` | driver models, checks, every number quoted in the manuscript | `outputs/models/`, `outputs/tables/manuscript/` |
