@@ -156,12 +156,12 @@ log_step("2 windows", "windows ended early at a detected chamber opening (abrupt
 # PART 4: CHAMBER GEOMETRY AND TREE METADATA
 # ============================================================
 tv <- read.csv(PATH_VOLUMES, stringsAsFactors = FALSE, check.names = FALSE)
-tv$tree <- as.integer(round(tv$Tag))
+tv$tree <- as.integer(round(tv$tag))
 trees <- read.csv(PATH_TREES, stringsAsFactors = FALSE)
 closures <- meas %>%
   transmute(closure_id = measurement_id, date, tree = Tree, PLOT, instrument = analyzer, closure_start, window_start,
             window_end, closure_end, deadband_s, end_trim_s, sample_time_local, Tcham = air_temp_C, Pcham = pressure_kPa) %>%
-  left_join(tv %>% transmute(tree, Vcollar = Volume), by = "tree") %>%
+  left_join(tv %>% transmute(tree, Vcollar = volume_L), by = "tree") %>%
   left_join(trees %>% transmute(tree = Tree, SPECIES = species, DBH = DBH_cm, location = site), by = "tree") %>%
   mutate(Vextra = ifelse(instrument == "LI-7810", EXTRA_VOL_7810_L, EXTRA_VOL_LGR_L), Vtot = Vcollar + Vextra,
          Area = AREA_CM2, has_trace = closure_id %in% names(segments))

@@ -73,6 +73,7 @@ fin <- df %>% arrange(sample_time_local, Tree) %>% transmute(
   CH4_sigma_ppb, CO2_sigma_ppm, CH4_MDF, CH4_below_MDF, CH4_det_class, CO2_MDF, CO2_below_MDF,
   qc_c0, qc_co2_tracer, qc_convex, qc_noisy, qc_note,
   trace_window_problem, trace_data_problem, trace_qc_reasons)
+fin <- fin %>% mutate(across(c(qc_note, trace_qc_reasons), ~ na_if(.x, "")))   # NA = no screen fired
 write.csv(fin, PATH_FLUX, row.names = FALSE, na = "NA")
 message("Wrote ", PATH_FLUX, ": ", nrow(fin), " measurements, ", ncol(fin), " columns")
 
@@ -136,7 +137,8 @@ dl <- trimws(strsplit(dict_txt, "\n")[[1]]); dl <- dl[nzchar(dl)][-1]
 dict <- data.frame(column = sub(",.*$", "", dl), unit = sub("^[^,]*,([^,]*),.*$", "\\1", dl),
                    description = sub("^[^,]*,[^,]*,", "", dl), stringsAsFactors = FALSE)
 stopifnot(setequal(dict$column, names(fin)))
-write.csv(dict[match(names(fin), dict$column), ], file.path(FINAL, "stem_ch4_flux_dictionary.csv"), row.names = FALSE)
+dict$unit[!nzchar(dict$unit)] <- NA   # NA = no unit
+write.csv(dict[match(names(fin), dict$column), ], file.path(FINAL, "stem_ch4_flux_dictionary.csv"), row.names = FALSE, na = "NA")
 
 write_log()
 logs <- c("01_closure_table", "02_fit_fluxes", "03_trace_qc", "06_flux_dataset")   # local record (data/interim)

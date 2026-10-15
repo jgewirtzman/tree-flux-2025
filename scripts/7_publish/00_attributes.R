@@ -30,7 +30,7 @@ DT <- c(date = "YYYY-MM-DD", DATE = "YYYY-MM-DD", gps_date = "YYYY-MM-DD", sampl
         closure_start = "YYYY-MM-DD hh:mm:ss", closure_end = "YYYY-MM-DD hh:mm:ss",
         datetime = "YYYY-MM-DD hh:mm:ss")   # environment_hourly published copy: 01_build_edi_package.R drops the T and Z
 # identifiers stored as numbers
-IDS <- c("Tree", "tree", "Tag", "Old tag", "tree_id", "...1", "OLD_TAG")
+IDS <- c("Tree", "tree", "tag", "old_tag", "tree_id")
 
 write_attr <- function(csv, dict, name, date_fmt = DT) {
   d <- read.csv(csv, stringsAsFactors = FALSE, check.names = FALSE, fileEncoding = "UTF-8-BOM")

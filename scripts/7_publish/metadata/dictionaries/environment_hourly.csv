@@ -1,9 +1,9 @@
 column,unit,description,source
-datetime,,"start of the hour on Eastern Standard Time (UTC-5, no daylight saving)",
+datetime,NA,"start of the hour on Eastern Standard Time (UTC-5, no daylight saving)",NA
 bgs_wtd_cm,cm,"water level (stage) at the Black Gum Swamp hydrological station, hourly mean; relative to the station datum (higher = wetter)",HF070 bgs.stg
 bvs_wtd_cm,cm,"water level (stage) at the Beaver Swamp hydrological station, hourly mean; relative to the station datum (higher = wetter)",HF070 bvs.stg
-date,,date (EST),
-hour,h,hour of day (EST),
+date,NA,date (EST),NA
+hour,h,hour of day (EST),NA
 tair_C,degC,"air temperature, hourly mean",HF001 airt
 p_kPa,kPa,"barometric pressure, hourly mean",HF001 bar
 P_mm,mm,"precipitation, hourly total",HF001 prec
@@ -39,9 +39,9 @@ T_CANOPY_xHA,degC,"canopy (infrared biological) temperature at the NEON tower, m
 THROUGHFALL_xHA,mm,"throughfall, mean of the NEON gauges, per 30 min averaged over the hour",NEON DP1.00046.001
 G_xHA,W m-2,"soil heat flux, mean of the NEON plates, hourly",NEON DP1.00040.001
 USTAR_xHA,m s-1,"friction velocity at the NEON tower, hourly",NEON DP4.00200.001
-gcc,,"green chromatic coordinate (90th percentile, daily value repeated for each hour), EMS camera harvardems2 ROI DB_1000",PhenoCam gcc_90
-ndvi,,"NDVI (90th percentile, daily value repeated for each hour), EMS camera harvardems2 ROI DB_1000",PhenoCam ndvi_90
-year,,calendar year (EST),
-month,,month (EST),
-doy,,day of year (EST),
-wyear,,water year (October-September; labelled by the year in which it ends),
+gcc,NA,"green chromatic coordinate (90th percentile, daily value repeated for each hour), EMS camera harvardems2 ROI DB_1000",PhenoCam gcc_90
+ndvi,NA,"NDVI (90th percentile, daily value repeated for each hour), EMS camera harvardems2 ROI DB_1000",PhenoCam ndvi_90
+year,NA,calendar year (EST),NA
+month,NA,month (EST),NA
+doy,NA,day of year (EST),NA
+wyear,NA,water year (October-September; labelled by the year in which it ends),NA
