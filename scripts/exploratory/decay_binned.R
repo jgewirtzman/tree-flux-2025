@@ -1,5 +1,5 @@
 # ============================================================
-# 10_decay_binned.R  (exploratory)
+# decay_binned.R  (exploratory; formerly 4_analysis/10_decay_binned.R, not used in the paper)
 #
 # Binned and threshold versions of the wood-condition vs CH4 flux analysis, as an
 # alternative to the continuous correlations of 06/07. Unit of analysis = tree

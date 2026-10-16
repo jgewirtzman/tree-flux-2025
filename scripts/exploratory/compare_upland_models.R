@@ -1,9 +1,10 @@
 # ============================================================
-# 05_compare_upland_models.R
+# compare_upland_models.R  (exploratory; formerly 5_models/05_compare_upland_models.R, not used in
+# the paper; superseded by section 6 of 5_models/06_model_checks.R)
 # 
 # Compare EMS model variants:
 #   A: Instantaneous (TS_Ha1 × NEON_SWC_shallow, 1h)
-#   B: BGS drivers (TS_Ha2 × bvs_wtd_cm, 282h/132h)
+#   B: BGS drivers (TS_Ha2 × bvs_wtd_cm, wetland windows: 66 h / 183 h)
 # ============================================================
 
 library(tidyverse)
