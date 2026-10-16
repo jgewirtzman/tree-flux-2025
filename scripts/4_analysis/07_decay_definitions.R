@@ -12,7 +12,8 @@
 # Kenward-Roger degrees of freedom (about 8 for 10 trees), as in Figure 5 (06_tomography_flux.R).
 # Rows: each species x site (10 trees), and per site all species with species as a fixed effect.
 # Cells: change in flux (nmol m-2 s-1) per SD of the metric (p), and its range when each tree is
-# omitted in turn.
+# omitted in turn. A last column repeats the ERT CV test on asinh(flux / 0.1), the scale of the
+# environmental-driver models, which weights typical rather than mean flux.
 #
 # Inputs : data/package/tomography/ERT_application_results.csv, data/final/tomography_classes.csv,
 #          data/final/stem_ch4_flux.csv
@@ -59,19 +60,26 @@ cell <- function(o, adjust = FALSE) {
           ifelse(fit[["p"]] < 0.10, "*", ""), g(min(loo, na.rm = TRUE)), g(max(loo, na.rm = TRUE)))
 }
 obs <- function(d, m) fx %>% mutate(tree = as.character(Tree)) %>% inner_join(d %>% select(tree, x = all_of(m)), by = "tree")
+cell_asinh <- function(o, adjust = FALSE) {   # same test, response asinh(flux / 0.1)
+  o <- o %>% filter(is.finite(x)) %>% mutate(y = asinh(y / 0.1)); fit <- kr_fit(o, adjust)
+  if (is.na(fit[["b"]])) return("–")
+  sprintf("%s (%s)%s", formatC(fit[["b"]], digits = 2, format = "fg", flag = "#"),
+          ifelse(fit[["p"]] < 0.001, "<0.001", sprintf("%.3f", fit[["p"]])), ifelse(fit[["p"]] < 0.10, "*", ""))
+}
 grp <- list()
 for (s in c("Wetland", "Upland")) {
   for (spp in c("bg", "rm", "hem", "ro")) {
     d <- trees %>% filter(site == s, SPECIES == spp); if (nrow(d) < 6) next
     grp[[length(grp) + 1]] <- c(group = sprintf("%s — %s", s, c(bg = "N. sylvatica", rm = "A. rubrum", hem = "T. canadensis", ro = "Q. rubra")[[spp]]),
-      n = sprintf("%d / %d", nrow(d), sum(fx$Tree %in% d$tree)), sapply(names(metrics), function(m) cell(obs(d, m))))
+      n = sprintf("%d / %d", nrow(d), sum(fx$Tree %in% d$tree)), sapply(names(metrics), function(m) cell(obs(d, m))),
+      asinh = cell_asinh(obs(d, "ert_cv")))
   }
   d <- trees %>% filter(site == s)
   grp[[length(grp) + 1]] <- c(group = sprintf("%s — all species, species-adjusted", s), n = sprintf("%d / %d", nrow(d), sum(fx$site == s)),
-    sapply(names(metrics), function(m) cell(obs(d, m), adjust = TRUE)))
+    sapply(names(metrics), function(m) cell(obs(d, m), adjust = TRUE)), asinh = cell_asinh(obs(d, "ert_cv"), adjust = TRUE))
 }
 si <- as.data.frame(do.call(rbind, grp), stringsAsFactors = FALSE)
-names(si) <- c("Group", "Trees / measurements", unname(metrics))
+names(si) <- c("Group", "Trees / measurements", unname(metrics), "ERT CV, asinh(flux / 0.1)")
 dir.create("outputs/tables", showWarnings = FALSE, recursive = TRUE)
 write.csv(si, "outputs/tables/SI_decay_metric_correlations.csv", row.names = FALSE)
 print(si)

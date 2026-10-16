@@ -40,7 +40,7 @@ bash scripts/run_pipeline.sh
 
 ### Stage 0: getting the data
 
-- **Our data** (`data/package/`): `0_data/01_download_data_package.R` downloads the published package (Harvard Forest Data Archive, knb-lter-hfr) and unpacks it.
+- **Our data** (`data/package/`): `0_data/01_download_data_package.R` downloads the two published datasets (stem flux; tomography) from the Harvard Forest Data Archive (knb-lter-hfr) and unpacks them. The datasets are under review at the Harvard Forest Data Archive; until their IDs are issued, they are available from the corresponding author.
 - **Public data** (`data/external/`): `02_download_ameriflux.R` (US-Ha1, US-Ha2, US-xHA BASE), `03_download_neon.R` (NEON HARV, RELEASE-2026 + provisional; a NEON API token in `NEON_TOKEN` is optional and speeds up the download), `04_download_phenocam.R` (PhenoCam harvardems2 NDVI summary). The Harvard Forest Fisher met and hydrology tables (HF001, HF070) are downloaded by `1_environment/01_met_hydro.R` when they are not already in `data/external/hf_archive/`. GIS layers and the ForestGEO census: see `data/README.md`.
 
 ### Stage 2: from raw records to the flux dataset
