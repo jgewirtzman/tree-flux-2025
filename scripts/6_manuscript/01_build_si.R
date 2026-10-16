@@ -17,7 +17,10 @@ fp <- function(p) ifelse(is.na(p), "", ifelse(p < 0.001, "<0.001", formatC(p, fo
 star <- function(p) ifelse(is.na(p), "", ifelse(p < 0.001, "***", ifelse(p < 0.01, "**", ifelse(p < 0.05, "*", ""))))
 sp_full <- c(bg = "N. sylvatica", rm = "A. rubrum", hem = "T. canadensis", ro = "Q. rubra")
 term_lab <- function(t) { t <- gsub("TS_Ha[12]_raw_(\\d+)h", "Temperature (\\1 h)", t); t <- gsub("bvs_wtd_cm_raw_(\\d+)h", "Water table (\\1 h)", t)
-  t <- gsub("NEON_SWC_shallow_raw_(\\d+)h", "Soil water (\\1 h)", t); t <- gsub("species", "", t); t <- gsub(":", " × ", t); t }
+  t <- gsub("NEON_SWC_shallow_raw_(\\d+)h", "Soil water (\\1 h)", t)
+  sp <- c(rm = "A. rubrum", hem = "T. canadensis", ro = "Q. rubra", bg = "N. sylvatica")
+  for (k in names(sp)) t <- gsub(paste0("species", k, "\\b"), sp[[k]], t, perl = TRUE)
+  t <- gsub(":", " × ", t); t }
 
 # AGU Supporting Information layout: US Letter, 1-inch margins, Times New Roman 12 pt text,
 # bold item labels, 6 pt after each paragraph, tables at 9 pt wrapped to the page width
@@ -50,8 +53,13 @@ tab_ft <- function(df, widths = NULL) {
   if (!is.null(widths)) ft <- ft %>% width(width = widths) %>% set_table_properties(layout = "fixed")
   paginate(ft, init = TRUE, hdr_ftr = TRUE)
 }
+typeset <- function(x) {   # minus signs (not hyphens) before numbers; × for interactions
+  x <- gsub("(^|[\\s(/;=])-(?=[0-9.])", "\\1\u2212", x, perl = TRUE)
+  gsub(" x ", " \u00d7 ", x, fixed = TRUE)
+}
 add_table <- function(df, title, note, src, key, widths = NULL) {
   tab_n <<- tab_n + 1; stopifnot(TAB_KEYS[tab_n] == key); note <- fill(note)
+  df[] <- lapply(df, function(v) if (is.character(v)) typeset(v) else v)
   doc <<- doc %>% lbl(sprintf("Table S%d.", tab_n), title, keep = TRUE) %>%
     body_add_flextable(tab_ft(df, widths)) %>% par_(ftext(note, update(tx, font.size = 10)), fp_p = update(PP, padding.top = 4, padding.bottom = 18))
   items[[length(items) + 1]] <<- data.frame(key = paste0("T:", key), item = sprintf("Table S%d", tab_n), title = title, source = src)
@@ -136,7 +144,7 @@ add_table(key, "Decay classification (from the companion tomography study).",
 s4 <- rd(file.path(T_, "SI_decay_metric_correlations.csv")) %>%
   mutate(across(-(1:2), ~ gsub("; ", "\n", .x)))
 add_table(s4, "Wood-condition metrics against stem CH₄ flux, by species and site.",
-  "Each cell: the change in CH₄ flux (nmol m⁻² s⁻¹) per SD of the metric within the group, with its p-value, in a mixed model of every measurement with random intercepts for tree and sampling date (Kenward–Roger degrees of freedom; the tree is the unit of replication), and the range of that change when each tree is omitted in turn (LOO). The species-adjusted rows fit all species at a site with species as a fixed effect. SoT structural loss: % of the cross-section in non-brown (low-velocity) classes; ERT CV: heterogeneity of resistivity; ERT index: first principal component of eight ERT metrics standardized within species (Thompson et al. 2026). –: no variation among trees. * p < 0.10 (with ten trees per species, the threshold used for these tests). On asinh(flux / 0.1), which weights typical rather than mean flux, the ERT CV associations had the same direction and remained significant in both site specialists (Q. rubra p = 0.01, N. sylvatica p = 0.03).",
+  "Each cell: the change in CH₄ flux (nmol m⁻² s⁻¹) per SD of the metric within the group, with its p-value, in a mixed model of every measurement with random intercepts for tree and sampling date (Kenward–Roger degrees of freedom; the tree is the unit of replication), and the range of that change when each tree is omitted in turn (LOO). The species-adjusted rows fit all species at a site with species as a fixed effect. SoT structural loss: % of the cross-section in non-brown (low-velocity) classes; ERT CV: heterogeneity of resistivity; ERT index: first principal component of eight ERT metrics standardized within species (Thompson et al. 2026). * p < 0.10 (with ten trees per species, the threshold used for these tests). On asinh(flux / 0.1), which weights typical rather than mean flux, the ERT CV associations had the same direction and remained significant in both site specialists (Q. rubra p = 0.01, N. sylvatica p = 0.03).",
   "scripts/4_analysis/07_decay_definitions.R", "decay_corr")
 
 # S11 diagnostics: variance explained, out-of-sample, accuracy and bias
