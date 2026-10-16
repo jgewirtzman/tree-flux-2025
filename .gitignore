@@ -65,3 +65,7 @@ manuscript_work/
 !figures_static/*.jpg
 !scripts/7_publish/metadata/dictionaries/*.csv
 dev/
+
+# Local submission and old-draft folders
+submission/
+old_drafts/
