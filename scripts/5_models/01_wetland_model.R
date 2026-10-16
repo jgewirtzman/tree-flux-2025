@@ -1,25 +1,29 @@
 # ============================================================
 # 01_wetland_model.R
-# 
-# Complete BGS CH4 flux modeling pipeline
 #
-# Requires outputs from:
-#   - 4_analysis/05_window_screening.R: outputs/figures/rolling_correlations/best_windows_by_variable.csv
-#   - Data files:
-#     - data/final/environment_hourly.csv (environmental)
-#     - data/final/stem_ch4_flux.csv (CH4 flux)
+# Wetland (Black Gum Swamp) driver model of stem CH4 flux.
 #
-# Pipeline:
-#   1. Load significant predictors from rolling window analysis
-#   2. Build correlation heatmaps for redundancy analysis
-#   3. Combined raw + anomaly predictor selection via clustering
-#   4. Theory-driven model building with randomized forward selection
-#   5. Interaction testing (all 2-way and 3-way)
-#   6. Final model with asinh transform
-#   7. Visualization (effect sizes + interaction plots)
+# Inputs: outputs/figures/rolling_correlations/best_windows_by_variable.csv (4_analysis/05_window_screening.R),
+#         data/final/environment_hourly.csv, data/final/stem_ch4_flux.csv
+#
+# Steps (section numbers below):
+#   1-2   drivers significant in the window screening, each at its best window (raw; LE/FC also
+#         as anomalies)
+#   3-4   correlation heatmap and redundancy clusters of those drivers (diagnostic only)
+#   5-6   core drivers plus greedy forward selection among the other drivers (model_helpers.R)
+#   7-8   models without interactions; collinear predictors (GVIF > 10) dropped as listed in VIF_DROP_VARS
+#   9-11  core model temperature x water table x species; each remaining predictor tested as an
+#         addition (LRT, with and without a species interaction); the extended model replaces
+#         the core model only if it has a lower BIC
+#   12    final model refitted on asinh(flux / 0.1) using every row that has its own predictors
+#   13-16 species-specific slopes, coefficient table, model summary, VIF
 #
 # Final model:
 #   asinh(CH4 flux / 0.1) ~ TS_Ha2 (66 h) * bvs_wtd_cm (183 h) * species + (1|Tree) + (1|date)
+#
+# Outputs: outputs/models/bgs_final/ (m_final.rds, m_core_asinh.rds, model_data_scaled.rds,
+#   model_data_info.csv, predictor_addition_tests.csv, species_slopes.csv, coefficients.csv,
+#   model_summary.csv, vif.csv); diagnostics in outputs/figures/predictor_selection/
 # ============================================================
 
 suppressPackageStartupMessages({
@@ -27,7 +31,6 @@ suppressPackageStartupMessages({
   library(lme4)
   library(car)
   library(RcppRoll)
-  library(cowplot)
   library(pheatmap)
 })
 
@@ -51,7 +54,6 @@ dir.create("outputs/figures/predictor_selection", recursive = TRUE, showWarnings
 CORR_THRESHOLD <- 0.7
 
 # Forward selection settings
-N_RANDOM_RUNS <- 1   # greedy forward selection is deterministic; candidate order does not matter
 MAX_PREDICTORS <- 6
 
 # Core drivers (forced into model) - based on theory
@@ -67,238 +69,9 @@ SPECIFIC_ANOM_VARIABLES <- c("LE_Ha1", "LE_Ha2", "FC_Ha1", "FC_Ha2")
 # HELPER FUNCTIONS
 # ============================================================
 
-# Rolling windows need at least half of their hours observed; otherwise NA
-# (a mean over a mostly empty window is not the window it claims to be)
-MIN_WINDOW_COMPLETE <- 0.5
-.win_ok <- function(x, n) RcppRoll::roll_sum(as.numeric(!is.na(x)), n = n, align = "right", fill = NA) >= MIN_WINDOW_COMPLETE * n
-roll_mean <- function(x, n) {
-  m <- RcppRoll::roll_mean(x, n = n, align = "right", fill = NA, na.rm = TRUE); m[!.win_ok(x, n) %in% TRUE] <- NA; m
-}
-
-roll_sum <- function(x, n) {
-  m <- RcppRoll::roll_sum(x, n = n, align = "right", fill = NA, na.rm = TRUE); m[!.win_ok(x, n) %in% TRUE] <- NA; m
-}
-
-make_anomaly <- function(df, var, time_col = "datetime") {
-  if (!var %in% names(df)) return(df)
-  x <- df[[var]]
-  if (!is.numeric(x)) return(df)
-  
-  df <- df %>%
-    mutate(
-      .doy  = yday(.data[[time_col]]),
-      .hour = hour(.data[[time_col]])
-    )
-  
-  grand <- mean(x, na.rm = TRUE)
-  
-  doy_means <- df %>%
-    group_by(.doy) %>%
-    summarize(.m_doy = mean(.data[[var]], na.rm = TRUE), .groups = "drop")
-  
-  hr_means <- df %>%
-    group_by(.hour) %>%
-    summarize(.m_hr = mean(.data[[var]], na.rm = TRUE), .groups = "drop")
-  
-  df %>%
-    left_join(doy_means, by = ".doy") %>%
-    left_join(hr_means, by = ".hour") %>%
-    mutate(
-      .expected = .m_doy + .m_hr - grand,
-      "{var}_anom" := .data[[var]] - .expected
-    ) %>%
-    dplyr::select(-.doy, -.hour, -.m_doy, -.m_hr, -.expected)
-}
-
-# Build feature matrix (raw mode)
-build_feature_matrix_raw <- function(aligned_data, sig_vars_df) {
-  met <- aligned_data %>% arrange(datetime)
-  result <- met %>% dplyr::select(datetime)
-  
-  for (i in seq_len(nrow(sig_vars_df))) {
-    v <- sig_vars_df$variable[i]
-    w <- sig_vars_df$window_hours[i]
-    if (!v %in% names(met)) next
-    feat_name <- paste0(v, "_", w, "h")
-    if (v %in% SUM_VARS) {
-      result[[feat_name]] <- roll_sum(met[[v]], w)
-    } else {
-      result[[feat_name]] <- roll_mean(met[[v]], w)
-    }
-  }
-  result
-}
-
-# Build combined feature matrix with both raw and anomaly versions
-build_combined_feature_matrix <- function(aligned_data, sig_vars_df) {
-  met <- aligned_data %>% arrange(datetime)
-  
-  # Create anomaly versions for all variables that need them
-  anom_vars <- sig_vars_df %>% filter(mode == "anom") %>% pull(variable) %>% unique()
-  for (v in anom_vars) {
-    if (!v %in% names(met)) next
-    met <- make_anomaly(met, v, time_col = "datetime")
-  }
-  
-  result <- met %>% dplyr::select(datetime)
-  
-  for (i in seq_len(nrow(sig_vars_df))) {
-    v <- sig_vars_df$variable[i]
-    w <- sig_vars_df$window_hours[i]
-    m <- sig_vars_df$mode[i]
-    
-    src <- if (m == "anom") paste0(v, "_anom") else v
-    if (!src %in% names(met)) next
-    
-    feat_name <- paste0(v, "_", m, "_", w, "h")
-    
-    if (v %in% SUM_VARS) {
-      result[[feat_name]] <- roll_sum(met[[src]], w)
-    } else {
-      result[[feat_name]] <- roll_mean(met[[src]], w)
-    }
-  }
-  result
-}
-
-# Plot correlation heatmap
-plot_corr_heatmap <- function(cmat, title, filename) {
-  if (nrow(cmat) > 2) {
-    hc <- hclust(as.dist(1 - abs(cmat)), method = "complete")
-    ord <- hc$order
-    cmat <- cmat[ord, ord]
-  }
-  
-  rownames(cmat) <- gsub("_\\d+h$", "", rownames(cmat))
-  colnames(cmat) <- gsub("_\\d+h$", "", colnames(cmat))
-  
-  png(filename, width = 10, height = 9, units = "in", res = 300)
-  pheatmap(
-    cmat,
-    color = colorRampPalette(c("#2166AC", "white", "#B2182B"))(100),
-    breaks = seq(-1, 1, length.out = 101),
-    display_numbers = TRUE,
-    number_format = "%.2f",
-    number_color = "black",
-    fontsize_number = 7,
-    fontsize_row = 9,
-    fontsize_col = 9,
-    main = title,
-    cluster_rows = FALSE,
-    cluster_cols = FALSE,
-    border_color = "grey90"
-  )
-  dev.off()
-  message("  Saved: ", basename(filename))
-}
-
-# Find redundant pairs
-find_redundant_pairs <- function(cmat, threshold = 0.7) {
-  pairs <- list()
-  vars <- colnames(cmat)
-  
-  for (i in 1:(length(vars) - 1)) {
-    for (j in (i + 1):length(vars)) {
-      r <- cmat[i, j]
-      if (!is.na(r) && abs(r) >= threshold) {
-        pairs[[length(pairs) + 1]] <- tibble(
-          var1 = vars[i],
-          var2 = vars[j],
-          r = round(r, 3)
-        )
-      }
-    }
-  }
-  
-  bind_rows(pairs) %>% arrange(desc(abs(r)))
-}
-
-# Selection algorithm with clustering
-select_predictors_combined <- function(sig_vars_df, cmat, feat_matrix, threshold = 0.7) {
-  vars_in_cmat <- colnames(cmat)
-  
-  sig_vars_df <- sig_vars_df %>%
-    mutate(feat_name = paste0(variable, "_", mode, "_", window_hours, "h"))
-  
-  sig_vars_df <- sig_vars_df %>%
-    filter(feat_name %in% vars_in_cmat)
-  
-  if (nrow(sig_vars_df) == 0) return(tibble())
-  
-  # Compute missingness
-  missingness <- feat_matrix %>%
-    dplyr::select(-datetime) %>%
-    summarize(across(everything(), ~ mean(is.na(.)))) %>%
-    pivot_longer(everything(), names_to = "feat_name", values_to = "missing_frac")
-  
-  sig_vars_df <- sig_vars_df %>%
-    left_join(missingness, by = "feat_name")
-  
-  # Build adjacency matrix
-  adj <- abs(cmat) >= threshold
-  diag(adj) <- FALSE
-  
-  # Find connected components via BFS
-  n <- nrow(cmat)
-  visited <- rep(FALSE, n)
-  cluster_id <- rep(NA_integer_, n)
-  current_cluster <- 0
-  
-  for (start in 1:n) {
-    if (visited[start]) next
-    current_cluster <- current_cluster + 1
-    queue <- start
-    
-    while (length(queue) > 0) {
-      node <- queue[1]
-      queue <- queue[-1]
-      if (visited[node]) next
-      visited[node] <- TRUE
-      cluster_id[node] <- current_cluster
-      neighbors <- which(adj[node, ] & !visited)
-      queue <- c(queue, neighbors)
-    }
-  }
-  
-  cluster_map <- tibble(
-    feat_name = vars_in_cmat,
-    cluster = cluster_id
-  )
-  
-  sig_vars_df <- sig_vars_df %>%
-    left_join(cluster_map, by = "feat_name")
-  
-  # Within each cluster, select best variable
-  selected <- sig_vars_df %>%
-    group_by(cluster) %>%
-    arrange(desc(abs(r)), missing_frac) %>%
-    slice(1) %>%
-    ungroup() %>%
-    mutate(
-      selection_reason = "highest |r| in cluster",
-      cluster_size = map_int(cluster, ~ sum(sig_vars_df$cluster == .x))
-    )
-  
-  # Track dropped variables
-  dropped <- sig_vars_df %>%
-    filter(!feat_name %in% selected$feat_name) %>%
-    dplyr::select(variable, mode, feat_name, r, cluster)
-  
-  selected <- selected %>%
-    rowwise() %>%
-    mutate(
-      dropped_vars = paste(
-        dropped %>%
-          filter(cluster == .data$cluster) %>%
-          mutate(label = paste0(variable, "_", mode)) %>%
-          pull(label),
-        collapse = ", "
-      )
-    ) %>%
-    ungroup()
-  
-  selected
-}
+# roll_mean(), roll_sum(), make_anomaly(), feature matrices, redundancy clustering,
+# forward_select(): shared with the other model scripts
+source("scripts/5_models/model_helpers.R")
 
 # ============================================================
 # 1. LOAD DATA
@@ -536,107 +309,35 @@ cat("\nModel data:", nrow(model_data_scaled), "observations\n")
 cat("Core predictors:", length(core_names), "\n")
 cat("Candidate predictors:", length(candidate_names), "\n\n")
 
-# Store unscaled for plotting later
-model_data_unscaled <- model_data
-
 # Total variance for R²
 # Selection uses the same response scale as the final model: asinh(flux in nmol m-2 s-1)
 model_data_scaled <- model_data_scaled %>% mutate(CH4_flux_umol = CH4_flux, CH4_flux = asinh(CH4_flux * 1000 / 0.1), date = factor(as.Date(datetime)))
 var_total <- var(model_data_scaled$CH4_flux)
 
 # ============================================================
-# 6. RANDOMIZED FORWARD SELECTION
+# 6. FORWARD SELECTION
 # ============================================================
 
 message("\n")
 message("══════════════════════════════════════════════════")
-message("       6. RANDOMIZED FORWARD SELECTION            ")
+message("       6. FORWARD SELECTION                       ")
 message("══════════════════════════════════════════════════")
 
-cat("Running", N_RANDOM_RUNS, "iterations...\n")
 cat("Core drivers (always first):", paste(core_names, collapse = ", "), "\n")
 cat("Candidates:", length(candidate_names), "predictors\n\n")
 
-step_records <- list()
+step_df <- forward_select(core_names, candidate_names, model_data_scaled, var_total, MAX_PREDICTORS) %>%
+  left_join(bind_rows(core_info, candidate_info) %>% dplyr::select(predictor, variable, var_group, mode, r),
+            by = "predictor")
 
-for (run in 1:N_RANDOM_RUNS) {
-  if (run %% 20 == 0) cat("  Run", run, "/", N_RANDOM_RUNS, "\n")
-  
-  selected <- core_names
-  remaining <- sample(candidate_names)
-  
-  for (step in 1:MAX_PREDICTORS) {
-    best_r2 <- -Inf
-    best_pred <- NULL
-    
-    for (pred in remaining) {
-      current_preds <- c(selected, pred)
-      formula_str <- paste("CH4_flux ~", paste(current_preds, collapse = " + "),
-                           "+ species + (1|Tree) + (1|date)")
-      
-      tryCatch({
-        fit <- lmer(as.formula(formula_str), data = model_data_scaled, REML = FALSE)
-        r2 <- var(predict(fit, re.form = NA)) / var_total
-        
-        if (r2 > best_r2) {
-          best_r2 <- r2
-          best_pred <- pred
-        }
-      }, error = function(e) NULL)
-    }
-    
-    if (is.null(best_pred)) break
-    
-    step_records[[length(step_records) + 1]] <- tibble(
-      run = run,
-      step = step,
-      predictor = best_pred,
-      r2 = best_r2
-    )
-    
-    selected <- c(selected, best_pred)
-    remaining <- setdiff(remaining, best_pred)
-  }
-}
+cat("Forward selection (predictor added at each step; fixed-effect variance share after it):\n")
+print(step_df %>% mutate(r2 = round(r2, 3), r = round(r, 3)))
 
-step_df <- bind_rows(step_records)
+write_csv(step_df, "outputs/figures/predictor_selection/forward_selection_steps.csv")
 
-# Selection frequency
-selection_freq <- step_df %>%
-  group_by(predictor) %>%
-  summarize(
-    n_selected = n(),
-    pct_selected = n() / N_RANDOM_RUNS * 100,
-    mean_step = mean(step),
-    .groups = "drop"
-  ) %>%
-  left_join(
-    bind_rows(core_info, candidate_info) %>%
-      dplyr::select(predictor, variable, var_group, mode, r),
-    by = "predictor"
-  ) %>%
-  arrange(desc(pct_selected))
-
-cat("\nSelection frequency (top 15):\n")
-selection_freq %>%
-  head(15) %>%
-  mutate(
-    pct_selected = round(pct_selected, 1),
-    mean_step = round(mean_step, 2),
-    r = round(r, 3)
-  ) %>%
-  print()
-
-write_csv(selection_freq, "outputs/figures/predictor_selection/theory_driven_selection_freq.csv")
-
-# Strong consensus (≥80%)
-strong_consensus <- selection_freq %>%
-  filter(pct_selected >= 80)
-
-cat("\nStrong consensus predictors (≥80%):", nrow(strong_consensus), "\n")
-if (nrow(strong_consensus) > 0) {
-  print(strong_consensus %>% dplyr::select(predictor, pct_selected, mean_step))
-}
+# Selected predictors, listed alphabetically (C locale) after the core drivers: the term order
+# of the published run, which listed them from a selection-frequency table.
+selected_preds <- sort(unique(step_df$predictor), method = "radix")
 
 # ============================================================
 # 7. MODEL COMPARISON (NO INTERACTIONS)
@@ -657,9 +358,9 @@ core_formula <- paste("CH4_flux ~", paste(core_names, collapse = " + "), "+ spec
 m_core <- lmer(as.formula(core_formula), data = model_data_scaled, REML = FALSE)
 r2_core <- var(predict(m_core, re.form = NA)) / var_total
 
-# Core + consensus
-if (nrow(strong_consensus) > 0) {
-  strong_preds <- c(core_names, strong_consensus$predictor)
+# Core + forward-selected
+if (length(selected_preds) > 0) {
+  strong_preds <- c(core_names, selected_preds)
   strong_formula <- paste("CH4_flux ~", paste(strong_preds, collapse = " + "), "+ species + (1|Tree) + (1|date)")
   m_strong <- lmer(as.formula(strong_formula), data = model_data_scaled, REML = FALSE)
   r2_strong <- var(predict(m_strong, re.form = NA)) / var_total
@@ -675,11 +376,11 @@ cat(sprintf("%-25s %6s %8s %8s\n", "Model", "R²", "AIC", "BIC"))
 cat("─────────────────────────────────────────────────────\n")
 cat(sprintf("%-25s %5.1f%% %8.1f %8.1f\n", "Species only", r2_species*100, AIC(m_species), BIC(m_species)))
 cat(sprintf("%-25s %5.1f%% %8.1f %8.1f\n", "Core drivers", r2_core*100, AIC(m_core), BIC(m_core)))
-cat(sprintf("%-25s %5.1f%% %8.1f %8.1f\n", "Core + consensus", r2_strong*100, AIC(m_strong), BIC(m_strong)))
+cat(sprintf("%-25s %5.1f%% %8.1f %8.1f\n", "Core + selected", r2_strong*100, AIC(m_strong), BIC(m_strong)))
 cat("─────────────────────────────────────────────────────\n")
 
 # VIF for strong model
-cat("\nVIF for core + consensus model:\n")
+cat("\nVIF for core + selected model:\n")
 print(vif(m_strong))
 
 # ============================================================
@@ -694,9 +395,7 @@ message("═══════════════════════�
 # Identify core interaction predictors dynamically
 ts_pred <- names(model_data_scaled)[grepl("^TS_Ha2_raw_", names(model_data_scaled))][1]
 wtd_pred <- names(model_data_scaled)[grepl("^bvs_wtd_cm_raw_", names(model_data_scaled))][1]
-# Alternative-driver predictors (optimal windows from 4_analysis/05_window_screening.R; names carry the window)
-swc_pred <- names(model_data_scaled)[grepl("^NEON_SWC_shallow_raw_", names(model_data_scaled))][1]
-le1_pred <- names(model_data_scaled)[grepl("^LE_Ha1_raw_", names(model_data_scaled))][1]
+# LE_Ha2 anomaly predictor (window from 4_analysis/05_window_screening.R), dropped below with the high-VIF set
 le2_pred <- names(model_data_scaled)[grepl("^LE_Ha2_anom_", names(model_data_scaled))][1]
 
 cat("Core interaction predictors (theory-driven):\n")
@@ -707,11 +406,11 @@ if (is.na(ts_pred) || is.na(wtd_pred)) {
   stop("Required core predictors (TS_Ha2 and/or bvs_wtd_cm) not found!")
 }
 
-# Start with consensus predictors from forward selection
+# Start with the forward-selected predictors
 refined_preds <- strong_preds
 
 # Check VIF
-cat("VIF for core + consensus model:\n")
+cat("VIF for core + selected model:\n")
 vif_vals <- vif(m_strong)
 vif_df <- data.frame(
   predictor = rownames(vif_vals),
@@ -1037,7 +736,6 @@ final_preds <- setdiff(all.vars(as.formula(best_formula)), c("CH4_flux", "specie
 model_data <- stem_flux %>%
   left_join(features, by = "datetime") %>%
   drop_na(CH4_flux, all_of(final_preds))
-model_data_unscaled <- model_data
 zs <- function(x) (x - mean(x, na.rm = TRUE)) / sd(x, na.rm = TRUE)
 model_data_scaled <- model_data %>%
   mutate(across(any_of(unique(c(final_preds, all_pred_names))), zs),
@@ -1143,12 +841,12 @@ print(species_slopes %>% mutate(across(where(is.numeric), ~round(., 3))))
 write_csv(species_slopes, file.path(OUTPUT_DIR, "species_slopes.csv"))
 
 # ============================================================
-# 14. EFFECT SIZE PLOT
+# 14. COEFFICIENT TABLE
 # ============================================================
 
 message("\n")
 message("══════════════════════════════════════════════════")
-message("       14. EFFECT SIZE PLOT                       ")
+message("       14. COEFFICIENT TABLE                      ")
 message("══════════════════════════════════════════════════")
 
 # Build a mapping of predictor names to clean labels
@@ -1209,192 +907,7 @@ coef_df <- coef_df %>%
     )
   )
 
-effect_colors <- c(
-  "Main effect" = "#2166AC",
-  "Species intercept" = "#4DAF4A",
-  "2-way interaction" = "#FF7F00",
-  "3-way interaction" = "#E31A1C"
-)
-
-p_effects <- ggplot(coef_df, aes(x = estimate, y = reorder(term_clean, estimate), color = effect_type)) +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "gray50") +
-  geom_errorbarh(aes(xmin = lower, xmax = upper), height = 0.2, linewidth = 0.8) +
-  geom_point(aes(shape = significant), size = 3) +
-  scale_color_manual(values = effect_colors, name = "Effect type") +
-  scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
-                     labels = c("TRUE" = "p < 0.05", "FALSE" = "p ≥ 0.05"),
-                     name = "Significance") +
-  labs(
-    x = "Coefficient (± 95% CI)",
-    y = NULL,
-    title = "Effect sizes for CH₄ flux model",
-    subtitle = paste0("R² = ", round(r2_final * 100, 1), "%")
-  ) +
-  theme_classic(base_size = 12) +
-  theme(
-    legend.position = "right",
-    plot.title = element_text(face = "bold")
-  )
-
-ggsave(file.path(OUTPUT_DIR, "effect_sizes.png"), p_effects,
-       width = 10, height = 7, dpi = 300)
-ggsave(file.path(OUTPUT_DIR, "effect_sizes.pdf"), p_effects,
-       width = 10, height = 7)
-
-message("Saved: effect_sizes.png/pdf")
-
 write_csv(coef_df, file.path(OUTPUT_DIR, "coefficients.csv"))
-
-# ============================================================
-# 15. INTERACTION PLOTS
-# ============================================================
-
-message("\n")
-message("══════════════════════════════════════════════════")
-message("       15. INTERACTION PLOTS                      ")
-message("══════════════════════════════════════════════════")
-
-# Get scaling parameters using dynamic predictor names
-scaling_params <- list(
-  TS_mean = mean(model_data_unscaled[[ts_pred]], na.rm = TRUE),
-  TS_sd = sd(model_data_unscaled[[ts_pred]], na.rm = TRUE),
-  WTD_mean = mean(model_data_unscaled[[wtd_pred]], na.rm = TRUE),
-  WTD_sd = sd(model_data_unscaled[[wtd_pred]], na.rm = TRUE)
-)
-
-# Prediction grid
-temp_range_scaled <- seq(-2, 2, length.out = 100)
-wtd_percentiles <- c(10, 25, 50, 75, 90)
-
-wtd_quantiles_unscaled <- quantile(model_data_unscaled[[wtd_pred]],
-                                   probs = wtd_percentiles/100, na.rm = TRUE)
-wtd_quantiles_scaled <- (wtd_quantiles_unscaled - scaling_params$WTD_mean) / scaling_params$WTD_sd
-
-temp_unscaled <- temp_range_scaled * scaling_params$TS_sd + scaling_params$TS_mean
-
-# Get all predictor names needed for prediction (from the model terms)
-model_vars <- all.vars(formula(m_final))
-model_vars <- setdiff(model_vars, c("CH4_flux_asinh", "Tree", "species"))
-
-# Generate predictions
-pred_list <- list()
-
-for (sp in c("bg", "hem", "rm")) {
-  for (i in seq_along(wtd_percentiles)) {
-    # Build prediction dataframe - start with the right number of rows
-    n_pts <- length(temp_range_scaled)
-    
-    pred_df <- data.frame(
-      species = factor(rep(sp, n_pts), levels = c("bg", "hem", "rm")),
-      Tree = factor(rep(model_data_scaled$Tree[1], n_pts))
-    )
-    
-    # Add core predictors
-    pred_df[[ts_pred]] <- temp_range_scaled
-    pred_df[[wtd_pred]] <- rep(wtd_quantiles_scaled[i], n_pts)
-    
-    # Add any additional predictors at their mean (0 for scaled data)
-    for (v in model_vars) {
-      if (!v %in% names(pred_df) && v %in% names(model_data_scaled)) {
-        pred_df[[v]] <- rep(0, n_pts)  # Mean for scaled predictors
-      }
-    }
-    
-    pred_df$fit_asinh <- predict(m_final, newdata = pred_df, re.form = NA)
-    pred_df$fit <- 0.1 * sinh(pred_df$fit_asinh) / 1000  # back-transform
-    
-    pred_df$temp_unscaled <- temp_unscaled
-    pred_df$wtd_percentile <- wtd_percentiles[i]
-    pred_df$species_name <- case_when(
-      sp == "bg" ~ "Black gum",
-      sp == "hem" ~ "Hemlock",
-      sp == "rm" ~ "Red maple"
-    )
-    
-    pred_list[[length(pred_list) + 1]] <- pred_df
-  }
-}
-
-pred_all <- bind_rows(pred_list) %>%
-  mutate(
-    species_name = factor(species_name, levels = c("Black gum", "Hemlock", "Red maple")),
-    wtd_percentile = factor(wtd_percentile)
-  )
-
-# Colors
-wtd_colors <- c("10" = "#8B4513", "25" = "#CD853F", "50" = "#808080",
-                "75" = "#6495ED", "90" = "#0000CD")
-species_colors <- c("Black gum" = "#1B9E77", "Hemlock" = "#D95F02", "Red maple" = "#7570B3")
-
-# Panel plot by species
-p_interaction <- ggplot(pred_all, aes(x = temp_unscaled, y = fit * 1000,
-                                      color = wtd_percentile)) +
-  geom_line(linewidth = 1.2) +
-  facet_wrap(~ species_name, scales = "free_y") +
-  scale_color_manual(values = wtd_colors, labels = paste0(wtd_percentiles, "th"),
-                     name = "Water table\npercentile") +
-  labs(
-    x = "Soil temperature (°C)",
-    y = expression(CH[4]~flux~(nmol~m^{-2}~s^{-1})),
-    title = "Temperature × water table interactions by species"
-  ) +
-  theme_classic(base_size = 12) +
-  theme(
-    strip.background = element_blank(),
-    strip.text = element_text(face = "bold", size = 12),
-    legend.position = "right",
-    plot.title = element_text(face = "bold")
-  )
-
-ggsave(file.path(OUTPUT_DIR, "interaction_by_species.png"), p_interaction,
-       width = 12, height = 5, dpi = 300)
-ggsave(file.path(OUTPUT_DIR, "interaction_by_species.pdf"), p_interaction,
-       width = 12, height = 5)
-
-message("Saved: interaction_by_species.png/pdf")
-
-# Comparison plot (wet vs dry)
-pred_extremes <- pred_all %>%
-  filter(wtd_percentile %in% c("10", "90"))
-
-p_comparison <- ggplot(pred_extremes, aes(x = temp_unscaled, y = fit * 1000,
-                                          color = species_name, linetype = wtd_percentile)) +
-  geom_line(linewidth = 1.2) +
-  scale_color_manual(values = species_colors, name = "Species") +
-  scale_linetype_manual(values = c("10" = "dashed", "90" = "solid"),
-                        labels = c("10" = "Dry (10th)", "90" = "Wet (90th)"),
-                        name = "Water table") +
-  labs(
-    x = "Soil temperature (°C)",
-    y = expression(CH[4]~flux~(nmol~m^{-2}~s^{-1})),
-    title = "Species differ in temperature × water table response"
-  ) +
-  theme_classic(base_size = 12) +
-  theme(legend.position = "right", plot.title = element_text(face = "bold"))
-
-ggsave(file.path(OUTPUT_DIR, "interaction_comparison.png"), p_comparison,
-       width = 9, height = 6, dpi = 300)
-ggsave(file.path(OUTPUT_DIR, "interaction_comparison.pdf"), p_comparison,
-       width = 9, height = 6)
-
-message("Saved: interaction_comparison.png/pdf")
-
-# Combined figure
-p_combined <- plot_grid(
-  p_effects + theme(legend.position = "bottom", legend.box = "horizontal"),
-  p_interaction + theme(legend.position = "bottom"),
-  ncol = 1,
-  rel_heights = c(1, 0.8),
-  labels = c("A", "B"),
-  label_size = 14
-)
-
-ggsave(file.path(OUTPUT_DIR, "figure_combined.png"), p_combined,
-       width = 12, height = 12, dpi = 300)
-ggsave(file.path(OUTPUT_DIR, "figure_combined.pdf"), p_combined,
-       width = 12, height = 12)
-
-message("Saved: figure_combined.png/pdf")
 
 # ============================================================
 # 16. SAVE OUTPUTS
@@ -1456,550 +969,3 @@ message(sprintf("  Red maple:  Temp=%.3f  WTD=%.3f  Interaction=%.3f",
 message("")
 message("Output directory: ", OUTPUT_DIR)
 message("══════════════════════════════════════════════════")
-
-
-
-
-
-
-
-
-# Model with SWC instead of WTD in the core interaction
-formula_swc_core <- paste0("CH4_flux_asinh ~ ", ts_pred, " * ", swc_pred, " * species + (1|Tree) + (1|date)")
-
-m_swc_core <- lmer(as.formula(formula_swc_core), data = model_data_scaled, REML = FALSE)
-
-cat("Model with SWC as core moisture variable:\n")
-cat("  R²:", round(var(predict(m_swc_core, re.form = NA)) / var_total_asinh * 100, 1), "%\n")
-cat("  AIC:", round(AIC(m_swc_core), 1), "\n")
-cat("  BIC:", round(BIC(m_swc_core), 1), "\n\n")
-
-cat("Coefficients:\n")
-print(round(summary(m_swc_core)$coefficients, 3))
-
-# Compare to original core model
-cat("\n\nComparison:\n")
-cat("─────────────────────────────────────────────────────\n")
-cat(sprintf("%-30s %6s %8s %8s\n", "Model", "R²", "AIC", "BIC"))
-cat("─────────────────────────────────────────────────────\n")
-cat(sprintf("%-30s %5.1f%% %8.1f %8.1f\n", "Core (Temp × WTD × species)", 
-            r2_core_asinh*100, AIC(m_core_asinh), BIC(m_core_asinh)))
-cat(sprintf("%-30s %5.1f%% %8.1f %8.1f\n", "Core (Temp × SWC × species)", 
-            var(predict(m_swc_core, re.form = NA)) / var_total_asinh * 100, 
-            AIC(m_swc_core), BIC(m_swc_core)))
-cat("─────────────────────────────────────────────────────\n")
-
-# Extract species-specific SWC slopes
-coefs_swc <- fixef(m_swc_core)
-swc_bg <- coefs_swc[swc_pred]
-swc_hem <- swc_bg + coefs_swc[paste0(swc_pred, ":specieshem")]
-swc_rm <- swc_bg + coefs_swc[paste0(swc_pred, ":speciesrm")]
-
-cat("\nSWC slopes by species:\n")
-cat(sprintf("  Black gum: %.3f\n", swc_bg))
-cat(sprintf("  Hemlock:   %.3f\n", swc_hem))
-cat(sprintf("  Red maple: %.3f\n", swc_rm))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Model with LE_Ha1 instead of TEMP in the core interaction
-formula_le1_core <- paste0("CH4_flux_asinh ~ ", le1_pred, " * ", wtd_pred, " * species + (1|Tree) + (1|date)")
-
-m_le1_core <- lmer(as.formula(formula_le1_core), data = model_data_scaled, REML = FALSE)
-
-cat("Model with LE_Ha1 as core energy variable:\n")
-cat("  R²:", round(var(predict(m_le1_core, re.form = NA)) / var_total_asinh * 100, 1), "%\n")
-cat("  AIC:", round(AIC(m_le1_core), 1), "\n")
-cat("  BIC:", round(BIC(m_le1_core), 1), "\n\n")
-
-cat("Coefficients:\n")
-print(round(summary(m_le1_core)$coefficients, 3))
-
-# Extract species-specific LE_Ha1 slopes
-coefs_le1 <- fixef(m_le1_core)
-le1_bg <- coefs_le1[le1_pred]
-le1_hem <- le1_bg + coefs_le1[paste0(le1_pred, ":specieshem")]
-le1_rm <- le1_bg + coefs_le1[paste0(le1_pred, ":speciesrm")]
-
-cat("\nLE_Ha1 slopes by species:\n")
-cat(sprintf("  Black gum: %.3f\n", le1_bg))
-cat(sprintf("  Hemlock:   %.3f\n", le1_hem))
-cat(sprintf("  Red maple: %.3f\n", le1_rm))
-
-# Now test LE_Ha2_anom
-formula_le2_core <- paste0("CH4_flux_asinh ~ ", le2_pred, " * ", wtd_pred, " * species + (1|Tree) + (1|date)")
-
-m_le2_core <- lmer(as.formula(formula_le2_core), data = model_data_scaled, REML = FALSE)
-
-cat("\n\n─────────────────────────────────────────────────────\n")
-cat("Model with LE_Ha2_anom as core energy variable:\n")
-cat("  R²:", round(var(predict(m_le2_core, re.form = NA)) / var_total_asinh * 100, 1), "%\n")
-cat("  AIC:", round(AIC(m_le2_core), 1), "\n")
-cat("  BIC:", round(BIC(m_le2_core), 1), "\n\n")
-
-cat("Coefficients:\n")
-print(round(summary(m_le2_core)$coefficients, 3))
-
-# Extract species-specific LE_Ha2_anom slopes
-coefs_le2 <- fixef(m_le2_core)
-le2_bg <- coefs_le2[le2_pred]
-le2_hem <- le2_bg + coefs_le2[paste0(le2_pred, ":specieshem")]
-le2_rm <- le2_bg + coefs_le2[paste0(le2_pred, ":speciesrm")]
-
-cat("\nLE_Ha2_anom slopes by species:\n")
-cat(sprintf("  Black gum: %.3f\n", le2_bg))
-cat(sprintf("  Hemlock:   %.3f\n", le2_hem))
-cat(sprintf("  Red maple: %.3f\n", le2_rm))
-
-# Summary comparison
-cat("\n\n══════════════════════════════════════════════════════\n")
-cat("SUMMARY: Core model variants (energy × WTD × species)\n")
-cat("══════════════════════════════════════════════════════\n")
-cat(sprintf("%-35s %6s %8s %8s\n", "Model", "R²", "AIC", "BIC"))
-cat("─────────────────────────────────────────────────────\n")
-cat(sprintf("%-35s %5.1f%% %8.1f %8.1f\n", "Temp × WTD × species", 
-            r2_core_asinh*100, AIC(m_core_asinh), BIC(m_core_asinh)))
-cat(sprintf("%-35s %5.1f%% %8.1f %8.1f\n", "LE_Ha1 × WTD × species", 
-            var(predict(m_le1_core, re.form = NA)) / var_total_asinh * 100, 
-            AIC(m_le1_core), BIC(m_le1_core)))
-cat(sprintf("%-35s %5.1f%% %8.1f %8.1f\n", "LE_Ha2_anom × WTD × species", 
-            var(predict(m_le2_core, re.form = NA)) / var_total_asinh * 100, 
-            AIC(m_le2_core), BIC(m_le2_core)))
-cat("─────────────────────────────────────────────────────\n")
-
-
-
-
-
-
-
-
-
-
-
-# ============================================================
-# BGS MODEL RESULTS SUMMARY FOR MANUSCRIPT
-# ============================================================
-
-message("\n", paste(rep("=", 60), collapse = ""))
-message("WETLAND MODEL RESULTS FOR MANUSCRIPT")
-message(paste(rep("=", 60), collapse = ""))
-
-# Final model summary
-message("\n--- Final Model Summary ---")
-message("Formula: ", formula_final)
-message("R² (marginal): ", round(r2_final * 100, 1), "%")
-message("AIC: ", round(AIC(m_final), 1))
-message("BIC: ", round(BIC(m_final), 1))
-message("N obs: ", nrow(model_data_scaled))
-message("N trees: ", n_distinct(model_data_scaled$Tree))
-
-# Fixed effects with confidence intervals
-message("\n--- Fixed Effects (asinh scale) ---")
-fixef_summary <- as.data.frame(summary(m_final)$coefficients)
-fixef_summary$term <- rownames(fixef_summary)
-fixef_summary <- fixef_summary %>%
-  mutate(
-    ci_lower = Estimate - 1.96 * `Std. Error`,
-    ci_upper = Estimate + 1.96 * `Std. Error`,
-    p_value = 2 * (1 - pt(abs(`t value`), df = nrow(model_data_scaled) - length(fixef(m_final))))
-  ) %>%
-  dplyr::select(term, Estimate, `Std. Error`, ci_lower, ci_upper, `t value`, p_value)
-print(fixef_summary, digits = 3)
-
-# Variance components
-message("\n--- Variance Components ---")
-vc <- as.data.frame(VarCorr(m_final))
-print(vc)
-
-# VIF
-message("\n--- Variance Inflation Factors ---")
-print(vif(m_final))
-
-# Species-specific slopes
-message("\n--- Species-Specific Slopes ---")
-coefs <- fixef(m_final)
-message("\nTemperature effects:")
-message("  N. sylvatica: ", round(temp_bg, 3))
-message("  T. canadensis: ", round(temp_hem, 3))
-message("  A. rubrum: ", round(temp_rm, 3))
-
-message("\nWater table effects:")
-message("  N. sylvatica: ", round(wtd_bg, 3))
-message("  T. canadensis: ", round(wtd_hem, 3))
-message("  A. rubrum: ", round(wtd_rm, 3))
-
-message("\nTemperature × Water table interactions:")
-message("  N. sylvatica: ", round(int_bg, 3))
-message("  T. canadensis: ", round(int_hem, 3))
-message("  A. rubrum: ", round(int_rm, 3))
-
-message("\nSoil water content effect:")
-message("  ", round(coefs[swc_pred], 3))
-
-# Model comparison (alternatives)
-message("\n--- Model Comparison ---")
-cat(sprintf("%-35s %6s %8s %8s\n", "Model", "R²", "AIC", "BIC"))
-cat("─────────────────────────────────────────────────────\n")
-cat(sprintf("%-35s %5.1f%% %8.1f %8.1f\n", "Core (Temp × WTD × species)", 
-            r2_core_asinh*100, AIC(m_core_asinh), BIC(m_core_asinh)))
-cat(sprintf("%-35s %5.1f%% %8.1f %8.1f\n", "Final (+SWC)", 
-            r2_final*100, AIC(m_final), BIC(m_final)))
-cat(sprintf("%-35s %5.1f%% %8.1f %8.1f\n", "Alt: Temp × SWC × species", 
-            var(predict(m_swc_core, re.form = NA)) / var_total_asinh * 100, 
-            AIC(m_swc_core), BIC(m_swc_core)))
-cat("─────────────────────────────────────────────────────\n")
-
-# Interpretation at extremes
-message("\n--- Predicted Flux at Environmental Extremes ---")
-# Use the prediction grid to show min/max conditions
-pred_summary <- pred_all %>%
-  filter(wtd_percentile %in% c("10", "90")) %>%
-  group_by(species_name, wtd_percentile) %>%
-  summarise(
-    temp_range = paste0(round(min(temp_unscaled), 1), "–", round(max(temp_unscaled), 1), "°C"),
-    flux_min = round(min(fit * 1000), 2),
-    flux_max = round(max(fit * 1000), 2),
-    .groups = "drop"
-  )
-print(pred_summary)
-
-
-
-
-
-
-
-
-
-# ============================================================
-# COMPLETE BGS MODEL RESULTS FOR MANUSCRIPT
-# ============================================================
-
-message("\n", paste(rep("=", 60), collapse = ""))
-message("WETLAND MODEL - COMPLETE RESULTS")
-message(paste(rep("=", 60), collapse = ""))
-
-# 1. DATA SUMMARY
-message("\n--- 1. DATA SUMMARY ---")
-message("N observations: ", nrow(model_data_scaled))
-message("N trees: ", n_distinct(model_data_scaled$Tree))
-message("N species: ", n_distinct(model_data_scaled$species))
-message("Date range: ", min(model_data_scaled$datetime), " to ", max(model_data_scaled$datetime))
-
-# 2. CORE MODEL (TEMP × WTD × SPECIES)
-message("\n--- 2. CORE MODEL: Temp × WTD × Species ---")
-message("\nFormula: CH4_flux_asinh ~ TS_Ha2 × bvs_wtd_cm × species + (1|Tree)")
-message("All predictors standardized (mean=0, SD=1)")
-message("\nR² (marginal): ", round(r2_core_asinh * 100, 1), "%")
-message("AIC: ", round(AIC(m_core_asinh), 1))
-message("BIC: ", round(BIC(m_core_asinh), 1))
-message("N parameters: ", length(fixef(m_core_asinh)))
-
-message("\nFixed effects (standardized scale):")
-core_fixef <- as.data.frame(summary(m_core_asinh)$coefficients)
-core_fixef$term <- rownames(core_fixef)
-core_fixef <- core_fixef %>%
-  mutate(
-    p_value = 2 * (1 - pt(abs(`t value`), df = nrow(model_data_scaled) - length(fixef(m_core_asinh)))),
-    sig = case_when(
-      p_value < 0.001 ~ "***",
-      p_value < 0.01 ~ "**",
-      p_value < 0.05 ~ "*",
-      TRUE ~ ""
-    )
-  ) %>%
-   dplyr::select(term, Estimate, `Std. Error`, `t value`, p_value, sig)
-print(core_fixef, digits = 3)
-
-message("\nVariance components:")
-vc_core <- as.data.frame(VarCorr(m_core_asinh))
-print(vc_core)
-icc_core <- vc_core$vcov[1] / sum(vc_core$vcov)
-message("ICC: ", round(icc_core, 3))
-
-message("\nVIF:")
-vif_core <- vif(m_core_asinh)
-print(vif_core)
-
-# 3. FULL MODEL (+ LE + SWC)
-message("\n--- 3. FULL MODEL: Core + LE + SWC ---")
-message("\nFormula: CH4_flux_asinh ~ TS_Ha2 × bvs_wtd_cm × species + LE_Ha1 × species + SWC × species + (1|Tree)")
-message("\nR² (marginal): ", round(r2_final * 100, 1), "%")
-message("AIC: ", round(AIC(m_final), 1))
-message("BIC: ", round(BIC(m_final), 1))
-message("N parameters: ", length(fixef(m_final)))
-message("\nImprovement over core model:")
-message("  ΔR²: +", round((r2_final - r2_core_asinh) * 100, 1), "%")
-message("  ΔAIC: ", round(AIC(m_final) - AIC(m_core_asinh), 1))
-message("  ΔBIC: ", round(BIC(m_final) - BIC(m_core_asinh), 1))
-
-message("\nFixed effects (standardized scale):")
-full_fixef <- as.data.frame(summary(m_final)$coefficients)
-full_fixef$term <- rownames(full_fixef)
-full_fixef <- full_fixef %>%
-  mutate(
-    p_value = 2 * (1 - pt(abs(`t value`), df = nrow(model_data_scaled) - length(fixef(m_final)))),
-    sig = case_when(
-      p_value < 0.001 ~ "***",
-      p_value < 0.01 ~ "**",
-      p_value < 0.05 ~ "*",
-      TRUE ~ ""
-    )
-  ) %>%
-   dplyr::select(term, Estimate, `Std. Error`, `t value`, p_value, sig)
-print(full_fixef, digits = 3)
-
-message("\nVariance components:")
-vc_full <- as.data.frame(VarCorr(m_final))
-print(vc_full)
-icc_full <- vc_full$vcov[1] / sum(vc_full$vcov)
-message("ICC: ", round(icc_full, 3))
-
-message("\nVIF (GVIF^(1/(2*Df)) for interactions):")
-vif_full <- vif(m_final)
-print(vif_full)
-
-# 4. STANDARDIZED EFFECT SIZES - SPECIES-SPECIFIC
-message("\n--- 4. STANDARDIZED EFFECT SIZES BY SPECIES ---")
-
-coefs_core <- fixef(m_core_asinh)
-coefs_full <- fixef(m_final)
-
-message("\nCORE MODEL:")
-message("\nTemperature effects (standardized):")
-temp_core_bg <- coefs_core[ts_pred]
-temp_core_hem <- coefs_core[ts_pred] + coefs_core[paste0(ts_pred, ":specieshem")]
-temp_core_rm <- coefs_core[ts_pred] + coefs_core[paste0(ts_pred, ":speciesrm")]
-message("  N. sylvatica: ", round(temp_core_bg, 3))
-message("  T. canadensis: ", round(temp_core_hem, 3))
-message("  A. rubrum: ", round(temp_core_rm, 3))
-
-message("\nWater table effects (standardized):")
-wtd_core_bg <- coefs_core[wtd_pred]
-wtd_core_hem <- coefs_core[wtd_pred] + coefs_core[paste0(wtd_pred, ":specieshem")]
-wtd_core_rm <- coefs_core[wtd_pred] + coefs_core[paste0(wtd_pred, ":speciesrm")]
-message("  N. sylvatica: ", round(wtd_core_bg, 3))
-message("  T. canadensis: ", round(wtd_core_hem, 3))
-message("  A. rubrum: ", round(wtd_core_rm, 3))
-
-message("\nTemp × WTD interaction (standardized):")
-int_core_bg <- coefs_core[paste0(ts_pred, ":", wtd_pred)]
-int_core_hem <- coefs_core[paste0(ts_pred, ":", wtd_pred)] + coefs_core[paste0(ts_pred, ":", wtd_pred, ":specieshem")]
-int_core_rm <- coefs_core[paste0(ts_pred, ":", wtd_pred)] + coefs_core[paste0(ts_pred, ":", wtd_pred, ":speciesrm")]
-message("  N. sylvatica: ", round(int_core_bg, 3))
-message("  T. canadensis: ", round(int_core_hem, 3))
-message("  A. rubrum: ", round(int_core_rm, 3))
-
-message("\nFULL MODEL:")
-message("\nTemperature effects (standardized):")
-temp_full_bg <- coefs_full[ts_pred]
-temp_full_hem <- coefs_full[ts_pred] + coefs_full[paste0(ts_pred, ":specieshem")]
-temp_full_rm <- coefs_full[ts_pred] + coefs_full[paste0(ts_pred, ":speciesrm")]
-message("  N. sylvatica: ", round(temp_full_bg, 3))
-message("  T. canadensis: ", round(temp_full_hem, 3))
-message("  A. rubrum: ", round(temp_full_rm, 3))
-
-message("\nWater table effects (standardized):")
-wtd_full_bg <- coefs_full[wtd_pred]
-wtd_full_hem <- coefs_full[wtd_pred] + coefs_full[paste0(wtd_pred, ":specieshem")]
-wtd_full_rm <- coefs_full[wtd_pred] + coefs_full[paste0(wtd_pred, ":speciesrm")]
-message("  N. sylvatica: ", round(wtd_full_bg, 3))
-message("  T. canadensis: ", round(wtd_full_hem, 3))
-message("  A. rubrum: ", round(wtd_full_rm, 3))
-
-message("\nTemp × WTD interaction (standardized):")
-int_full_bg <- coefs_full[paste0(ts_pred, ":", wtd_pred)]
-int_full_hem <- coefs_full[paste0(ts_pred, ":", wtd_pred)] + coefs_full[paste0(ts_pred, ":", wtd_pred, ":specieshem")]
-int_full_rm <- coefs_full[paste0(ts_pred, ":", wtd_pred)] + coefs_full[paste0(ts_pred, ":", wtd_pred, ":speciesrm")]
-message("  N. sylvatica: ", round(int_full_bg, 3))
-message("  T. canadensis: ", round(int_full_hem, 3))
-message("  A. rubrum: ", round(int_full_rm, 3))
-
-message("\nLatent heat effects (standardized, full model only):")
-le_bg <- coefs_full[le1_pred]
-le_hem <- coefs_full[le1_pred] + coefs_full[paste0("specieshem:", le1_pred)]
-le_rm <- coefs_full[le1_pred] + coefs_full[paste0("speciesrm:", le1_pred)]
-message("  N. sylvatica: ", round(le_bg, 3))
-message("  T. canadensis: ", round(le_hem, 3))
-message("  A. rubrum: ", round(le_rm, 3))
-
-message("\nSoil water content effects (standardized, full model only):")
-swc_bg <- coefs_full[swc_pred]
-swc_hem <- coefs_full[swc_pred] + coefs_full[paste0("specieshem:", swc_pred)]
-swc_rm <- coefs_full[swc_pred] + coefs_full[paste0("speciesrm:", swc_pred)]
-message("  N. sylvatica: ", round(swc_bg, 3))
-message("  T. canadensis: ", round(swc_hem, 3))
-message("  A. rubrum: ", round(swc_rm, 3))
-
-# 5. MODEL COMPARISON TABLE
-message("\n--- 5. MODEL COMPARISON ---")
-cat(sprintf("%-35s %6s %8s %8s %8s\n", "Model", "R²", "AIC", "BIC", "Nparam"))
-cat("──────────────────────────────────────────────────────────\n")
-cat(sprintf("%-35s %5.1f%% %8.1f %8.1f %8d\n", "Core (Temp × WTD × species)", 
-            r2_core_asinh*100, AIC(m_core_asinh), BIC(m_core_asinh), length(fixef(m_core_asinh))))
-cat(sprintf("%-35s %5.1f%% %8.1f %8.1f %8d\n", "Full (+LE +SWC interactions)", 
-            r2_final*100, AIC(m_final), BIC(m_final), length(fixef(m_final))))
-cat("──────────────────────────────────────────────────────────\n")
-cat(sprintf("%-35s %+5.1f%% %+8.1f %+8.1f %+8d\n", "Improvement", 
-            (r2_final - r2_core_asinh)*100, 
-            AIC(m_final) - AIC(m_core_asinh),
-            BIC(m_final) - BIC(m_core_asinh),
-            length(fixef(m_final)) - length(fixef(m_core_asinh))))
-
-# 6. PREDICTED FLUX RANGE
-message("\n--- 6. PREDICTED FLUX AT ENVIRONMENTAL EXTREMES ---")
-pred_summary <- pred_all %>%
-  filter(wtd_percentile %in% c("10", "90")) %>%
-  group_by(species_name, wtd_percentile) %>%
-  summarise(
-    temp_range = paste0(round(min(temp_unscaled), 1), "–", round(max(temp_unscaled), 1), "°C"),
-    flux_min = round(min(fit * 1000), 2),
-    flux_max = round(max(fit * 1000), 2),
-    flux_range = round(max(fit * 1000) - min(fit * 1000), 2),
-    .groups = "drop"
-  )
-print(pred_summary)
-
-
-
-# ============================================================
-# ALTERNATIVE MODELS AND ROBUSTNESS CHECKS
-# ============================================================
-
-message("\n", paste(rep("=", 60), collapse = ""))
-message("ALTERNATIVE MODELS - ROBUSTNESS CHECKS")
-message(paste(rep("=", 60), collapse = ""))
-
-# 1. SWC AS CORE MOISTURE VARIABLE (instead of WTD)
-message("\n--- 1. SWC REPLACING WTD IN CORE INTERACTION ---")
-message("\nModel: Temp × SWC × species (instead of Temp × WTD × species)")
-message("R²: ", round(var(predict(m_swc_core, re.form = NA)) / var_total_asinh * 100, 1), "%")
-message("AIC: ", round(AIC(m_swc_core), 1))
-message("BIC: ", round(BIC(m_swc_core), 1))
-
-message("\nSWC slopes by species (standardized):")
-coefs_swc <- fixef(m_swc_core)
-swc_bg <- coefs_swc[swc_pred]
-swc_hem <- swc_bg + coefs_swc[paste0(swc_pred, ":specieshem")]
-swc_rm <- swc_bg + coefs_swc[paste0(swc_pred, ":speciesrm")]
-message("  N. sylvatica: ", round(swc_bg, 3))
-message("  T. canadensis: ", round(swc_hem, 3))
-message("  A. rubrum: ", round(swc_rm, 3))
-
-message("\nComparison to WTD core model:")
-message("  WTD core: R² = ", round(r2_core_asinh * 100, 1), "%, AIC = ", round(AIC(m_core_asinh), 1))
-message("  SWC core: R² = ", round(var(predict(m_swc_core, re.form = NA)) / var_total_asinh * 100, 1), "%, AIC = ", round(AIC(m_swc_core), 1))
-message("  ΔAIC = ", round(AIC(m_swc_core) - AIC(m_core_asinh), 1), " (positive = worse fit)")
-
-# 2. LE_Ha1 AS CORE ENERGY VARIABLE (instead of Temp)
-message("\n--- 2. LE_Ha1 REPLACING TEMP IN CORE INTERACTION ---")
-message("\nModel: LE_Ha1 × WTD × species (instead of Temp × WTD × species)")
-message("R²: ", round(var(predict(m_le1_core, re.form = NA)) / var_total_asinh * 100, 1), "%")
-message("AIC: ", round(AIC(m_le1_core), 1))
-message("BIC: ", round(BIC(m_le1_core), 1))
-
-message("\nLE_Ha1 slopes by species (standardized):")
-coefs_le1 <- fixef(m_le1_core)
-le1_bg <- coefs_le1[le1_pred]
-le1_hem <- le1_bg + coefs_le1[paste0(le1_pred, ":specieshem")]
-le1_rm <- le1_bg + coefs_le1[paste0(le1_pred, ":speciesrm")]
-message("  N. sylvatica: ", round(le1_bg, 3))
-message("  T. canadensis: ", round(le1_hem, 3))
-message("  A. rubrum: ", round(le1_rm, 3))
-
-message("\nComparison to Temp core model:")
-message("  Temp core: R² = ", round(r2_core_asinh * 100, 1), "%, AIC = ", round(AIC(m_core_asinh), 1))
-message("  LE_Ha1 core: R² = ", round(var(predict(m_le1_core, re.form = NA)) / var_total_asinh * 100, 1), "%, AIC = ", round(AIC(m_le1_core), 1))
-message("  ΔAIC = ", round(AIC(m_le1_core) - AIC(m_core_asinh), 1))
-
-# 3. LE_Ha2_anom AS CORE ENERGY VARIABLE
-message("\n--- 3. LE_Ha2_anom REPLACING TEMP IN CORE INTERACTION ---")
-message("\nModel: LE_Ha2_anom × WTD × species (instead of Temp × WTD × species)")
-message("R²: ", round(var(predict(m_le2_core, re.form = NA)) / var_total_asinh * 100, 1), "%")
-message("AIC: ", round(AIC(m_le2_core), 1))
-message("BIC: ", round(BIC(m_le2_core), 1))
-
-message("\nLE_Ha2_anom slopes by species (standardized):")
-coefs_le2 <- fixef(m_le2_core)
-le2_bg <- coefs_le2[le2_pred]
-le2_hem <- le2_bg + coefs_le2[paste0(le2_pred, ":specieshem")]
-le2_rm <- le2_bg + coefs_le2[paste0(le2_pred, ":speciesrm")]
-message("  N. sylvatica: ", round(le2_bg, 3))
-message("  T. canadensis: ", round(le2_hem, 3))
-message("  A. rubrum: ", round(le2_rm, 3))
-
-# 4. UNIVARIATE MODELS (to check direction reversals)
-message("\n--- 4. UNIVARIATE MODELS (checking effect directions) ---")
-
-# LE_Ha1 alone
-m_le_only <- lmer(as.formula(paste0("CH4_flux_asinh ~ ", le1_pred, " * species + (1|Tree) + (1|date)")), 
-                  data = model_data_scaled, REML = FALSE)
-message("\nLE_Ha1 only (no other predictors):")
-le_only <- fixef(m_le_only)
-message("  N. sylvatica: ", round(le_only[le1_pred], 3))
-message("  T. canadensis: ", round(le_only[le1_pred] + le_only[paste0("specieshem:", le1_pred)], 3))
-message("  A. rubrum: ", round(le_only[le1_pred] + le_only[paste0("speciesrm:", le1_pred)], 3))
-message("  Compare to full model: N. sylvatica = ", round(le_bg, 3), 
-        " (direction ", ifelse(sign(le_only[le1_pred]) == sign(le_bg), "same", "REVERSED"), ")")
-
-# SWC alone
-m_swc_only <- lmer(as.formula(paste0("CH4_flux_asinh ~ ", swc_pred, " * species + (1|Tree) + (1|date)")), 
-                   data = model_data_scaled, REML = FALSE)
-message("\nSWC only (no other predictors):")
-swc_only <- fixef(m_swc_only)
-message("  N. sylvatica: ", round(swc_only[swc_pred], 3))
-message("  T. canadensis: ", round(swc_only[swc_pred] + swc_only[paste0("specieshem:", swc_pred)], 3))
-message("  A. rubrum: ", round(swc_only[swc_pred] + swc_only[paste0("speciesrm:", swc_pred)], 3))
-message("  Compare to full model: N. sylvatica = ", round(swc_bg, 3),
-        " (direction ", ifelse(sign(swc_only[swc_pred]) == sign(swc_bg), "same", "REVERSED"), ")")
-
-# Temp alone (for reference)
-m_temp_only <- lmer(as.formula(paste0("CH4_flux_asinh ~ ", ts_pred, " * species + (1|Tree) + (1|date)")), 
-                    data = model_data_scaled, REML = FALSE)
-message("\nTemp only (no other predictors):")
-temp_only <- fixef(m_temp_only)
-message("  N. sylvatica: ", round(temp_only[ts_pred], 3))
-message("  T. canadensis: ", round(temp_only[ts_pred] + temp_only[paste0(ts_pred, ":specieshem")], 3))
-message("  A. rubrum: ", round(temp_only[ts_pred] + temp_only[paste0(ts_pred, ":speciesrm")], 3))
-message("  Compare to full model: N. sylvatica = ", round(temp_full_bg, 3),
-        " (direction ", ifelse(sign(temp_only[ts_pred]) == sign(temp_full_bg), "same", "REVERSED"), ")")
-
-# WTD alone (for reference)
-m_wtd_only <- lmer(as.formula(paste0("CH4_flux_asinh ~ ", wtd_pred, " * species + (1|Tree) + (1|date)")), 
-                   data = model_data_scaled, REML = FALSE)
-message("\nWTD only (no other predictors):")
-wtd_only <- fixef(m_wtd_only)
-message("  N. sylvatica: ", round(wtd_only[wtd_pred], 3))
-message("  T. canadensis: ", round(wtd_only[wtd_pred] + wtd_only[paste0(wtd_pred, ":specieshem")], 3))
-message("  A. rubrum: ", round(wtd_only[wtd_pred] + wtd_only[paste0(wtd_pred, ":speciesrm")], 3))
-message("  Compare to full model: N. sylvatica = ", round(wtd_full_bg, 3),
-        " (direction ", ifelse(sign(wtd_only[wtd_pred]) == sign(wtd_full_bg), "same", "REVERSED"), ")")
-
-# 5. SUMMARY TABLE
-message("\n--- 5. SUMMARY: MODEL COMPARISON ---")
-cat(sprintf("%-40s %6s %8s\n", "Model", "R²", "AIC"))
-cat("────────────────────────────────────────────────────\n")
-cat(sprintf("%-40s %5.1f%% %8.1f\n", "Core: Temp × WTD × species", 
-            r2_core_asinh*100, AIC(m_core_asinh)))
-cat(sprintf("%-40s %5.1f%% %8.1f\n", "Full: Core + LE + SWC interactions", 
-            r2_final*100, AIC(m_final)))
-cat(sprintf("%-40s %5.1f%% %8.1f\n", "Alt: Temp × SWC × species", 
-            var(predict(m_swc_core, re.form = NA)) / var_total_asinh * 100, AIC(m_swc_core)))
-cat(sprintf("%-40s %5.1f%% %8.1f\n", "Alt: LE_Ha1 × WTD × species", 
-            var(predict(m_le1_core, re.form = NA)) / var_total_asinh * 100, AIC(m_le1_core)))
-cat(sprintf("%-40s %5.1f%% %8.1f\n", "Alt: LE_Ha2_anom × WTD × species", 
-            var(predict(m_le2_core, re.form = NA)) / var_total_asinh * 100, AIC(m_le2_core)))
-cat("────────────────────────────────────────────────────\n")
