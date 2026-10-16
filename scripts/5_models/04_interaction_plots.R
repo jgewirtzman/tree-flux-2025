@@ -1,17 +1,29 @@
 # ============================================================
 # 04_interaction_plots.R
-# 
-# Temperature × Water Table interaction plots by site
-# Using CORE models (TS × WTD × species only) from:
-#   - BGS (Wetland): 01_wetland_model.R
-#   - EMS (Upland): 03_upland_model_B.R
 #
-# Both use: asinh(CH4*1000) ~ TS_Ha2 * bvs_wtd_cm * species + (1|Tree)
+# Temperature x water table model predictions by site (Figure 6a, Figure S4) and the
+# time series of mean flux with the two drivers (Figure 6b).
+# Core models (temperature x water table x species), refitted on asinh(flux / 0.1):
+#   Wetland: outputs/models/bgs_final/m_core_asinh.rds       (01_wetland_model.R)
+#   Upland:  outputs/models/ems_bgs_drivers/m_core_asinh.rds (03_upland_model_B.R)
+# Both: asinh(CH4 flux / 0.1) ~ TS_Ha2 * bvs_wtd_cm * species + (1|Tree) + (1|date), with the
+# wetland windows. Predictions use fixed effects only, averaged over species, at water-table
+# percentiles 10-90, over the 5-95 % temperature range (Figure 6a) or over the temperatures
+# observed near each water-table level (Figure S4).
+#
+# Inputs: the two models; data/final/stem_ch4_flux.csv, data/final/environment_hourly.csv
+# Outputs (outputs/figures/):
+#   interaction_timeseries_combined.png/pdf  Figure 6
+#   interaction_by_site_limited_free.png     Figure S4
 # ============================================================
 
-library(tidyverse)
-library(lme4)
-library(cowplot)
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(lme4)
+  library(cowplot)
+  library(patchwork)
+  library(zoo)
+})
 
 # ============================================================
 # LOAD MODELS AND DATA
@@ -82,15 +94,7 @@ aligned_data <- read_csv(PATHS$aligned, show_col_types = FALSE) %>%
 flux_data <- read_csv(PATHS$flux, show_col_types = FALSE)
 
 # Build the same features as in the model scripts
-library(RcppRoll)
-
-# Rolling windows need at least half of their hours observed; otherwise NA
-# (a mean over a mostly empty window is not the window it claims to be)
-MIN_WINDOW_COMPLETE <- 0.5
-.win_ok <- function(x, n) RcppRoll::roll_sum(as.numeric(!is.na(x)), n = n, align = "right", fill = NA) >= MIN_WINDOW_COMPLETE * n
-roll_mean <- function(x, n) {
-  m <- RcppRoll::roll_mean(x, n = n, align = "right", fill = NA, na.rm = TRUE); m[!.win_ok(x, n) %in% TRUE] <- NA; m
-}
+source("scripts/helpers/windows.R")   # roll_mean()
 
 met <- aligned_data %>% arrange(datetime)
 
@@ -397,34 +401,13 @@ make_plot <- function(pred_data, y_scales = "fixed") {
     )
 }
 
-# ---- LIMITED RANGE plots ----
-p_limited_fixed <- make_plot(pred_combined_limited, "fixed")
+# ---- Figure S4: temperatures observed near each water-table level, free y axes ----
 p_limited_free <- make_plot(pred_combined_limited, "free_y")
-
-ggsave("outputs/figures/interaction_by_site_limited_fixed.png", p_limited_fixed,
-       width = 10, height = 5, dpi = 300)
 ggsave("outputs/figures/interaction_by_site_limited_free.png", p_limited_free,
        width = 10, height = 5, dpi = 300)
-
-message("Saved: interaction_by_site_limited_fixed.png")
 message("Saved: interaction_by_site_limited_free.png")
 
-# ---- FULL RANGE plots ----
-p_full_fixed <- make_plot(pred_combined_full, "fixed")
-p_full_free <- make_plot(pred_combined_full, "free_y")
-
-ggsave("outputs/figures/interaction_by_site_full_fixed.png", p_full_fixed,
-       width = 10, height = 5, dpi = 300)
-ggsave("outputs/figures/interaction_by_site_full_free.png", p_full_free,
-       width = 10, height = 5, dpi = 300)
-
-message("Saved: interaction_by_site_full_fixed.png")
-message("Saved: interaction_by_site_full_free.png")
-
-# Print one for display
-print(p_full_free)
-
-# ---- INSET VERSION: Fixed y-axis with upland inset on own scale ----
+# ---- Figure 6a: full temperature range; upland on the wetland scale, with an inset on its own scale ----
 message("Creating inset version...")
 
 # Wetland panel (full scale)
@@ -532,13 +515,6 @@ p_inset <- cowplot::plot_grid(
   rel_widths = c(1, 1, 0.25)
 )
 
-print(p_inset)
-
-ggsave("outputs/figures/interaction_by_site_full_inset.png", p_inset,
-       width = 12, height = 5, dpi = 300)
-
-message("Saved: interaction_by_site_full_inset.png")
-
 # ============================================================
 # SUMMARY STATS
 # ============================================================
@@ -571,36 +547,11 @@ message("\nDone!")
 
 
 # ============================================================
-# combined_drivers.R
-# 
-# Combined timeseries of CH4 stem flux with key environmental drivers:
+# Figure 6b: time series of mean CH4 flux per sampling round with the two drivers
 # - Water table depth (BVS)
 # - Soil temperature (Hemlock tower TS_Ha2, the series used by the wetland model)
-#
-# Shaded regions indicate periods when both drivers are elevated
-# (7-day rolling z-score > 0.5 for both).
-#
-# Run AFTER: timeseries.R (which creates the corrected flux file)
-#
-# Outputs:
-#   - combined_flux_drivers.png/pdf
+# Shaded regions: periods when both drivers are elevated (7-day rolling z-score > 0.5 for both).
 # ============================================================
-
-suppressPackageStartupMessages({
-  library(tidyverse)
-  library(lubridate)
-  library(patchwork)
-  library(zoo)
-})
-
-# ============================================================
-# CONFIGURATION
-# ============================================================
-
-PATHS <- list(
-  flux = "data/final/stem_ch4_flux.csv",
-  aligned = "data/final/environment_hourly.csv"
-)
 
 OUTPUT_DIR <- "outputs/figures"
 dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
@@ -790,19 +741,6 @@ p_ts <- ggplot(env_daily, aes(x = date, y = ts_ha2)) +
 p_combined <- p_flux / p_wtd / p_ts +
   plot_layout(heights = c(2, 1, 1))
 
-print(p_combined)
-
-# ============================================================
-# SAVE
-# ============================================================
-
-ggsave(file.path(OUTPUT_DIR, "combined_flux_drivers.png"),
-       p_combined, width = 12, height = 8, dpi = 300)
-ggsave(file.path(OUTPUT_DIR, "combined_flux_drivers.pdf"),
-       p_combined, width = 12, height = 8)
-
-message("\nSaved: combined_flux_drivers.png/pdf")
-message("Done!")
 
 
 
@@ -877,12 +815,10 @@ message("Maximum flux ratio: ",
 # COMBINED FIGURE: INTERACTION + TIMESERIES
 # ============================================================
 
-library(cowplot)
-
-# Create combined figure with interaction on top, timeseries below
+# Figure 6: interaction plot with inset (a) above the time series (b)
 p_combined_fig <- plot_grid(
-  p_inset,           # Interaction plot with inset (from interaction_updated.R)
-  p_combined,        # Timeseries plot (from combined_driver_timeseries.R)
+  p_inset,
+  p_combined,
   ncol = 1,
   rel_heights = c(1, 1.5),
   labels = c("a", "b"),

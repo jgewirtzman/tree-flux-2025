@@ -9,8 +9,11 @@
 #   Upland (EMS): 2019 Harvard Forest ForestGEO census (HF253 v6; Orwig, Foster & Ellison 2024),
 #     live stems, whole 35-ha plot.
 # Method follows the companion tomography study (Thompson et al. 2026; Tree-Tomography repository).
-# Outputs: outputs/tables/stand_context.csv, outputs/tables/table1_study_trees.csv,
-#          outputs/tables/stand_totals.csv
+# Inputs:  data/package/stand/BGS_VRP_2025.csv, data/external/forestgeo/hf253-06-stems-2019.csv,
+#          data/final/stem_ch4_flux.csv (study-tree DBH)
+# Outputs: outputs/tables/stand_context.csv  (per site x species; Table 1, via 6_manuscript/01_build_si.R)
+#          outputs/tables/stand_totals.csv   (live basal area per site, study species' share)
+#          outputs/tables/stand_composition.txt (dominant species, for the site description)
 # ============================================================
 suppressPackageStartupMessages(library(dplyr))
 S <- "data/package/stand"
@@ -49,7 +52,6 @@ for (site in c("Wetland", "Upland")) for (s in names(latin)) {
 }
 tab <- bind_rows(rows)
 write.csv(tab, "outputs/tables/stand_context.csv", row.names = FALSE)
-write.csv(totals, "outputs/tables/stand_totals.csv", row.names = FALSE)
 # dominant species (all species) for the site description
 top <- function(sh, k = 5) { sh <- sort(sh, decreasing = TRUE)[1:k]; paste(sprintf("%s %d%%", names(sh), round(100 * sh)), collapse = ", ") }
 cov_w <- sum(share_bgs[c("acerru", "tsugca", "nysssy")])

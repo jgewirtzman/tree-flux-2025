@@ -1,5 +1,5 @@
 # ============================================================
-# 02_fit_fluxes.R  (flux step 2 of 6)
+# 02_fit_fluxes.R  (flux step 2 of 5)
 #
 # Fits CH4 and CO2 fluxes to every closure with a raw trace: goFlux linear (LM) and
 # Hutchinson-Mosier (HM) models, best.flux selection with the Hueppi et al. (2018)

@@ -1,15 +1,13 @@
 # ============================================================
-# flux_figures.R
+# 03_flux_by_species.R
 #
-# Main figure for CH4 tree flux by species and location.
-# Also runs statistical models (mixed effects, emmeans).
+# Figure 2: tree-mean CH4 flux by species and site (boxplots, with an inset). Also prints
+# mixed models of flux by species and site with emmeans contrasts (console/log only).
 #
-# Run AFTER: timeseries.R (which creates the corrected flux file)
-#
-# Outputs:
-#   - fig2_final.png/pdf (main boxplot with inset)
+# Input : data/final/stem_ch4_flux.csv
+# Outputs (outputs/figures/):
+#   - fig2_final.png/pdf (main boxplot with inset; Figure 2)
 #   - fig2_main_only.png/pdf (without inset)
-#   - Statistical model summaries printed to console
 # ============================================================
 
 suppressPackageStartupMessages({

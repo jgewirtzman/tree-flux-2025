@@ -1,14 +1,31 @@
 # ============================================================
 # 03_upland_model_B.R
-# 
-# EMS (Upland) CH4 flux modeling - EXACT BGS CORE DRIVERS
 #
-# Forces the exact same core predictors from BGS wetland model:
-#   - TS_Ha2 (optimal wetland window, from 4_analysis/05_window_screening.R) - soil temperature
-#   - bvs_wtd_cm (optimal wetland window) - water table depth
-# 
-# This allows direct comparison of the same model structure
-# between wetland and upland sites
+# Upland (EMS) driver model B: the wetland model's core drivers and windows, for a direct
+# comparison of the same model structure at both sites. The core drivers TS_Ha2 and bvs_wtd_cm
+# are forced in at their best wetland windows (read from the window screening). Same procedure
+# as 01_wetland_model.R.
+#
+# Inputs: outputs/figures/rolling_correlations/best_windows_by_variable.csv (4_analysis/05_window_screening.R),
+#         data/final/environment_hourly.csv, data/final/stem_ch4_flux.csv
+#
+# Steps (section numbers below):
+#   1-2   drivers significant in the window screening, each at its best window (raw; LE/FC also
+#         as anomalies)
+#   3-4   correlation heatmap and redundancy clusters of those drivers (diagnostic only)
+#   5-6   core drivers plus greedy forward selection among the other drivers (model_helpers.R)
+#   7-8   models without interactions; collinear predictors (GVIF > 10) dropped as listed in VIF_DROP_VARS
+#   9-11  core model temperature x water table x species; each remaining predictor tested as an
+#         addition (LRT, with and without a species interaction); the extended model replaces
+#         the core model only if it has a lower BIC
+#   12    final model refitted on asinh(flux / 0.1) using every row that has its own predictors
+#   13-16 species-specific slopes, coefficient table, model summary, VIF
+#
+# Final model:
+#   asinh(CH4 flux / 0.1) ~ TS_Ha2 (66 h) * bvs_wtd_cm (183 h) * species + (1|Tree) + (1|date)
+#
+# Outputs: outputs/models/ems_bgs_drivers/ (same files as the wetland model); diagnostics in
+#   outputs/figures/predictor_selection_ems/ (shared with model A, which runs first)
 # ============================================================
 
 suppressPackageStartupMessages({
@@ -16,7 +33,6 @@ suppressPackageStartupMessages({
   library(lme4)
   library(car)
   library(RcppRoll)
-  library(cowplot)
   library(pheatmap)
 })
 
@@ -43,7 +59,6 @@ SITE_FILTER <- "Upland"  # Changed from "Wetland" to "Upland"
 CORR_THRESHOLD <- 0.7
 
 # Forward selection settings
-N_RANDOM_RUNS <- 1   # greedy forward selection is deterministic; candidate order does not matter
 MAX_PREDICTORS <- 6
 
 # Core drivers (forced into model) - based on theory
@@ -159,238 +174,9 @@ gc()
 # HELPER FUNCTIONS
 # ============================================================
 
-# Rolling windows need at least half of their hours observed; otherwise NA
-# (a mean over a mostly empty window is not the window it claims to be)
-MIN_WINDOW_COMPLETE <- 0.5
-.win_ok <- function(x, n) RcppRoll::roll_sum(as.numeric(!is.na(x)), n = n, align = "right", fill = NA) >= MIN_WINDOW_COMPLETE * n
-roll_mean <- function(x, n) {
-  m <- RcppRoll::roll_mean(x, n = n, align = "right", fill = NA, na.rm = TRUE); m[!.win_ok(x, n) %in% TRUE] <- NA; m
-}
-
-roll_sum <- function(x, n) {
-  m <- RcppRoll::roll_sum(x, n = n, align = "right", fill = NA, na.rm = TRUE); m[!.win_ok(x, n) %in% TRUE] <- NA; m
-}
-
-make_anomaly <- function(df, var, time_col = "datetime") {
-  if (!var %in% names(df)) return(df)
-  x <- df[[var]]
-  if (!is.numeric(x)) return(df)
-  
-  df <- df %>%
-    mutate(
-      .doy  = yday(.data[[time_col]]),
-      .hour = hour(.data[[time_col]])
-    )
-  
-  grand <- mean(x, na.rm = TRUE)
-  
-  doy_means <- df %>%
-    group_by(.doy) %>%
-    summarize(.m_doy = mean(.data[[var]], na.rm = TRUE), .groups = "drop")
-  
-  hr_means <- df %>%
-    group_by(.hour) %>%
-    summarize(.m_hr = mean(.data[[var]], na.rm = TRUE), .groups = "drop")
-  
-  df %>%
-    left_join(doy_means, by = ".doy") %>%
-    left_join(hr_means, by = ".hour") %>%
-    mutate(
-      .expected = .m_doy + .m_hr - grand,
-      "{var}_anom" := .data[[var]] - .expected
-    ) %>%
-    dplyr::select(-.doy, -.hour, -.m_doy, -.m_hr, -.expected)
-}
-
-# Build feature matrix (raw mode)
-build_feature_matrix_raw <- function(aligned_data, sig_vars_df) {
-  met <- aligned_data %>% arrange(datetime)
-  result <- met %>% dplyr::select(datetime)
-  
-  for (i in seq_len(nrow(sig_vars_df))) {
-    v <- sig_vars_df$variable[i]
-    w <- sig_vars_df$window_hours[i]
-    if (!v %in% names(met)) next
-    feat_name <- paste0(v, "_", w, "h")
-    if (v %in% SUM_VARS) {
-      result[[feat_name]] <- roll_sum(met[[v]], w)
-    } else {
-      result[[feat_name]] <- roll_mean(met[[v]], w)
-    }
-  }
-  result
-}
-
-# Build combined feature matrix with both raw and anomaly versions
-build_combined_feature_matrix <- function(aligned_data, sig_vars_df) {
-  met <- aligned_data %>% arrange(datetime)
-  
-  # Create anomaly versions for all variables that need them
-  anom_vars <- sig_vars_df %>% filter(mode == "anom") %>% pull(variable) %>% unique()
-  for (v in anom_vars) {
-    if (!v %in% names(met)) next
-    met <- make_anomaly(met, v, time_col = "datetime")
-  }
-  
-  result <- met %>% dplyr::select(datetime)
-  
-  for (i in seq_len(nrow(sig_vars_df))) {
-    v <- sig_vars_df$variable[i]
-    w <- sig_vars_df$window_hours[i]
-    m <- sig_vars_df$mode[i]
-    
-    src <- if (m == "anom") paste0(v, "_anom") else v
-    if (!src %in% names(met)) next
-    
-    feat_name <- paste0(v, "_", m, "_", w, "h")
-    
-    if (v %in% SUM_VARS) {
-      result[[feat_name]] <- roll_sum(met[[src]], w)
-    } else {
-      result[[feat_name]] <- roll_mean(met[[src]], w)
-    }
-  }
-  result
-}
-
-# Plot correlation heatmap
-plot_corr_heatmap <- function(cmat, title, filename) {
-  if (nrow(cmat) > 2) {
-    hc <- hclust(as.dist(1 - abs(cmat)), method = "complete")
-    ord <- hc$order
-    cmat <- cmat[ord, ord]
-  }
-  
-  rownames(cmat) <- gsub("_\\d+h$", "", rownames(cmat))
-  colnames(cmat) <- gsub("_\\d+h$", "", colnames(cmat))
-  
-  png(filename, width = 10, height = 9, units = "in", res = 300)
-  pheatmap(
-    cmat,
-    color = colorRampPalette(c("#2166AC", "white", "#B2182B"))(100),
-    breaks = seq(-1, 1, length.out = 101),
-    display_numbers = TRUE,
-    number_format = "%.2f",
-    number_color = "black",
-    fontsize_number = 7,
-    fontsize_row = 9,
-    fontsize_col = 9,
-    main = title,
-    cluster_rows = FALSE,
-    cluster_cols = FALSE,
-    border_color = "grey90"
-  )
-  dev.off()
-  message("  Saved: ", basename(filename))
-}
-
-# Find redundant pairs
-find_redundant_pairs <- function(cmat, threshold = 0.7) {
-  pairs <- list()
-  vars <- colnames(cmat)
-  
-  for (i in 1:(length(vars) - 1)) {
-    for (j in (i + 1):length(vars)) {
-      r <- cmat[i, j]
-      if (!is.na(r) && abs(r) >= threshold) {
-        pairs[[length(pairs) + 1]] <- tibble(
-          var1 = vars[i],
-          var2 = vars[j],
-          r = round(r, 3)
-        )
-      }
-    }
-  }
-  
-  bind_rows(pairs) %>% arrange(desc(abs(r)))
-}
-
-# Selection algorithm with clustering
-select_predictors_combined <- function(sig_vars_df, cmat, feat_matrix, threshold = 0.7) {
-  vars_in_cmat <- colnames(cmat)
-  
-  sig_vars_df <- sig_vars_df %>%
-    mutate(feat_name = paste0(variable, "_", mode, "_", window_hours, "h"))
-  
-  sig_vars_df <- sig_vars_df %>%
-    filter(feat_name %in% vars_in_cmat)
-  
-  if (nrow(sig_vars_df) == 0) return(tibble())
-  
-  # Compute missingness
-  missingness <- feat_matrix %>%
-    dplyr::select(-datetime) %>%
-    summarize(across(everything(), ~ mean(is.na(.)))) %>%
-    pivot_longer(everything(), names_to = "feat_name", values_to = "missing_frac")
-  
-  sig_vars_df <- sig_vars_df %>%
-    left_join(missingness, by = "feat_name")
-  
-  # Build adjacency matrix
-  adj <- abs(cmat) >= threshold
-  diag(adj) <- FALSE
-  
-  # Find connected components via BFS
-  n <- nrow(cmat)
-  visited <- rep(FALSE, n)
-  cluster_id <- rep(NA_integer_, n)
-  current_cluster <- 0
-  
-  for (start in 1:n) {
-    if (visited[start]) next
-    current_cluster <- current_cluster + 1
-    queue <- start
-    
-    while (length(queue) > 0) {
-      node <- queue[1]
-      queue <- queue[-1]
-      if (visited[node]) next
-      visited[node] <- TRUE
-      cluster_id[node] <- current_cluster
-      neighbors <- which(adj[node, ] & !visited)
-      queue <- c(queue, neighbors)
-    }
-  }
-  
-  cluster_map <- tibble(
-    feat_name = vars_in_cmat,
-    cluster = cluster_id
-  )
-  
-  sig_vars_df <- sig_vars_df %>%
-    left_join(cluster_map, by = "feat_name")
-  
-  # Within each cluster, select best variable
-  selected <- sig_vars_df %>%
-    group_by(cluster) %>%
-    arrange(desc(abs(r)), missing_frac) %>%
-    slice(1) %>%
-    ungroup() %>%
-    mutate(
-      selection_reason = "highest |r| in cluster",
-      cluster_size = map_int(cluster, ~ sum(sig_vars_df$cluster == .x))
-    )
-  
-  # Track dropped variables
-  dropped <- sig_vars_df %>%
-    filter(!feat_name %in% selected$feat_name) %>%
-    dplyr::select(variable, mode, feat_name, r, cluster)
-  
-  selected <- selected %>%
-    rowwise() %>%
-    mutate(
-      dropped_vars = paste(
-        dropped %>%
-          filter(cluster == .data$cluster) %>%
-          mutate(label = paste0(variable, "_", mode)) %>%
-          pull(label),
-        collapse = ", "
-      )
-    ) %>%
-    ungroup()
-  
-  selected
-}
+# roll_mean(), roll_sum(), make_anomaly(), feature matrices, redundancy clustering,
+# forward_select(): shared with the other model scripts
+source("scripts/5_models/model_helpers.R")
 
 # ============================================================
 # 1. LOAD DATA
@@ -564,13 +350,14 @@ cat("Specific anomaly predictors (LE/FC):", nrow(ems_anom_subset), "\n")
 
 # The BGS (wetland) optimal windows are read from the rolling-correlation output so
 # they track the wetland model (5_models/01_wetland_model.R) whenever the flux data change.
-bgs_win <- function(var, fallback) {
+bgs_win <- function(var) {
   w <- bw %>% filter(site == "Wetland", variable == var, analysis == "raw") %>%
     slice_max(abs(r), n = 1, with_ties = FALSE)
-  if (nrow(w) == 1) as.integer(w$window_hours) else fallback
+  if (nrow(w) != 1) stop("No wetland window for ", var, " in ", PATHS$best_windows)
+  as.integer(w$window_hours)
 }
-BGS_TS_WINDOW <- bgs_win(CORE_TS_VAR, 282)    # TS_Ha2 optimal raw window at BGS
-BGS_WTD_WINDOW <- bgs_win(CORE_WTD_VAR, 132)  # bvs_wtd_cm optimal raw window at BGS
+BGS_TS_WINDOW <- bgs_win(CORE_TS_VAR)    # TS_Ha2 best raw window at BGS (66 h with the published data)
+BGS_WTD_WINDOW <- bgs_win(CORE_WTD_VAR)  # bvs_wtd_cm best raw window at BGS (183 h)
 
 forced_core <- tibble(
   variable = c(CORE_TS_VAR, CORE_WTD_VAR),
@@ -665,107 +452,35 @@ cat("\nModel data:", nrow(model_data_scaled), "observations\n")
 cat("Core predictors:", length(core_names), "\n")
 cat("Candidate predictors:", length(candidate_names), "\n\n")
 
-# Store unscaled for plotting later
-model_data_unscaled <- model_data
-
 # Total variance for R²
 # Selection uses the same response scale as the final model: asinh(flux in nmol m-2 s-1)
 model_data_scaled <- model_data_scaled %>% mutate(CH4_flux_umol = CH4_flux, CH4_flux = asinh(CH4_flux * 1000 / 0.1), date = factor(as.Date(datetime)))
 var_total <- var(model_data_scaled$CH4_flux)
 
 # ============================================================
-# 6. RANDOMIZED FORWARD SELECTION
+# 6. FORWARD SELECTION
 # ============================================================
 
 message("\n")
 message("══════════════════════════════════════════════════")
-message("       6. RANDOMIZED FORWARD SELECTION            ")
+message("       6. FORWARD SELECTION                       ")
 message("══════════════════════════════════════════════════")
 
-cat("Running", N_RANDOM_RUNS, "iterations...\n")
 cat("Core drivers (always first):", paste(core_names, collapse = ", "), "\n")
 cat("Candidates:", length(candidate_names), "predictors\n\n")
 
-step_records <- list()
+step_df <- forward_select(core_names, candidate_names, model_data_scaled, var_total, MAX_PREDICTORS) %>%
+  left_join(bind_rows(core_info, candidate_info) %>% dplyr::select(predictor, variable, var_group, mode, r),
+            by = "predictor")
 
-for (run in 1:N_RANDOM_RUNS) {
-  if (run %% 20 == 0) cat("  Run", run, "/", N_RANDOM_RUNS, "\n")
-  
-  selected <- core_names
-  remaining <- sample(candidate_names)
-  
-  for (step in 1:MAX_PREDICTORS) {
-    best_r2 <- -Inf
-    best_pred <- NULL
-    
-    for (pred in remaining) {
-      current_preds <- c(selected, pred)
-      formula_str <- paste("CH4_flux ~", paste(current_preds, collapse = " + "),
-                           "+ species + (1|Tree) + (1|date)")
-      
-      tryCatch({
-        fit <- lmer(as.formula(formula_str), data = model_data_scaled, REML = FALSE)
-        r2 <- var(predict(fit, re.form = NA)) / var_total
-        
-        if (r2 > best_r2) {
-          best_r2 <- r2
-          best_pred <- pred
-        }
-      }, error = function(e) NULL)
-    }
-    
-    if (is.null(best_pred)) break
-    
-    step_records[[length(step_records) + 1]] <- tibble(
-      run = run,
-      step = step,
-      predictor = best_pred,
-      r2 = best_r2
-    )
-    
-    selected <- c(selected, best_pred)
-    remaining <- setdiff(remaining, best_pred)
-  }
-}
+cat("Forward selection (predictor added at each step; fixed-effect variance share after it):\n")
+print(step_df %>% mutate(r2 = round(r2, 3), r = round(r, 3)))
 
-step_df <- bind_rows(step_records)
+write_csv(step_df, "outputs/figures/predictor_selection_ems/forward_selection_steps.csv")
 
-# Selection frequency
-selection_freq <- step_df %>%
-  group_by(predictor) %>%
-  summarize(
-    n_selected = n(),
-    pct_selected = n() / N_RANDOM_RUNS * 100,
-    mean_step = mean(step),
-    .groups = "drop"
-  ) %>%
-  left_join(
-    bind_rows(core_info, candidate_info) %>%
-      dplyr::select(predictor, variable, var_group, mode, r),
-    by = "predictor"
-  ) %>%
-  arrange(desc(pct_selected))
-
-cat("\nSelection frequency (top 15):\n")
-selection_freq %>%
-  head(15) %>%
-  mutate(
-    pct_selected = round(pct_selected, 1),
-    mean_step = round(mean_step, 2),
-    r = round(r, 3)
-  ) %>%
-  print()
-
-write_csv(selection_freq, "outputs/figures/predictor_selection_ems/theory_driven_selection_freq.csv")
-
-# Strong consensus (≥80%)
-strong_consensus <- selection_freq %>%
-  filter(pct_selected >= 80)
-
-cat("\nStrong consensus predictors (≥80%):", nrow(strong_consensus), "\n")
-if (nrow(strong_consensus) > 0) {
-  print(strong_consensus %>% dplyr::select(predictor, pct_selected, mean_step))
-}
+# Selected predictors, listed alphabetically (C locale) after the core drivers: the term order
+# of the published run, which listed them from a selection-frequency table.
+selected_preds <- sort(unique(step_df$predictor), method = "radix")
 
 # ============================================================
 # 7. MODEL COMPARISON (NO INTERACTIONS)
@@ -786,9 +501,9 @@ core_formula <- paste("CH4_flux ~", paste(core_names, collapse = " + "), "+ spec
 m_core <- lmer(as.formula(core_formula), data = model_data_scaled, REML = FALSE)
 r2_core <- var(predict(m_core, re.form = NA)) / var_total
 
-# Core + consensus
-if (nrow(strong_consensus) > 0) {
-  strong_preds <- c(core_names, strong_consensus$predictor)
+# Core + forward-selected
+if (length(selected_preds) > 0) {
+  strong_preds <- c(core_names, selected_preds)
   strong_formula <- paste("CH4_flux ~", paste(strong_preds, collapse = " + "), "+ species + (1|Tree) + (1|date)")
   m_strong <- lmer(as.formula(strong_formula), data = model_data_scaled, REML = FALSE)
   r2_strong <- var(predict(m_strong, re.form = NA)) / var_total
@@ -804,11 +519,11 @@ cat(sprintf("%-25s %6s %8s %8s\n", "Model", "R²", "AIC", "BIC"))
 cat("─────────────────────────────────────────────────────\n")
 cat(sprintf("%-25s %5.1f%% %8.1f %8.1f\n", "Species only", r2_species*100, AIC(m_species), BIC(m_species)))
 cat(sprintf("%-25s %5.1f%% %8.1f %8.1f\n", "Core drivers", r2_core*100, AIC(m_core), BIC(m_core)))
-cat(sprintf("%-25s %5.1f%% %8.1f %8.1f\n", "Core + consensus", r2_strong*100, AIC(m_strong), BIC(m_strong)))
+cat(sprintf("%-25s %5.1f%% %8.1f %8.1f\n", "Core + selected", r2_strong*100, AIC(m_strong), BIC(m_strong)))
 cat("─────────────────────────────────────────────────────\n")
 
 # VIF for strong model
-cat("\nVIF for core + consensus model:\n")
+cat("\nVIF for core + selected model:\n")
 print(vif(m_strong))
 
 # ============================================================
@@ -835,11 +550,11 @@ if (is.na(ts_pred) || is.na(wtd_pred)) {
   stop("Required core predictors (", CORE_TS_VAR, " and/or ", CORE_WTD_VAR, ") not found!")
 }
 
-# Start with consensus predictors from forward selection
+# Start with the forward-selected predictors
 refined_preds <- strong_preds
 
 # Check VIF
-cat("VIF for core + consensus model:\n")
+cat("VIF for core + selected model:\n")
 vif_vals <- vif(m_strong)
 vif_df <- data.frame(
   predictor = rownames(vif_vals),
@@ -1161,7 +876,6 @@ final_preds <- setdiff(all.vars(as.formula(best_formula)), c("CH4_flux", "specie
 model_data <- stem_flux %>%
   left_join(features, by = "datetime") %>%
   drop_na(CH4_flux, all_of(final_preds))
-model_data_unscaled <- model_data
 zs <- function(x) (x - mean(x, na.rm = TRUE)) / sd(x, na.rm = TRUE)
 model_data_scaled <- model_data %>%
   mutate(across(any_of(unique(c(final_preds, all_pred_names))), zs),
@@ -1285,12 +999,12 @@ print(species_slopes %>% mutate(across(where(is.numeric), ~round(., 3))))
 write_csv(species_slopes, file.path(OUTPUT_DIR, "species_slopes.csv"))
 
 # ============================================================
-# 14. EFFECT SIZE PLOT
+# 14. COEFFICIENT TABLE
 # ============================================================
 
 message("\n")
 message("══════════════════════════════════════════════════")
-message("       14. EFFECT SIZE PLOT                       ")
+message("       14. COEFFICIENT TABLE                      ")
 message("══════════════════════════════════════════════════")
 
 # Build a mapping of predictor names to clean labels
@@ -1359,195 +1073,7 @@ coef_df <- coef_df %>%
     )
   )
 
-effect_colors <- c(
-  "Main effect" = "#2166AC",
-  "Species intercept" = "#4DAF4A",
-  "2-way interaction" = "#FF7F00",
-  "3-way interaction" = "#E31A1C"
-)
-
-p_effects <- ggplot(coef_df, aes(x = estimate, y = reorder(term_clean, estimate), color = effect_type)) +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "gray50") +
-  geom_errorbarh(aes(xmin = lower, xmax = upper), height = 0.2, linewidth = 0.8) +
-  geom_point(aes(shape = significant), size = 3) +
-  scale_color_manual(values = effect_colors, name = "Effect type") +
-  scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1),
-                     labels = c("TRUE" = "p < 0.05", "FALSE" = "p ≥ 0.05"),
-                     name = "Significance") +
-  labs(
-    x = "Coefficient (± 95% CI)",
-    y = NULL,
-    title = "Effect sizes for CH₄ flux model",
-    subtitle = paste0("R² = ", round(r2_final * 100, 1), "%")
-  ) +
-  theme_classic(base_size = 12) +
-  theme(
-    legend.position = "right",
-    plot.title = element_text(face = "bold")
-  )
-
-ggsave(file.path(OUTPUT_DIR, "effect_sizes.png"), p_effects,
-       width = 10, height = 7, dpi = 300)
-ggsave(file.path(OUTPUT_DIR, "effect_sizes.pdf"), p_effects,
-       width = 10, height = 7)
-
-message("Saved: effect_sizes.png/pdf")
-
 write_csv(coef_df, file.path(OUTPUT_DIR, "coefficients.csv"))
-
-# ============================================================
-# 15. INTERACTION PLOTS
-# ============================================================
-
-message("\n")
-message("══════════════════════════════════════════════════")
-message("       15. INTERACTION PLOTS                      ")
-message("══════════════════════════════════════════════════")
-
-# Get scaling parameters using dynamic predictor names
-scaling_params <- list(
-  TS_mean = mean(model_data_unscaled[[ts_pred]], na.rm = TRUE),
-  TS_sd = sd(model_data_unscaled[[ts_pred]], na.rm = TRUE),
-  WTD_mean = mean(model_data_unscaled[[wtd_pred]], na.rm = TRUE),
-  WTD_sd = sd(model_data_unscaled[[wtd_pred]], na.rm = TRUE)
-)
-
-# Prediction grid
-temp_range_scaled <- seq(-2, 2, length.out = 100)
-wtd_percentiles <- c(10, 25, 50, 75, 90)
-
-wtd_quantiles_unscaled <- quantile(model_data_unscaled[[wtd_pred]],
-                                   probs = wtd_percentiles/100, na.rm = TRUE)
-wtd_quantiles_scaled <- (wtd_quantiles_unscaled - scaling_params$WTD_mean) / scaling_params$WTD_sd
-
-temp_unscaled <- temp_range_scaled * scaling_params$TS_sd + scaling_params$TS_mean
-
-# Get all predictor names needed for prediction (from the model terms)
-model_vars <- all.vars(formula(m_final))
-model_vars <- setdiff(model_vars, c("CH4_flux_asinh", "Tree", "species"))
-
-# Get actual species levels from data (species_names already defined in section 13)
-species_levels <- levels(model_data_scaled$species)
-
-# Generate predictions
-pred_list <- list()
-
-for (sp in species_levels) {
-  for (i in seq_along(wtd_percentiles)) {
-    # Build prediction dataframe - start with the right number of rows
-    n_pts <- length(temp_range_scaled)
-    
-    pred_df <- data.frame(
-      species = factor(rep(sp, n_pts), levels = species_levels),
-      Tree = factor(rep(model_data_scaled$Tree[1], n_pts), levels = levels(model_data_scaled$Tree))
-    )
-    
-    # Add core predictors
-    pred_df[[ts_pred]] <- temp_range_scaled
-    pred_df[[wtd_pred]] <- rep(wtd_quantiles_scaled[i], n_pts)
-    
-    # Add any additional predictors at their mean (0 for scaled data)
-    for (v in model_vars) {
-      if (!v %in% names(pred_df) && v %in% names(model_data_scaled)) {
-        pred_df[[v]] <- rep(0, n_pts)  # Mean for scaled predictors
-      }
-    }
-    
-    pred_df$fit_asinh <- predict(m_final, newdata = pred_df, re.form = NA)
-    pred_df$fit <- 0.1 * sinh(pred_df$fit_asinh) / 1000  # back-transform
-    
-    pred_df$temp_unscaled <- temp_unscaled
-    pred_df$swc_percentile <- wtd_percentiles[i]
-    pred_df$species_name <- ifelse(sp %in% names(species_names), species_names[sp], sp)
-    
-    pred_list[[length(pred_list) + 1]] <- pred_df
-  }
-}
-
-pred_all <- bind_rows(pred_list) %>%
-  mutate(
-    species_name = factor(species_name),
-    swc_percentile = factor(swc_percentile)
-  )
-
-# Colors
-wtd_colors <- c("10" = "#8B4513", "25" = "#CD853F", "50" = "#808080",
-                "75" = "#6495ED", "90" = "#0000CD")
-
-# Dynamic species colors
-unique_species <- unique(pred_all$species_name)
-species_color_palette <- c("#1B9E77", "#D95F02", "#7570B3", "#E7298A")
-species_colors <- setNames(species_color_palette[1:length(unique_species)], unique_species)
-
-# Panel plot by species
-p_interaction <- ggplot(pred_all, aes(x = temp_unscaled, y = fit * 1000,
-                                      color = swc_percentile)) +
-  geom_line(linewidth = 1.2) +
-  facet_wrap(~ species_name, scales = "free_y") +
-  scale_color_manual(values = wtd_colors, labels = paste0(wtd_percentiles, "th"),
-                     name = "Water table\npercentile") +
-  labs(
-    x = "Soil temperature (°C)",
-    y = expression(CH[4]~flux~(nmol~m^{-2}~s^{-1})),
-    title = "Temperature × soil moisture interactions by species"
-  ) +
-  theme_classic(base_size = 12) +
-  theme(
-    strip.background = element_blank(),
-    strip.text = element_text(face = "bold", size = 12),
-    legend.position = "right",
-    plot.title = element_text(face = "bold")
-  )
-
-ggsave(file.path(OUTPUT_DIR, "interaction_by_species.png"), p_interaction,
-       width = 12, height = 5, dpi = 300)
-ggsave(file.path(OUTPUT_DIR, "interaction_by_species.pdf"), p_interaction,
-       width = 12, height = 5)
-
-message("Saved: interaction_by_species.png/pdf")
-
-# Comparison plot (wet vs dry)
-pred_extremes <- pred_all %>%
-  filter(swc_percentile %in% c("10", "90"))
-
-p_comparison <- ggplot(pred_extremes, aes(x = temp_unscaled, y = fit * 1000,
-                                          color = species_name, linetype = swc_percentile)) +
-  geom_line(linewidth = 1.2) +
-  scale_color_manual(values = species_colors, name = "Species") +
-  scale_linetype_manual(values = c("10" = "dashed", "90" = "solid"),
-                        labels = c("10" = "Dry (10th)", "90" = "Wet (90th)"),
-                        name = "Water table") +
-  labs(
-    x = "Soil temperature (°C)",
-    y = expression(CH[4]~flux~(nmol~m^{-2}~s^{-1})),
-    title = "Species differ in temperature × soil moisture response"
-  ) +
-  theme_classic(base_size = 12) +
-  theme(legend.position = "right", plot.title = element_text(face = "bold"))
-
-ggsave(file.path(OUTPUT_DIR, "interaction_comparison.png"), p_comparison,
-       width = 9, height = 6, dpi = 300)
-ggsave(file.path(OUTPUT_DIR, "interaction_comparison.pdf"), p_comparison,
-       width = 9, height = 6)
-
-message("Saved: interaction_comparison.png/pdf")
-
-# Combined figure
-p_combined <- plot_grid(
-  p_effects + theme(legend.position = "bottom", legend.box = "horizontal"),
-  p_interaction + theme(legend.position = "bottom"),
-  ncol = 1,
-  rel_heights = c(1, 0.8),
-  labels = c("A", "B"),
-  label_size = 14
-)
-
-ggsave(file.path(OUTPUT_DIR, "figure_combined.png"), p_combined,
-       width = 12, height = 12, dpi = 300)
-ggsave(file.path(OUTPUT_DIR, "figure_combined.pdf"), p_combined,
-       width = 12, height = 12)
-
-message("Saved: figure_combined.png/pdf")
 
 # ============================================================
 # 16. SAVE OUTPUTS
@@ -1609,4 +1135,3 @@ for (i in 1:nrow(species_slopes)) {
 message("")
 message("Output directory: ", OUTPUT_DIR)
 message("══════════════════════════════════════════════════")
-

@@ -28,7 +28,8 @@ find_ameriflux <- function(site_id, base_dir = AMERIFLUX_DIR) {
          "\n  Run scripts/0_data/02_download_ameriflux.R first.")
   }
   if (length(csvs) > 1) {
-    message("Multiple AmeriFlux versions found for ", site_id, ", using newest: ", basename(csvs[length(csvs)]))
+    message("Multiple AmeriFlux versions found for ", site_id, ", using: ", basename(csvs[length(csvs)]))
   }
+  message("AmeriFlux ", site_id, ": ", basename(csvs[length(csvs)]))   # the BASE version used (in the file name)
   csvs[length(csvs)]
 }

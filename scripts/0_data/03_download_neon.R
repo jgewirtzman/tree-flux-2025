@@ -40,6 +40,7 @@ for (dp in c(dp1, "DP4.00200.001")) {
 rl <- do.call(rbind, lapply(list.files(OUT, pattern = "^DP", full.names = TRUE), function(d) {
   f <- list.files(d, recursive = TRUE, include.dirs = TRUE, pattern = "^NEON\\.D01\\.HARV")
   f <- unique(basename(f[grepl("\\d{4}-\\d{2}\\.(basic|expanded)\\.", f)]))
+  f <- f[grepl("RELEASE-\\d{4}|PROVISIONAL", f)]   # the release is in the folder names, not the data file names
   if (!length(f)) return(NULL)
   data.frame(product = basename(d), month = sub(".*\\.(\\d{4}-\\d{2})\\..*", "\\1", f),
              release = ifelse(grepl("PROVISIONAL", f), "PROVISIONAL", sub(".*\\.(RELEASE-\\d{4}).*", "\\1", f)))

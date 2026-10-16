@@ -1,73 +1,41 @@
 # ============================================================
 # 04_download_phenocam.R
-# Download PhenoCam GCC/NDVI data for Harvard Forest EMS
+# Download the PhenoCam 1-day NDVI summary for the Harvard Forest EMS camera
+# (harvardems2, deciduous broadleaf ROI 1000), the file 1_environment/04_hourly_drivers.R
+# reads (columns gcc_90 and ndvi_90):
 #
-# Downloads: harvardems2 camera, deciduous broadleaf ROI
-# Output: data/external/phenocam/
+#   data/external/phenocam/harvardems2_DB_1000_ndvi_1day.txt
 #
-# Requires: phenocamr package
-# ============================================================
-
-library(phenocamr)
-
-# ============================================================
-# CONFIGURATION
+# PhenoCam regenerates this file as new images arrive; its header records the creation date.
+# The published results used the file created 2026-01-06 (downloaded 2026-01-07). A local
+# copy is kept unless PHENOCAM_REFRESH=1, so reruns use the same file.
+#
+# (phenocamr::download_phenocam() only fetches the GCC summary, <site>_<veg>_<roi>_<n>day.csv,
+#  not this NDVI file, so it is not used here.)
 # ============================================================
 
 OUT_DIR <- "data/external/phenocam"
+FILE <- "harvardems2_DB_1000_ndvi_1day.txt"
+URL <- paste0("https://phenocam.nau.edu/data/archive/harvardems2/ROI/", FILE)
+dest <- file.path(OUT_DIR, FILE)
 dir.create(OUT_DIR, recursive = TRUE, showWarnings = FALSE)
 
-# ============================================================
-# DOWNLOAD GCC (3-day frequency, includes NDVI)
-# ============================================================
-
-message("=== Downloading PhenoCam data for harvardems2 ===")
-
-tryCatch({
-  download_phenocam(
-    site = "harvardems2$",
-    veg_type = "DB",
-    roi_id = "1000",
-    frequency = "1",
-    outlier_detection = FALSE,
-    smooth = FALSE,
-    out_dir = OUT_DIR
-  )
-  message("  Download complete")
-}, error = function(e) {
-  message("  ERROR: ", e$message)
-  message("  Trying direct URL download as fallback...")
-
-  # Fallback: direct download from PhenoCam server
-  base_url <- "https://phenocam.nau.edu/data/archive/harvardems2/ROI"
-  files <- c(
-    "harvardems2_DB_1000_1day_v3.csv",
-    "harvardems2_DB_1000_ndvi_1day.txt"
-  )
-
-  for (f in files) {
-    url <- file.path(base_url, f)
-    dest <- file.path(OUT_DIR, f)
-    tryCatch({
-      download.file(url, dest, mode = "wb", quiet = TRUE)
-      message("  Downloaded: ", f)
-    }, error = function(e2) {
-      message("  Could not download: ", f)
-    })
-  }
-})
-
-# ============================================================
-# VERIFY
-# ============================================================
-
-message("\n=== Checking downloaded files ===")
-files <- list.files(OUT_DIR, pattern = "harvardems2", recursive = TRUE)
-if (length(files) > 0) {
-  for (f in files) message("  Found: ", f)
+if (file.exists(dest) && Sys.getenv("PHENOCAM_REFRESH") != "1") {
+  message("Keeping the local copy: ", dest, " (set PHENOCAM_REFRESH=1 to download again)")
 } else {
-  message("  No files found. Download manually from:")
-  message("  https://phenocam.nau.edu/webcam/sites/harvardems2/")
+  message("Downloading ", URL)
+  tmp <- tempfile(fileext = ".txt")
+  ok <- tryCatch(download.file(URL, tmp, mode = "wb", quiet = TRUE) == 0, error = function(e) FALSE)
+  if (!ok || !file.exists(tmp) || file.size(tmp) == 0)
+    stop("Could not download ", URL, "\n  Download it by hand from https://phenocam.nau.edu/webcam/sites/harvardems2/ into ", OUT_DIR)
+  file.copy(tmp, dest, overwrite = TRUE)
 }
 
-message("\nDone. Files saved to: ", OUT_DIR)
+# check that the file is what the drivers read, and record its version
+hdr <- readLines(dest, n = 30, warn = FALSE)
+cols <- strsplit(hdr[!startsWith(hdr, "#")][1], ",")[[1]]
+if (!all(c("date", "gcc_90", "ndvi_90") %in% cols))
+  stop(dest, " is not a PhenoCam NDVI summary (expected columns date, gcc_90, ndvi_90)")
+created <- sub("^# Creation Date: *", "", grep("^# Creation Date:", hdr, value = TRUE))
+message("PhenoCam file: ", dest, "; created ", if (length(created)) created else "(unknown)",
+        "; downloaded ", format(file.mtime(dest), "%Y-%m-%d"))

@@ -1,11 +1,19 @@
 # ============================================================
 # 07_manuscript_numbers.R
 #
-# Every number quoted in the manuscript text, computed in one place from
-# the analysis dataset and the saved models, with the sample sizes,
-# confidence intervals and standard errors.
+# Numbers for the manuscript text, with their sample sizes, confidence intervals and
+# standard errors, computed in one place from the analysis dataset and the saved models:
+# data, site and species means, seasonality, upland detection by analyzer, variance
+# partitioning, model coefficients and species slopes, tomography summaries, the 2025
+# drought, synchrony (from 4_analysis/04_repeatability.R) and the model checks (appended
+# from 06_model_checks.R). Some numbers in the text come from other outputs (e.g. Figure 5
+# tests from outputs/tables/ert_allobs_tests.csv; SI tables from 6_manuscript/01_build_si.R).
 #
 # Run after 4_analysis/ and 5_models/01-06.
+# Inputs: data/final/stem_ch4_flux.csv, environment_hourly.csv, tomography_classes.csv;
+#   data/package/tomography/ERT_application_results.csv; outputs/models/*/ (m_final.rds,
+#   m_core_asinh.rds, model_data_info.csv); outputs/tables/synchrony_by_group.csv;
+#   outputs/tables/model_checks/model_checks_summary.txt
 #
 # Outputs (outputs/tables/manuscript/):
 #   manuscript_numbers.txt           human-readable summary for the text
@@ -14,6 +22,7 @@
 #   monthly_means.csv, summer_by_year.csv
 #   variance_partitioning.csv        shares that sum to 100 %
 #   coefficients_<model>.csv         SI tables: every fixed effect with SE, t, p
+#                                    (models: wetland_core, upland_A, upland_B)
 #   species_slopes_<model>.csv       species-specific standardized slopes with SE
 #   vif_<model>.csv
 #   model_data_info.csv              n obs, n trees, date range per model
@@ -156,7 +165,6 @@ for (mdl in unique(vp$model)) { x <- vp[vp$model == mdl, ]
 # ------------------------------------------------------------
 models <- list(
   wetland_core = "outputs/models/bgs_final/m_core_asinh.rds",
-  wetland_full = "outputs/models/bgs_final/m_final.rds",
   upland_A = "outputs/models/ems_instantaneous/m_final.rds",
   upland_B = "outputs/models/ems_bgs_drivers/m_final.rds")
 info_files <- c(wetland = "outputs/models/bgs_final/model_data_info.csv",
@@ -204,6 +212,11 @@ coef_table <- function(m) {
   tibble(term = rownames(s), estimate = s[, 1], se = s[, 2], df = Inf, t = s[, 3], p = 2 * pnorm(-abs(s[, 3])))
 }
 sp_names <- c(bg = "N. sylvatica", hem = "T. canadensis", rm = "A. rubrum", ro = "Q. rubra")
+# wetland: the final model (bgs_final/m_final.rds) is the core model unless the extended model has a
+# lower BIC (01_wetland_model.R, section 11); report it only if it differs from the core model
+mf <- "outputs/models/bgs_final/m_final.rds"
+if (file.exists(mf) && !identical(deparse1(formula(readRDS(mf))), deparse1(formula(readRDS(models$wetland_core)))))
+  models <- c(models[1], wetland_full = mf, models[-1])
 for (k in names(models)) {
   if (!file.exists(models[[k]])) { say("missing model: ", models[[k]]); next }
   m <- readRDS(models[[k]])
@@ -224,7 +237,7 @@ for (k in names(models)) {
 }
 
 # ------------------------------------------------------------
-# Tomography (decay classes from the tomography paper; ERT-flux correlations)
+# Tomography (decay classes from the tomography paper; SoT loss and ERT CV by site)
 # ------------------------------------------------------------
 say("\n=== TOMOGRAPHY ===")
 tc <- read_csv(file.path("data", "final", "tomography_classes.csv"), show_col_types = FALSE)
@@ -238,15 +251,6 @@ say(sprintf("SoT structural loss > 1%%: wetland %.0f%%, upland %.0f%%; mean ± S
             100 * mean(cls$sot_structural_loss[cls$site == "Wetland"] > 1), 100 * mean(cls$sot_structural_loss[cls$site == "Upland"] > 1),
             mean(cls$sot_structural_loss[cls$site == "Wetland"]), sd(cls$sot_structural_loss[cls$site == "Wetland"]),
             mean(cls$sot_structural_loss[cls$site == "Upland"]), sd(cls$sot_structural_loss[cls$site == "Upland"])))
-ec <- file.path("outputs", "figures", "tomography", "ert_correlation_summary.csv")
-if (file.exists(ec)) {
-  e <- read_csv(ec, show_col_types = FALSE)
-  for (met in c("ert_cv", "pc1_paper")) {
-    x <- e %>% filter(metric == met)
-    if (nrow(x)) say(sprintf("%s vs tree-mean CH4: %s", met,
-                             paste(sprintf("%s r = %.2f (p = %.3g, n = %d)", x$group, x$r, x$p, x$n), collapse = "; ")))
-  }
-}
 cvs <- read_csv(file.path("data", "package", "tomography", "ERT_application_results.csv"), show_col_types = FALSE) %>%
   rename(ert_cv = cv) %>% mutate(tree = as.character(tree)) %>% inner_join(tc %>% mutate(tree = as.character(tree)), by = "tree")
 for (s in c("Wetland", "Upland")) say(sprintf("ERT CV %s: %.3f ± %.3f (n = %d)", s,

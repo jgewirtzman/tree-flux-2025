@@ -5,11 +5,13 @@
 #
 # Downloads from Harvard Forest LTER Data Archive:
 #   - HF001: Fisher Met Station (15-min air temp, RH, precip, etc.)
-#   - HF070: Stream temperature & discharge (15-min, includes BGS/BVS water table)
+#   - HF070: Prospect Hill hydrological stations (15-min, includes BGS/BVS water table)
+# Local copies in data/external/hf_archive/ take precedence; otherwise the newest revision
+# of each package is downloaded (the revision used is printed and saved in wtd_met_sources.txt).
 #
 # Processes 15-min data to hourly and joins into wtd_met.csv
 #
-# Output: data/interim/wtd_met.csv
+# Output: data/interim/wtd_met.csv, data/interim/wtd_met_sources.txt (source of each table)
 #
 # Requires: tidyverse, lubridate, plantecophys
 # ============================================================
@@ -53,8 +55,13 @@ LOCAL_FISHER <- "data/external/hf_archive/hf001-10-15min-m.csv"
 LOCAL_HYDRO  <- "data/external/hf_archive/hf070-04-15min.csv"
 FISHER_MET_URL <- if (file.exists(LOCAL_FISHER)) LOCAL_FISHER else newest_entity_url(1,  34, "0b439e8fea983c9e20bb2bfaf91931e6")
 HYDRO_URL      <- if (file.exists(LOCAL_HYDRO))  LOCAL_HYDRO  else newest_entity_url(70, 36, "2983b2adba6675e805d144a05087924d")
-writeLines(c(paste("HF001", FISHER_MET_URL), paste("HF070", HYDRO_URL), paste("downloaded", Sys.time())),
-           "data/interim/wtd_met_sources.txt")
+# record which version was used: a local copy (its file date; the revision is not in the file),
+# or the package revision resolved above
+src_note <- function(id, x) if (file.exists(x)) sprintf("HF%s %s (local copy, file date %s)", id, x, format(file.mtime(x), "%Y-%m-%d")) else
+  sprintf("HF%s %s (revision %s, downloaded %s)", id, x, if (is.null(attr(x, "revision"))) "see URL" else attr(x, "revision"), format(Sys.Date()))
+src_lines <- c(src_note("001", FISHER_MET_URL), src_note("070", HYDRO_URL))
+message(paste(src_lines, collapse = "\n"))
+writeLines(src_lines, "data/interim/wtd_met_sources.txt")
 
 # ============================================================
 # STEP 1: Download Fisher Met Station (HF001)

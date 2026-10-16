@@ -1,20 +1,24 @@
 # ============================================================
-# rolling_correlations.R
+# 05_window_screening.R
 #
 # Rolling-window correlation analysis between CH4 stem flux and
-# environmental predictors.
+# environmental predictors (Figure 4; best windows for the driver models in 5_models/).
 #
-# Run AFTER: timeseries.R (which creates the corrected flux file)
+# Inputs: data/final/stem_ch4_flux.csv, data/final/environment_hourly.csv
 #
 # Approach:
+#   - Response: asinh(flux / 0.1), as a deviation from each tree's mean
+#   - Right-aligned rolling means of each driver (scripts/helpers/windows.R), windows in
+#     3-h steps up to MAX_DAYS
 #   - Both raw and anomaly-filtered correlations
 #   - Anomaly filtering removes DOY + hour main effects
-#   - 3-hour resolution windows (3h to 14 days)
 #   - BH-FDR correction across variables (not windows)
 #
-# Outputs:
-#   - CSV: correlations_all_windows.csv, best_windows_by_variable.csv
-#   - Figures: heatmaps, surface plots, line plots by group, bar plots
+# Outputs (outputs/figures/rolling_correlations/):
+#   - CSV: correlations_all_windows.csv, best_windows_by_variable.csv (read by 5_models/),
+#     significant_variables.csv, comparison_raw_vs_anomaly.csv
+#   - Figures: heatmaps, surface plots (surface_grouped_both_raw = Figure 4), line plots by
+#     group, bar plots
 # ============================================================
 
 suppressPackageStartupMessages({
@@ -23,6 +27,7 @@ suppressPackageStartupMessages({
   library(RcppRoll)
   library(scales)
 })
+source("scripts/helpers/windows.R")   # roll_mean(), make_anomaly()
 
 # ============================================================
 # CONFIGURATION
@@ -102,11 +107,7 @@ calc_rolling_means <- function(data, vars, window_hours) {
   
   for (var in vars) {
     if (!var %in% names(data)) next
-    m <- RcppRoll::roll_mean(data[[var]], n = window_hours, align = "right", fill = NA, na.rm = TRUE)
-    # require at least half of the window's hours to be observed
-    ok <- RcppRoll::roll_sum(as.numeric(!is.na(data[[var]])), n = window_hours, align = "right", fill = NA) >= 0.5 * window_hours
-    m[!ok %in% TRUE] <- NA
-    result[[paste0(var, "_roll")]] <- m
+    result[[paste0(var, "_roll")]] <- roll_mean(data[[var]], window_hours)   # >= half the window observed
   }
   result
 }
@@ -130,37 +131,7 @@ safe_cor_test <- function(x, y) {
   })
 }
 
-#' Anomaly filtering: remove DOY + hour main effects
-make_anomaly <- function(df, var, time_col = "datetime") {
-  if (!var %in% names(df)) return(df)
-  x <- df[[var]]
-  if (!is.numeric(x)) return(df)
-  
-  df <- df %>%
-    mutate(
-      .doy  = yday(.data[[time_col]]),
-      .hour = hour(.data[[time_col]])
-    )
-  
-  grand <- mean(x, na.rm = TRUE)
-  
-  doy_means <- df %>%
-    group_by(.doy) %>%
-    summarize(.m_doy = mean(.data[[var]], na.rm = TRUE), .groups = "drop")
-  
-  hr_means <- df %>%
-    group_by(.hour) %>%
-    summarize(.m_hr = mean(.data[[var]], na.rm = TRUE), .groups = "drop")
-  
-  df %>%
-    left_join(doy_means, by = ".doy") %>%
-    left_join(hr_means, by = ".hour") %>%
-    mutate(
-      .expected = .m_doy + .m_hr - grand,
-      "{var}_anom" := .data[[var]] - .expected
-    ) %>%
-    dplyr::select(-.doy, -.hour, -.m_doy, -.m_hr, -.expected)
-}
+# make_anomaly(): scripts/helpers/windows.R
 
 #' Analyze all variables for one window
 analyze_window <- function(flux_data, met_roll, vars, window_days, flux_col = "CH4_flux", roll_suffix = "_roll") {

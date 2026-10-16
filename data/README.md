@@ -5,7 +5,7 @@ Nothing in `data/` is tracked by git. Four folders, in the order data flow throu
 | Folder | Contents | Made by |
 |---|---|---|
 | `package/` | the study's own primary data, as recorded; published as the data package | `scripts/0_data/01_download_data_package.R` |
-| `external/` | public data from other providers | `scripts/0_data/03-05`, `1_environment/01_met_hydro.R`, by hand (below) |
+| `external/` | public data from other providers | `scripts/0_data/02-04`, `1_environment/01_met_hydro.R`, by hand (below) |
 | `interim/` | intermediate files | stages 1–2 |
 | `final/` | compiled datasets read by every analysis | stages 1–3 |
 
@@ -32,7 +32,29 @@ Nothing in `data/` is tracked by git. Four folders, in the order data flow throu
 | `ameriflux/` | AmeriFlux BASE: US-Ha1 (v28-5), US-Ha2 (v17-5), US-xHA (v11-5) | `0_data/02_download_ameriflux.R`, or download from ameriflux.lbl.gov |
 | `neon/` | NEON HARV, RELEASE-2026 + provisional: DP1.00001, 00005, 00040, 00041, 00046, 00094, DP4.00200 | `0_data/03_download_neon.R` (`NEON_TOKEN`) |
 | `hf_archive/` | Harvard Forest Data Archive: HF001 table hf001-10 (Fisher met, 15 min), HF070 table hf070-04 (hydrology incl. BGS/BVS wells, 15 min) | `1_environment/01_met_hydro.R` downloads the newest revision if absent |
-| `phenocam/` | PhenoCam harvardems2 NDVI | `0_data/04_download_phenocam.R` |
+| `phenocam/` | PhenoCam harvardems2 (DB, ROI 1000) 1-day NDVI summary, `harvardems2_DB_1000_ndvi_1day.txt` | `0_data/04_download_phenocam.R` |
+
+### Versions used for the published results
+
+The AmeriFlux, NEON, Harvard Forest archive and PhenoCam sources are updated in place, and the
+download scripts fetch the newest version. The results were produced with these:
+
+| Source | Version used | Retrieved |
+|---|---|---|
+| AmeriFlux US-Ha1 | BASE 28-5 (`AMF_US-Ha1_BASE_HR_28-5.csv`, 1991–2026) | 30 Sep 2026 (`requested_files_manifest_20260930.txt`) |
+| AmeriFlux US-Ha2 | BASE 17-5 (`AMF_US-Ha2_BASE_HH_17-5.csv`, 2004–2026) | 30 Sep 2026 (same manifest) |
+| AmeriFlux US-xHA | BASE 11-5 (`AMF_US-xHA_BASE_HH_11-5.csv`, 2017–2024) | 6 Jan 2026 (`requested_files_manifest_20260106.txt`) |
+| NEON HARV (all seven products) | RELEASE-2026 for 2023-01 to 2025-06; PROVISIONAL for 2025-07 to 2025-12 (`neon/release_log.csv`) | 30 Sep 2026 |
+| HF001 Fisher met | table hf001-10 (15-min, metric), records to 2026-09-01 00:00; the package revision is not recorded in the file | file date 30 Sep 2026 |
+| HF070 hydrology | table hf070-04 (15-min), records to 2026-09-01 00:00; revision not recorded | file date 30 Sep 2026 |
+| PhenoCam harvardems2 | NDVI summary created 2026-01-06 (file header) | 7 Jan 2026 |
+
+Local copies take precedence over downloads (the AmeriFlux helper uses the BASE file in
+`ameriflux/`, `01_met_hydro.R` uses the `hf_archive/` files, `04_download_phenocam.R` keeps an
+existing file), and each script prints the version it used. To reproduce the published results
+without these sources, run `DRIVERS=published bash scripts/run_pipeline.sh`: stage 1 then copies
+the archived hourly drivers (`environment_hourly.csv`, from the data package) instead of rebuilding
+them, so no AmeriFlux, NEON, Harvard Forest archive or PhenoCam download is needed.
 | `gis/` | Harvard Forest GIS (HF000): `elevation_ned/` (30-m DEM, MA State Plane), `elevation_contours.geojson`, `tracts.*`, `stands_1986_93.*`; US Census `cb_2018_us_state_500k.zip` | by hand from the Harvard Forest GIS archive and census.gov |
 | `forestgeo/hf253-06-stems-2019.csv` | Harvard Forest ForestGEO census, 2019 (HF253 v6) | by hand from the Harvard Forest Data Archive (HF253) |
 
