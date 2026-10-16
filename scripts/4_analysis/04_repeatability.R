@@ -1,12 +1,12 @@
 # ============================================================
-# repeatability.R
+# 04_repeatability.R
 #
 # Tree-level repeatability and consistency analyses.
 # ICC, likelihood ratio tests, Spearman correlations, z-score tracks.
 #
-# Run AFTER: timeseries.R (which creates the corrected flux file)
+# Input : data/final/stem_ch4_flux.csv
 #
-# Outputs:
+# Outputs (outputs/figures/repeatability/ unless stated):
 #   All statistics on asinh(flux), the scale of the models.
 #   - repeatability_summary.csv: ICC, Spearman rho by species/location
 #   - fig_period_cor.png/pdf: Early vs late period scatter

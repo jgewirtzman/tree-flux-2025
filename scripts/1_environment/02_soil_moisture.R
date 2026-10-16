@@ -1,7 +1,9 @@
 # ============================================================
 # 02_soil_moisture.R
 # Process NEON soil water content data and save for alignment
-# Output: data/interim/neon_swc_hourly.csv
+# Input : data/external/neon/DP1.00094.001 (0_data/03_download_neon.R); AmeriFlux US-Ha1/US-Ha2/US-xHA BASE
+# Output: data/interim/neon_swc_hourly.csv, data/interim/neon_sensor_depths.csv,
+#         data/interim/tower_swc_ts_hourly.csv (tower soil water content and temperature)
 # ============================================================
 
 library(tidyverse)
@@ -208,7 +210,7 @@ message("Columns: ", paste(names(sws_wide), collapse = ", "))
 
 
 # ============================================================
-# 06b_process_tower_swc_ts.R
+# Part 2: tower soil water content and temperature
 # Process AmeriFlux tower soil moisture (SWC) and temperature (TS)
 # Uses baseline-adjusted multi-sensor averaging
 # Output: data/interim/tower_swc_ts_hourly.csv

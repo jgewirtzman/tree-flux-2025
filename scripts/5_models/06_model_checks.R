@@ -13,8 +13,13 @@
 #      seasonal cycle; does temperature explain flux beyond its seasonal cycle?
 #   5. Response-transformation sensitivity of the species-specific terms
 #   6. Upland Model A vs Model B on the observations both can use
+#   7. Wetland: core model vs alternative drivers (soil water content, latent heat), seasonal
+#      harmonics and the extended model, on the observations all can use; species slopes
 #
-# Outputs: outputs/tables/model_checks/*.csv and model_checks_summary.txt
+# Inputs: outputs/models/{bgs_final,ems_instantaneous,ems_bgs_drivers}/ (m_final.rds, model_data_scaled.rds),
+#         outputs/models/bgs_final/predictor_addition_tests.csv
+# Outputs: outputs/tables/model_checks/*.csv and model_checks_summary.txt (appended to
+#          outputs/tables/manuscript/manuscript_numbers.txt by 07_manuscript_numbers.R)
 # ============================================================
 suppressPackageStartupMessages({
   library(tidyverse); library(lme4); library(lmerTest); library(performance); library(RcppRoll)
@@ -192,9 +197,9 @@ ab <- tibble(model = c("A (upland drivers)", "B (wetland-type drivers)"), n = c(
              AIC = c(AIC(mA), AIC(mB)), BIC = c(BIC(mA), BIC(mB)), R2_marginal = c(r2n(mA)[["marg"]], r2n(mB)[["marg"]]))
 write_csv(ab, file.path(OUT, "upland_A_vs_B_common_rows.csv"))
 say(sprintf("\nUpland models on the %d observations both can use: A AIC %.1f, R2m %.1f%%; B AIC %.1f, R2m %.1f%%",
-            length(key), ab$AIC[1], 100 * ab$R2_marginal[1], ab$AIC[2], 100 * ab$R2_marginal[2]))
+            ab$n[1], ab$AIC[1], 100 * ab$R2_marginal[1], ab$AIC[2], 100 * ab$R2_marginal[2]))
 
-# ---- 8. wetland: core vs alternative and extended models on shared observations ----
+# ---- 7. wetland: core vs alternative and extended models on shared observations ----
 # (the alternatives use drivers with different data coverage, e.g. tower latent heat ends
 #  in Dec 2024, so they are compared on the observations every model can use)
 dw <- fits$wetland$d; mw <- fits$wetland$m; pw <- preds_of(mw)

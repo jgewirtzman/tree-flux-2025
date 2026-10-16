@@ -1,5 +1,11 @@
 # ============================================================
-# Temporal flux plot by location with species colors
+# 02_flux_timeseries.R
+#
+# Figure 1: stem CH4 flux over time at each site, individual measurements (jittered)
+# coloured by species.
+#
+# Input : data/final/stem_ch4_flux.csv
+# Output: outputs/figures/flux_temporal_species.png/pdf
 # ============================================================
 
 library(tidyverse)
