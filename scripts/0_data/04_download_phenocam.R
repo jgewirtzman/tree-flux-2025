@@ -16,7 +16,7 @@
 
 OUT_DIR <- "data/external/phenocam"
 FILE <- "harvardems2_DB_1000_ndvi_1day.txt"
-URL <- paste0("https://phenocam.nau.edu/data/archive/harvardems2/ROI/", FILE)
+URL <- "https://phenocam.nau.edu/data/archive/harvardems2/ROI/harvardems2_DB_1000_ndvi_1day.csv"   # served as .csv; saved under the name the drivers script reads
 dest <- file.path(OUT_DIR, FILE)
 dir.create(OUT_DIR, recursive = TRUE, showWarnings = FALSE)
 
