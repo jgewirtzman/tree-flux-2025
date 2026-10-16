@@ -3,7 +3,7 @@ message: "If you use this code, please cite it as below, together with the paper
 type: software
 title: "Analysis code for \"Contrasting controls on tree methane emissions in upland and wetland forests\""
 version: 1.0.0
-date-released: "2026-10-02"
+date-released: "2026-10-16"
 authors:
   - family-names: Gewirtzman
     given-names: Jonathan
