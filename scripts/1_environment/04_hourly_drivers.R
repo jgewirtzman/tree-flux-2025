@@ -6,8 +6,9 @@
 #   - data/interim/wtd_met.csv          (1_environment/01_met_hydro.R)
 #   - data/interim/neon_swc_hourly.csv  (1_environment/02_soil_moisture.R)
 #   - data/interim/tower_swc_ts_hourly.csv (1_environment/02_soil_moisture.R)
+#   - data/interim/neon_xha_hourly.csv  (1_environment/03_neon_xha.R)
 #   - AmeriFlux tower CSVs                (for flux, met, CH4, etc.)
-#   - Phenocam data                       (GCC, NDVI)
+#   - data/external/phenocam/harvardems2_DB_1000_ndvi_1day.txt (GCC, NDVI; 0_data/04_download_phenocam.R)
 #
 # OUTPUT:
 #   - data/final/environment_hourly.csv
@@ -207,7 +208,7 @@ if (file.exists(PATHS$neon_swc)) {
     mutate(datetime = force_tz(with_tz(as.POSIXct(datetime, tz = "UTC"), "EST"), "UTC"))
   message("Loaded NEON SWC: ", nrow(neon_swc), " rows, ", ncol(neon_swc) - 1, " variables")
 } else {
-  message("WARNING: neon_swc_hourly.csv not found - run 06a_process_neon_swc.R first")
+  message("WARNING: neon_swc_hourly.csv not found - run 1_environment/02_soil_moisture.R first")
   neon_swc <- NULL
 }
 
@@ -220,7 +221,7 @@ if (file.exists(PATHS$tower_swc_ts)) {
     select(-any_of(c("SWC_xHA", "TS_xHA")))
   message("Loaded Tower SWC/TS: ", nrow(tower_swc_ts), " rows, ", ncol(tower_swc_ts) - 1, " variables (Ha1, Ha2)")
 } else {
-  message("WARNING: tower_swc_ts_hourly.csv not found - run 06b_process_tower_swc_ts.R first")
+  message("WARNING: tower_swc_ts_hourly.csv not found - run 1_environment/02_soil_moisture.R first")
   tower_swc_ts <- NULL
 }
 
@@ -338,14 +339,17 @@ message("\n============================================================")
 message("PROCESSING PHENOCAM DATA")
 message("============================================================")
 
+if (!file.exists(PATHS$phenocam)) stop("PhenoCam file not found: ", PATHS$phenocam, " (run scripts/0_data/04_download_phenocam.R)")
 phenocam_raw <- read_csv(PATHS$phenocam, comment = "#", show_col_types = FALSE)
+# the PhenoCam NDVI summary carries gcc_90 and ndvi_90; fail rather than silently leave gcc/ndvi empty
+if (!"ndvi_90" %in% names(phenocam_raw)) stop("PhenoCam file has no ndvi_90 column: ", PATHS$phenocam)
 
 if ("gcc_mean" %in% names(phenocam_raw)) {
   phenocam_raw$gcc <- phenocam_raw$gcc_mean
 } else if ("gcc_90" %in% names(phenocam_raw)) {
   phenocam_raw$gcc <- phenocam_raw$gcc_90
 } else {
-  phenocam_raw$gcc <- NA_real_
+  stop("PhenoCam file has neither gcc_mean nor gcc_90: ", PATHS$phenocam)
 }
 
 phenocam_daily <- phenocam_raw %>%
