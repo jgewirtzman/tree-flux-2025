@@ -54,4 +54,4 @@ zips <- c("analyzer_raw_lgr.zip" = file.path(PKG, "analyzer_raw", "lgr"),
 for (f in names(place)) if (file.exists(file.path(tmp, f))) {
   dir.create(place[[f]], recursive = TRUE, showWarnings = FALSE); file.copy(file.path(tmp, f), place[[f]], overwrite = TRUE) }
 for (z in names(zips)) if (file.exists(file.path(tmp, z))) unz(file.path(tmp, z), zips[[z]])
-message("\nData package in ", PKG, ". Next: the public data (scripts/0_data/03-05), then scripts/run_pipeline.sh.")
+message("\nData package in ", PKG, ". Next: the public data (scripts/0_data/02-04), then scripts/run_pipeline.sh.")
