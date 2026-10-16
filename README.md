@@ -1,5 +1,7 @@
 # Tree CH4 Flux at Harvard Forest
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23421659.svg)](https://doi.org/10.5281/zenodo.23421659)
+
 Stem methane (CH4) fluxes of 60 trees in a forested wetland (Black Gum Swamp) and an upland forest (EMS tower footprint) at Harvard Forest, 2023–2025, with the environmental drivers, tree species and internal wood condition (tomography) that control them. This repository holds the code that turns the raw data into the published dataset, figures, tables, manuscript numbers and Supporting Information.
 
 ## How the pipeline is organized
@@ -74,4 +76,4 @@ BGS = Black Gum Swamp (wetland); EMS = Environmental Measurement Station (upland
 
 ## Citation and license
 
-Code: MIT (`LICENSE`); the Figure 7 illustration in `figures_static/` is not covered (see `figures_static/README.md`). Cite the archived release (Zenodo DOI; see `CITATION.cff`), the paper, and the two datasets in the Harvard Forest Data Archive (stem flux; tomography).
+Code: MIT (`LICENSE`); the Figure 7 illustration in `figures_static/` is not covered (see `figures_static/README.md`). Cite the archived release (Gewirtzman 2026, Zenodo, https://doi.org/10.5281/zenodo.23421659 for the latest version; v1.0.0: https://doi.org/10.5281/zenodo.23421660), the paper, and the two datasets in the Harvard Forest Data Archive (stem flux; tomography).

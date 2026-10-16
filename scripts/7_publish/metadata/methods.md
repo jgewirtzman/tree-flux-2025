@@ -38,7 +38,7 @@ BGS_VRP_2025.csv is a variable-radius (prism) survey of Black Gum Swamp made in 
 
 # Code
 
-The R code that rebuilds every derived file in this package (stem_ch4_flux.csv and its dictionary, environment_hourly.csv and tomography_classes.csv) from the primary data, and every figure, table and number in the paper, is at https://github.com/jgewirtzman/tree-flux-2025 (archived on Zenodo; see the paper's Open Research section).
+The R code that rebuilds every derived file in this package (stem_ch4_flux.csv and its dictionary, environment_hourly.csv and tomography_classes.csv) from the primary data, and every figure, table and number in the paper, is at https://github.com/jgewirtzman/tree-flux-2025 (archived release v1.0.0: https://doi.org/10.5281/zenodo.23421660).
 
 # Funding
 
