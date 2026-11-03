@@ -156,6 +156,8 @@ out_csv <- out %>% mutate(across(where(function(v) inherits(v, "POSIXct")), fmt_
 write.csv(out_csv, PATH_FITS, row.names = FALSE, na = "NA")
 saveRDS(list(traces = manID, closures = closures), PATH_TRACES)
 writeLines(jsonlite::toJSON(list(CH4 = res_ch4$settings, CO2 = res_co2$settings,
+                                 fitting = list(prec = "CH4 and CO2: measured precision of that analyzer x field day (CH4_sigma_day, CO2_sigma_day; goFlux empirical.prec, hadamard); H2O: datasheet",
+                                                goFlux.conf = 0.95, best.flux.conf = NULL),
                                  constants = list(SURFAREA_M2 = SURFAREA_M2, EXTRA_VOL_LGR_L = EXTRA_VOL_LGR_L, EXTRA_VOL_7810_L = EXTRA_VOL_7810_L,
                                                   SHOULDER_S = SHOULDER_S, DEADBAND_S = DEADBAND_S, TZ = TZ)),
                            auto_unbox = TRUE, pretty = TRUE, digits = NA, null = "null", force = TRUE), PATH_SETTINGS)
