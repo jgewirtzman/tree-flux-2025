@@ -48,7 +48,7 @@ bash scripts/run_pipeline.sh
 Inputs: the raw analyzer records and `data/package/measurements.csv` (one row per measurement: tree, analyzer, chamber closure and opening times, deadband, sampling time, air temperature and pressure).
 
 1. `01_closure_table.R` — each measurement's window (closure + deadband to the chamber opening, ended early at a detected chamber opening), its trace from the raw 1-Hz record, chamber volume, and the analyzer precision per analyzer and day (`goFlux::empirical.prec`).
-2. `02_fit_fluxes.R` — goFlux linear and Hutchinson–Mosier fits, `best.flux` selection (Hüppi et al. 2018) and screens (`qc.flags`). MDF = 1.96 σ / t × flux term, σ = analyzer precision on that day.
+2. `02_fit_fluxes.R` — goFlux linear and Hutchinson–Mosier fits, `best.flux` selection (Hüppi et al. 2018) and screens (`qc.flags`). σ = analyzer precision on that day is both the fitting precision (goFlux `prec`, `conf = 0.95`) and the basis of the MDF = 1.96 σ / t × flux term (t = window span + one logging interval).
 3. `03_trace_qc.R` — automated checks of every CO2 and CH4 trace (flags carried into the dataset).
 4. `04_deadband_sensitivity.R` — refits with 0–45 s deadbands (sensitivity check).
 5. `05_flux_dataset.R` — final dataset: detection limits, sampling campaigns, QC flags; checked against `trees.csv`.

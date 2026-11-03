@@ -36,6 +36,8 @@ EXTRA_VOL_LGR_L  <- 0.028
 EXTRA_VOL_7810_L <- 0.028
 SHOULDER_S    <- 120                  # s of trace kept outside the window (flag = 0), for plots/QC context
 DEADBAND_S    <- 20                   # s dropped after chamber closure (measurements.csv deadband_s; 04_deadband_sensitivity.R)
+# Datasheet 1-s precision. CH4 and CO2 are fitted with the measured precision per analyzer x day
+# (02_fit_fluxes.R); only the H2O values are used.
 PREC_LGR      <- c(CO2 = 0.35, CH4 = 0.9, H2O = 100)   # datasheet 1-s precision, GLA131 (ppm, ppb, ppm)
 PREC_7810     <- c(CO2 = 3.5,  CH4 = 0.6, H2O = 45)    # LI-7810 (goFlux default)
 

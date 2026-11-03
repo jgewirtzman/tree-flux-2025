@@ -6,7 +6,8 @@
 # criteria (g.limit = 2), and goFlux QC screens (jgewirtzman/goFlux fork, doi:10.5281/zenodo.23256675).
 #   MDF = 1.96 * sigma / t * flux.term (1.96: benchmark multiplier, not a calibrated 95 % test); sigma = analyzer precision on
 #   that day (goFlux empirical.prec, second differences inside the closure windows; 01_closure_table.R); t = closure
-#   length in seconds. Retain-and-flag: nothing is removed here.
+#   length in seconds (window span + one logging interval, goFlux closure.time). The same sigma is the fitting precision
+#   (goFlux prec, with conf = 0.95), so best.flux judges each fit against that day's noise. Retain-and-flag: nothing is removed here.
 #
 # Input : data/interim/flux_closures.rds (01_closure_table.R)
 # Output: data/interim/flux_fits.csv       one row per closure
@@ -41,7 +42,14 @@ manID <- do.call(rbind, lapply(segs, function(s) {
   s$Vtot <- c1$Vtot; s$Area <- c1$Area; s$Pcham <- c1$Pcham; s$Tcham <- c1$Tcham
   s$DATE <- format(s$POSIX.time[1], "%Y-%m-%d")
   pr <- if (s$instrument[1] == "LI-7810") PREC_7810 else PREC_LGR
-  s$CO2_prec <- pr[["CO2"]]; s$CH4_prec <- pr[["CH4"]]; s$H2O_prec <- pr[["H2O"]]
+  # fitting precision: the campaign sigma of that analyzer x field day (01_closure_table.R), so that
+  # best.flux's RMSE/MAE/SE criteria compare residuals with sigma and goFlux's MDF (with conf = 0.95,
+  # and with it kappa.max) is the reference MDF; analyzer median day if the day has no sigma
+  sg <- day_sigma[day_sigma$instrument == c1$instrument & day_sigma$date == c1$date, ]
+  med <- day_sigma[day_sigma$instrument == c1$instrument, ]
+  s$CH4_prec <- if (nrow(sg) && !is.na(sg$CH4_sigma_day[1])) sg$CH4_sigma_day[1] else median(med$CH4_sigma_day, na.rm = TRUE)
+  s$CO2_prec <- if (nrow(sg) && !is.na(sg$CO2_sigma_day[1])) sg$CO2_sigma_day[1] else median(med$CO2_sigma_day, na.rm = TRUE)
+  s$H2O_prec <- pr[["H2O"]]
   s$H2O_ppm[is.na(s$H2O_ppm)] <- 0
   s$obs.length_corr <- s$obs.length; s$start.time_corr <- s$start.time; s$end.time_corr <- s$end.time
   s
@@ -52,9 +60,11 @@ message("Trace rows: ", nrow(manID), " for ", length(unique(manID$UniqueID)), " 
 aux <- closures %>% filter(closure_id %in% fit_ids) %>% transmute(UniqueID = closure_id, instrument)
 
 t0 <- Sys.time()
-# The fit itself uses the *_prec columns set above (unchanged), so the fluxes do not depend on the
-# precision estimator; det.* (goFlux's own detection columns) are kept for reference only. The MDF
-# used in the dataset is computed below from the analyzer x day precision (01_closure_table.R).
+# The fit uses the *_prec columns set above (campaign sigma). process.fluxes() hands '...' to goFlux()
+# and uses its own conf only for flux.class(), so goFlux() gets conf = 0.95 through a wrapper here;
+# best.flux() gets no conf. det.* (goFlux's own detection columns) are kept for reference only.
+goFlux_conf95 <- function(dataframe, gastype, ...) goFlux::goFlux(dataframe, gastype, ..., conf = 0.95)
+environment(process.fluxes) <- list2env(list(goFlux = goFlux_conf95), parent = environment(process.fluxes))
 res_co2 <- process.fluxes(manID, gastype = "CO2dry_ppm", auxfile = aux, by = "instrument", conf = 0.95, qc = FALSE)
 message("CO2 done in ", round(as.numeric(Sys.time() - t0, units = "mins"), 1), " min")
 t0 <- Sys.time()
