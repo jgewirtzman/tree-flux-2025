@@ -79,4 +79,4 @@ BGS = Black Gum Swamp (wetland); EMS = Environmental Measurement Station (upland
 
 ## Citation and license
 
-Code: MIT (`LICENSE`); the Figure 7 illustration in `figures_static/` is not covered (see `figures_static/README.md`). Cite the archived release (Gewirtzman 2026, Zenodo, https://doi.org/10.5281/zenodo.23421659 for the latest version; v1.0.0: https://doi.org/10.5281/zenodo.23421660), the paper, and the two datasets in the Harvard Forest Data Archive (stem flux; tomography).
+Code: MIT (`LICENSE`); the Figure 7 illustration in `figures_static/` is not covered (see `figures_static/README.md`). Cite the archived release (Gewirtzman 2026, Zenodo, https://doi.org/10.5281/zenodo.23421659 for the latest version; v1.0.1: https://doi.org/10.5281/zenodo.24070215), the paper, and the two datasets in the Harvard Forest Data Archive (stem flux; tomography).
