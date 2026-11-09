@@ -32,9 +32,24 @@ FONT <- "Times New Roman"
 tx <- fp_text(font.family = FONT, font.size = 12); tb <- update(tx, bold = TRUE); ti <- update(tx, italic = TRUE)
 PP <- fp_par(padding.bottom = 6, line_spacing = 1)
 par_ <- function(doc, ..., fp_p = PP) body_add_fpar(doc, fpar(..., fp_p = fp_p))
-txt <- function(doc, x) par_(doc, ftext(x, tx))
-lbl <- function(doc, label, rest, keep = FALSE) par_(doc, ftext(label, tb), ftext(paste0(" ", rest), tx),
-                                                       fp_p = update(PP, keep_with_next = keep))
+# species names in italics: split a string into plain and italic runs
+SP_RE <- "\\b(?:[ATNQP]\\. (?:canadensis|rubrum|sylvatica|rubra|strobus)|Nyssa sylvatica|Acer rubrum|Tsuga canadensis|Quercus rubra|Pinus strobus)\\b"
+sp_split <- function(x) {
+  m <- gregexpr(SP_RE, x, perl = TRUE)[[1]]
+  if (m[1] == -1) return(list(list(text = x, it = FALSE)))
+  out <- list(); pos <- 1
+  for (k in seq_along(m)) {
+    if (m[k] > pos) out[[length(out) + 1]] <- list(text = substr(x, pos, m[k] - 1), it = FALSE)
+    out[[length(out) + 1]] <- list(text = substr(x, m[k], m[k] + attr(m, "match.length")[k] - 1), it = TRUE)
+    pos <- m[k] + attr(m, "match.length")[k]
+  }
+  if (pos <= nchar(x)) out[[length(out) + 1]] <- list(text = substr(x, pos, nchar(x)), it = FALSE)
+  out
+}
+rich <- function(x, prop = tx) lapply(sp_split(x), function(r) ftext(r$text, if (r$it) update(prop, italic = TRUE) else prop))
+txt <- function(doc, x) do.call(par_, c(list(doc), rich(x)))
+lbl <- function(doc, label, rest, keep = FALSE) do.call(par_, c(list(doc, ftext(label, tb)), rich(paste0(" ", rest)),
+                                                       list(fp_p = update(PP, keep_with_next = keep))))
 items <- list(); tab_n <- 0; fig_n <- 0
 # Stable keys -> SI numbers (the manuscript cites items by key)
 TAB_KEYS <- c("decay_key", "decay_corr", "diagnostics", "slopes", "coefs", "wet_comp", "upland")   # order of first citation in the main text
@@ -48,8 +63,15 @@ ft_style <- function(ft) ft %>% theme_booktabs() %>% fontsize(size = 9, part = "
   bold(part = "header") %>% valign(valign = "top", part = "body") %>% padding(padding = 2, part = "all") %>%
   set_table_properties(layout = "autofit", width = 1)   # Word wraps text to the page width; no shrinking
 # header repeated on each page; rows kept together so short tables do not split from their header
+sp_cells <- function(ft, df) {
+  for (j in seq_along(df)) if (is.character(df[[j]])) for (i in which(grepl(SP_RE, df[[j]], perl = TRUE))) {
+    ch <- lapply(sp_split(df[[j]][i]), function(r) as_chunk(r$text, props = fp_text_default(font.family = FONT, font.size = 9, italic = r$it)))
+    ft <- compose(ft, i = i, j = j, part = "body", value = do.call(as_paragraph, ch))
+  }
+  ft
+}
 tab_ft <- function(df, widths = NULL) {
-  ft <- ft_style(flextable(df))
+  ft <- sp_cells(ft_style(flextable(df)), df)
   if (!is.null(widths)) ft <- ft %>% width(width = widths) %>% set_table_properties(layout = "fixed")
   paginate(ft, init = TRUE, hdr_ftr = TRUE)
 }
@@ -61,7 +83,7 @@ add_table <- function(df, title, note, src, key, widths = NULL) {
   tab_n <<- tab_n + 1; stopifnot(TAB_KEYS[tab_n] == key); note <- fill(note)
   df[] <- lapply(df, function(v) if (is.character(v)) typeset(v) else v)
   doc <<- doc %>% lbl(sprintf("Table S%d.", tab_n), title, keep = TRUE) %>%
-    body_add_flextable(tab_ft(df, widths)) %>% par_(ftext(note, update(tx, font.size = 10)), fp_p = update(PP, padding.top = 4, padding.bottom = 18))
+    body_add_flextable(tab_ft(df, widths)) %>% (function(d) do.call(par_, c(list(d), rich(note, update(tx, font.size = 10)), list(fp_p = update(PP, padding.top = 4, padding.bottom = 18)))))()
   items[[length(items) + 1]] <<- data.frame(key = paste0("T:", key), item = sprintf("Table S%d", tab_n), title = title, source = src)
 }
 add_figure <- function(path, title, caption, key, w = 6.5, h = NULL) {
